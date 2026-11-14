@@ -45,12 +45,14 @@ jobs:
       - name: Notas de la versión (CHANGELOG)
         shell: bash
         run: |
-          python - <<'EOF' > notes.md
+          python - <<'EOF'
           import os, re
           v = os.environ["GITHUB_REF_NAME"].lstrip("v")
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(rf"^## \[{re.escape(v)}\].*?\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
-          print((m.group(1).strip() if m else f"draftbot {v}") + "\n\n---\nDescarga `draftbot.exe`, abre el cliente de LoL y ejecútalo. Windows puede avisar de que es una app desconocida: *Más información → Ejecutar de todas formas*.")
+          notes = (m.group(1).strip() if m else f"draftbot {v}") + "\n\n---\nDescarga `draftbot.exe`, abre el cliente de LoL y ejecútalo. Windows puede avisar de que es una app desconocida: *Más información → Ejecutar de todas formas*."
+          # en UTF-8 y a archivo: la salida estandar de Python en Windows es cp1252
+          open("notes.md", "w", encoding="utf-8").write(notes)
           EOF
 
       - name: Publicar

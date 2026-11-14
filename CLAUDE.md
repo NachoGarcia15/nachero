@@ -15,11 +15,12 @@ Las tareas pendientes están en las issues de GitHub (`gh issue list`).
 
 ## Comandos
 ```
-.venv\Scripts\python -m ruff check src tests run.py
-.venv\Scripts\python -m ruff format src tests run.py
+.venv\Scripts\python -m ruff check src tests run.py scripts
+.venv\Scripts\python -m ruff format src tests run.py scripts
 .venv\Scripts\python -m mypy
 .venv\Scripts\python -m pytest
 python run.py [--demo] [--observe] [--port 8766] [--no-browser] [--profile]
+.venv\Scripts\python scripts/build_exe.py      # dist/draftbot.exe (pip install -e ".[build]")
 ```
 Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .venv` y
 `.venv\Scripts\python -m pip install -e ".[dev]"`.
@@ -29,6 +30,7 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 - Fusionar solo cuando el usuario lo pida. El repo es privado (NachoGarcia15/draftbot); GitHub no
   permite auto-merge en él.
 - Cada versión: `__version__` en `src/draftbot/__init__.py` + entrada en `CHANGELOG.md`.
+  Publicar el `.exe`: etiqueta `vX.Y.Z` igual a `__version__` (workflow `release.yml`), solo si el usuario lo pide.
 - Toda lógica nueva con tests en `tests/` (dobles en `tests/conftest.py`, sin cliente ni red).
 
 ## Reglas del proyecto

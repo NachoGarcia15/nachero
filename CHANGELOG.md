@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.5.0] - 2026-11-14
+
+### Añadido
+- Importar runas al confirmar campeón: crea la página «draftbot · Campeón Rol» con la página
+  más popular (o la de mayor WR) de Lolalytics Master+ y la deja activa. Solo reemplaza páginas
+  de draftbot; si no hay hueco, no toca las tuyas. Si no hay datos suficientes no importa nada.
+- Vista previa de las runas del pick recomendado en el panel, y ajustes para activarlo y elegir la fuente.
+
 ## [0.4.0] - 2026-11-14
 
 ### Cambiado

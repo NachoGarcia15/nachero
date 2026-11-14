@@ -15,15 +15,18 @@ src/draftbot/
              history.py    historial de soloq del jugador
              lolalytics.py tier list y matchups Master+ (incl. parser del estado qwik)
              golgg.py      estadísticas de competitivo por torneo
+             (lolalytics.py también extrae las páginas de runas recomendadas)
   domain/    Lógica pura: sin red ni disco, testeable con dobles
              common.py   roles, tiers, shrink, normalización de nombres
              player.py   modelo personal (experiencia, forma, residuo de WR)
              tags.py     papel de cada campeón en una composición e identidad de equipo
              engine.py   recomendación de picks y bans de soloq
              pro.py      motor del simulador de draft pro
+             runes.py    validar una página de runas y pasarla al formato del cliente
   app/       Orquestación
              state.py    estado compartido, log
              draft.py    champ select de soloq (lee sesión, recomienda, actúa)
+             runes.py    importar la página de runas al cliente
              demo.py     draft simulado
              worker.py   bucle principal y sesión con el cliente
              server.py   API HTTP del panel y archivos estáticos

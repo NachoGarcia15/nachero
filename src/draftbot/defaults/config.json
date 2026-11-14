@@ -35,6 +35,9 @@
     ]
   },
   "open_coachless_on_lock": true,
+  "import_runes": true,
+  "_runes_source_info": "Pagina de runas a importar al confirmar: \"pick\" (la mas popular en Master+) o \"win\" (la de mayor WR).",
+  "runes_source": "pick",
   "_pick_mode_info": "\"pool\": tu pool pesa (por defecto). \"meta\": ignora tu pool y recomienda solo por fuerza en el parche y encaje en el draft.",
   "pick_mode": "pool",
   "weights": {

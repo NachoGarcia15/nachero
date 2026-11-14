@@ -104,10 +104,22 @@ class Lolalytics:
         key = f"{cid}:{role}"
         with self.lock:
             c = self.cache["builds"].get(key)
-        fresh = c and c.get("patch") == self.patch and time.time() - c["t"] < self.COUNTER_TTL
-        if not fresh:
+        if not self._fresh(c):
             self.request(cid, role)
         return c["lanes"] if c else None
+
+    def runes(self, cid, role):
+        """Paginas de runas recomendadas {"pick": {...}, "win": {...}} (puede estar vacio si hay pocos datos).
+        None si aun no esta descargado: lo pide en segundo plano."""
+        with self.lock:
+            c = self.cache["builds"].get(f"{cid}:{role}")
+        if not self._fresh(c):
+            self.request(cid, role)
+        return c.get("runes") if c and "runes" in c else None
+
+    def _fresh(self, c):
+        # las entradas antiguas (sin runas) se vuelven a descargar
+        return bool(c) and "runes" in c and c.get("patch") == self.patch and time.time() - c["t"] < self.COUNTER_TTL
 
     def counters(self, cid, role):
         """Solo los matchups contra tu misma linea (compatibilidad)."""
@@ -134,11 +146,11 @@ class Lolalytics:
                 if not slug:
                     raise ValueError("sin slug")
                 url = f"https://lolalytics.com/lol/{slug}/build/?lane={LOLA_LANE[role]}&tier={self.tier_name}"
-                lanes, slugs = parse_build(self._fetch(url))
+                lanes, slugs, runes = parse_build(self._fetch(url))
                 with self.lock:
                     if slugs:
                         self.cache["slugs"].update(slugs)
-                    self.cache["builds"][key] = {"t": time.time(), "patch": self.patch, "lanes": lanes}
+                    self.cache["builds"][key] = {"t": time.time(), "patch": self.patch, "lanes": lanes, "runes": runes}
                 self._save()
             except Exception as e:
                 self.failed[key] = time.time()
@@ -187,9 +199,35 @@ def _slugs(objs, ref):
     return {}
 
 
+def _runes(objs, ref):
+    """Paginas de runas de "Most Common Build" (pick) y "Highest Win Build" (win).
+    Cada una: {"pri": [4 runas], "sec": [2 runas], "mod": [3 fragmentos]}. Vacio si la pagina no las trae."""
+    for o in objs:
+        if not (isinstance(o, dict) and {"pick", "win"} <= o.keys()):
+            continue
+        out = {}
+        for kind in ("pick", "win"):
+            summary = ref(o[kind])
+            runes = ref(summary.get("runes")) if isinstance(summary, dict) else None
+            rset = ref(runes.get("set")) if isinstance(runes, dict) else None
+            if not isinstance(rset, dict):
+                continue
+            page = {}
+            for part, size in (("pri", 4), ("sec", 2), ("mod", 3)):
+                ids = ref(rset.get(part))
+                ids = [ref(x, 1) for x in ids] if isinstance(ids, list) else []
+                if len(ids) == size and all(isinstance(x, int) for x in ids):
+                    page[part] = ids
+            if len(page) == 3:
+                out[kind] = page
+        if out:
+            return out
+    return {}
+
+
 def parse_build(html):
-    """Tablas de matchups de la pagina de build: una por linea enemiga.
-    Fila = [campeon, WR contra el, delta1, delta2, % de partidas, partidas]."""
+    """Pagina de build de Lolalytics: matchups contra cada linea enemiga, mapa de slugs y runas recomendadas.
+    Fila de matchup = [campeon, WR contra el, delta1, delta2, % de partidas, partidas]."""
     objs, ref = _qwik(html)
     lanes = {}
     for o in objs:
@@ -215,4 +253,4 @@ def parse_build(html):
             lanes[lane] = rows
     if not lanes:
         raise ValueError("sin tablas de matchups")
-    return lanes, _slugs(objs, ref)
+    return lanes, _slugs(objs, ref), _runes(objs, ref)

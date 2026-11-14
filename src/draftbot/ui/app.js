@@ -106,6 +106,27 @@ function matchupLine(p) {
   return "";
 }
 
+const RUNES_STATE = {
+  preview: "Runas recomendadas",
+  would: "Importaría estas runas",
+  imported: "Runas importadas",
+  failed: "No se pudieron importar las runas",
+  pending: "Runas",
+};
+
+function runesLine(r, locked) {
+  if (!r) return "";
+  if (r.state === "loading") return `<div class="runes muted">Cargando runas…</div>`;
+  if (r.state === "none") {
+    return `<div class="runes muted">Sin runas recomendadas para este campeón en este rol${locked ? ": no se importa nada" : ""}.</div>`;
+  }
+  return `<div class="runes ${r.state}">
+    <span class="lbl">${RUNES_STATE[r.state] || "Runas"}</span>
+    <b>${esc(r.keystone)}</b> <span class="muted">· ${esc(r.primary)} + ${esc(r.secondary)}</span>
+    <small>${esc((r.runes || []).join(" · "))}${r.source ? ` — ${esc(r.source)}` : ""}</small>
+  </div>`;
+}
+
 function whyList(p) {
   if (!p.why || !p.why.length) return "";
   return `<ul class="why">${p.why.slice(0, 4).map((w) => `<li class="${w.sign === "+" ? "pos" : "neg"}"><span>${esc(w.text)}</span></li>`).join("")}</ul>`;
@@ -173,6 +194,7 @@ function renderDraft([d, idle, s]) {
           ${parts(best, d)}
           ${matchupLine(best)}
           ${whyList(best)}
+          ${runesLine(d.runes, d.locked)}
           ${d.coachless ? `<a class="coach" href="${esc(d.coachless)}" target="_blank" rel="noopener">Ver build en Coachless</a>` : ""}
         </div>
       </article>` : `<div class="hero"><div class="hero-body"><h1>Sin candidatos</h1><p class="muted">No hay campeones disponibles en tu pool para este rol.</p></div></div>`}
@@ -301,6 +323,7 @@ const TOGGLES = [
   ["auto_hover_pick", "Marcar pick", "Deja marcado tu mejor campeón y lo actualiza con el draft."],
   ["auto_lock_pick", "Confirmar pick", "Confirma al final de tu turno. <em>Mejor desactivado en ranked.</em>"],
   ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],
+  ["import_runes", "Importar runas", "Al confirmar, crea la página «draftbot» con las runas de Lolalytics Master+. Nunca toca tus páginas."],
   ["open_coachless_on_lock", "Abrir Coachless", "La build del campeón confirmado, en tu navegador."],
 ];
 const WEIGHTS = [
@@ -320,6 +343,12 @@ function renderSettings(st) {
     <div class="opt"><div class="tx"><b>${t}</b><small>${d}</small>
       ${k === "auto_lock_pick" ? `<div class="secs">Cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}"> s</div>` : ""}</div>
       <label class="sw"><input type="checkbox" data-k="${k}" ${st[k] ? "checked" : ""} aria-label="${t}"><span></span></label></div>`).join("");
+  $("#toggles").insertAdjacentHTML("beforeend", `
+    <div class="opt"><div class="tx"><b>Página de runas</b><small>Cuál importar de Lolalytics Master+.</small>
+      <div class="seg seg-sm runesrc" role="radiogroup" aria-label="Página de runas">
+        <button data-src="pick" class="${st.runes_source !== "win" ? "on" : ""}">Más popular</button>
+        <button data-src="win" class="${st.runes_source === "win" ? "on" : ""}">Mayor WR</button></div></div></div>`);
+  document.querySelectorAll(".runesrc button").forEach((b) => (b.onclick = () => post("/api/settings", { runes_source: b.dataset.src })));
   document.querySelectorAll("#toggles input[type=checkbox]").forEach((i) => (i.onchange = () => post("/api/settings", { [i.dataset.k]: i.checked })));
   const secs = $("#secs");
   if (secs) secs.onchange = () => post("/api/settings", { lock_when_seconds_left: Number(secs.value) });

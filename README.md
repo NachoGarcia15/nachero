@@ -131,6 +131,20 @@ Los valores por defecto están en `src/draftbot/defaults/config.json`; los tuyos
 - [CONTRIBUTING.md](CONTRIBUTING.md): entorno de desarrollo, comprobaciones y flujo de trabajo.
 - [CHANGELOG.md](CHANGELOG.md): cambios por versión.
 
+## Runas
+Al confirmar campeón (modo Activo), draftbot crea la página **«draftbot · Campeón Rol»** con las
+runas de Lolalytics Master+ del parche actual y la deja activa:
+
+- Fuente: la página **más popular** (por defecto) o la de **mayor WR**, desde el panel de ajustes.
+- Solo crea o reemplaza páginas que empiezan por «draftbot»: **nunca toca las tuyas**. Si no queda
+  hueco para una página nueva, avisa y no hace nada.
+- Si el campeón no tiene datos suficientes en ese rol (p. ej. Zeri jungla), no importa nada; la
+  página de Coachless se abre igualmente.
+- En modo Observar solo dice qué importaría. El panel muestra las runas del pick recomendado.
+
+Las runas no salen de Coachless: no tiene exportación de runas y sus condiciones no permiten leer
+sus datos automáticamente.
+
 ## Coachless
 No tiene API pública y sus condiciones no permiten leer sus datos automáticamente, así que
 draftbot solo abre su página del campeón y rol en tu navegador al confirmar.

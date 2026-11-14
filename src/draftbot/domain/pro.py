@@ -1,7 +1,6 @@
 """Simulador de drafts competitivos.
 
-Datos: gol.gg (estadisticas de campeones por torneo: prioridad, picks, bans, WR y reparto por rol).
-Su robots.txt permite /champion/; draftbot pide pocas paginas, con cache de 12 h.
+Datos de competitivo: draftbot.sources.golgg.
 
 Conceptos aplicados (draft profesional):
   - Prioridad: campeones fuertes y seguros a ciegas (PrioScore de gol.gg).
@@ -13,121 +12,36 @@ Conceptos aplicados (draft profesional):
   - Bans: no banear lo que vas a coger; en la segunda ronda, banear los roles que le faltan al rival
     y los counters de tus picks.
 """
-import html, http.cookiejar, itertools, json, math, os, re, threading, time, urllib.parse, urllib.request
 
-import tags as T
+import itertools
+import math
 
-ROLES = ["top", "jungle", "middle", "bottom", "utility"]
-GOL_ROLE = {"top": "TOP", "jungle": "JUNGLE", "middle": "MID", "bottom": "ADC", "utility": "SUPPORT"}
-ROLE_SHORT = {"top": "TOP", "jungle": "JG", "middle": "MID", "bottom": "ADC", "utility": "SUP"}
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) draftbot/2.0 (uso personal)"
-MAJOR = re.compile(r"Worlds|MSI|First Stand|LCK 20|LPL 20|LEC 20|LCS 20|LTA 20|LCP 20|EWC|Esports World Cup", re.I)
+from draftbot.domain import tags as T
+from draftbot.domain.common import ROLE_SHORT, ROLES, norm
 
 # Orden de draft de torneo: 6 bans, 6 picks, 4 bans, 4 picks
-DRAFT_ORDER = [("blue", "ban"), ("red", "ban"), ("blue", "ban"), ("red", "ban"), ("blue", "ban"), ("red", "ban"),
-               ("blue", "pick"), ("red", "pick"), ("red", "pick"), ("blue", "pick"), ("blue", "pick"), ("red", "pick"),
-               ("red", "ban"), ("blue", "ban"), ("red", "ban"), ("blue", "ban"),
-               ("red", "pick"), ("blue", "pick"), ("blue", "pick"), ("red", "pick")]
-
-
-def norm(name):
-    return re.sub(r"[^a-z0-9]", "", name.lower())
-
-
-class GolGG:
-    TTL = 12 * 3600
-
-    def __init__(self, cache_dir, log):
-        self.path = os.path.join(cache_dir, "gol_cache.json")
-        self.log, self.lock, self.last = log, threading.Lock(), 0.0
-        try:
-            self.cache = json.load(open(self.path, encoding="utf-8"))
-        except Exception:
-            self.cache = {"tournaments": None, "data": {}}
-        self.loading = set()
-
-    def _opener(self):
-        jar = http.cookiejar.CookieJar()
-        return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-
-    def _get(self, opener, url, data=None):
-        wait = 1.5 - (time.time() - self.last)
-        if wait > 0:
-            time.sleep(wait)
-        self.last = time.time()
-        body = urllib.parse.urlencode(data).encode() if data else None
-        req = urllib.request.Request(url, data=body, headers={"User-Agent": UA})
-        with opener.open(req, timeout=30) as r:
-            return r.read().decode("utf-8", "replace")
-
-    def _save(self):
-        tmp = self.path + ".tmp"
-        json.dump(self.cache, open(tmp, "w", encoding="utf-8"))
-        os.replace(tmp, self.path)
-
-    # -- torneos
-    def tournaments(self):
-        t = self.cache.get("tournaments")
-        if t and time.time() - t["t"] < self.TTL:
-            return t
-        with self.lock:
-            h = self._get(self._opener(), "https://gol.gg/champion/list/season-ALL/split-ALL/tournament-ALL/")
-            season = (re.findall(r"season-(S\d+)/split", h) or ["S16"])[0]
-            h = self._get(self._opener(), f"https://gol.gg/champion/list/season-{season}/split-ALL/tournament-ALL/")
-            sel = re.search(r"<select[^>]*name='cbtournament'[^>]*>(.*?)</select>", h, re.S)
-            names = [html.unescape(v) for _, v in re.findall(r"<option[^>]*value=(['\"])(.*?)\1", sel.group(1))] if sel else []
-            names = [n for n in names if n != "ALL"]
-            majors = [n for n in names if MAJOR.search(n)]
-            self.cache["tournaments"] = {"t": time.time(), "season": season, "majors": majors[:25], "all": names}
-            self._save()
-            return self.cache["tournaments"]
-
-    # -- estadisticas de un torneo
-    def dataset(self, tournament):
-        d = self.cache["data"].get(tournament)
-        if d and time.time() - d["t"] < self.TTL:
-            return d
-        return None
-
-    def load(self, tournament):
-        """Descarga (bloqueante) la tabla general y las 5 por rol de un torneo."""
-        if tournament in self.loading:
-            return
-        self.loading.add(tournament)
-        try:
-            season = (self.tournaments() or {}).get("season", "S16")
-            url = (f"https://gol.gg/champion/list/season-{season}/split-ALL/tournament-"
-                   f"{urllib.parse.quote(tournament)}/")
-            op = self._opener()
-            allrows = parse_gol(self._get(op, url))
-            roles = {}
-            for r, gr in GOL_ROLE.items():
-                rows = parse_gol(self._get(op, url, {"role": gr, "leaguePost": "true"}))
-                roles[r] = {k: v["picks"] for k, v in rows.items() if v["picks"] > 0}
-            games = round(sum(v["picks"] for v in allrows.values()) / 10)
-            with self.lock:
-                self.cache["data"][tournament] = {"t": time.time(), "games": games, "all": allrows, "roles": roles}
-                self._save()
-            self.log(f"gol.gg: {tournament} · {games} partidas", "ok")
-        except Exception as e:
-            self.log(f"gol.gg: no pude leer {tournament} ({e.__class__.__name__})", "warn")
-        finally:
-            self.loading.discard(tournament)
-
-
-def parse_gol(h):
-    out = {}
-    for tr in re.findall(r"<tr>(.*?)</tr>", h, re.S):
-        if "champion-stats/" not in tr:
-            continue
-        tds = [html.unescape(re.sub(r"<[^>]+>", "", x)).strip() for x in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
-        if len(tds) < 11:
-            continue
-        num = lambda s: float(s.replace("%", "")) if re.fullmatch(r"-?[\d.]+%?", s or "") else 0.0
-        out[norm(tds[0])] = {"name": tds[0], "picks": int(num(tds[1])), "bans": int(num(tds[2])), "prio": num(tds[3]),
-                             "wins": int(num(tds[4])), "losses": int(num(tds[5])), "wr": num(tds[6]),
-                             "avg_bt": num(tds[8]), "avg_rp": num(tds[9]), "bp": num(tds[10])}
-    return out
+DRAFT_ORDER = [
+    ("blue", "ban"),
+    ("red", "ban"),
+    ("blue", "ban"),
+    ("red", "ban"),
+    ("blue", "ban"),
+    ("red", "ban"),
+    ("blue", "pick"),
+    ("red", "pick"),
+    ("red", "pick"),
+    ("blue", "pick"),
+    ("blue", "pick"),
+    ("red", "pick"),
+    ("red", "ban"),
+    ("blue", "ban"),
+    ("red", "ban"),
+    ("blue", "ban"),
+    ("red", "pick"),
+    ("blue", "pick"),
+    ("blue", "pick"),
+    ("red", "pick"),
+]
 
 
 # ---------------------------------------------------------------- motor
@@ -157,10 +71,10 @@ class ProEngine:
             return {}
         best, bs = None, -1e9
         for perm in itertools.permutations(ROLES, len(ids)):
-            sc = sum(math.log(self.role_share(ds, c, r) + 0.02) for c, r in zip(ids, perm))
+            sc = sum(math.log(self.role_share(ds, c, r) + 0.02) for c, r in zip(ids, perm, strict=True))
             if sc > bs:
                 best, bs = perm, sc
-        return dict(zip(ids, best))
+        return dict(zip(ids, best, strict=True))
 
     def priority(self, ds, cid):
         p = self.pro(ds, cid)
@@ -173,8 +87,13 @@ class ProEngine:
 
     # -- estado del draft
     def state(self, st):
-        side_lists = {s: {"bans": [c for c in st.get(s, {}).get("bans", []) if c],
-                          "picks": [c for c in st.get(s, {}).get("picks", []) if c]} for s in ("blue", "red")}
+        side_lists = {
+            s: {
+                "bans": [c for c in st.get(s, {}).get("bans", []) if c],
+                "picks": [c for c in st.get(s, {}).get("picks", []) if c],
+            }
+            for s in ("blue", "red")
+        }
         counts = {("blue", "ban"): 0, ("red", "ban"): 0, ("blue", "pick"): 0, ("red", "pick"): 0}
         step = 0
         for side, kind in DRAFT_ORDER:
@@ -196,8 +115,16 @@ class ProEngine:
         open_roles = {s: [r for r in ROLES if r not in roles[s].values()] for s in teams}
         done = step >= len(DRAFT_ORDER)
         side, kind = DRAFT_ORDER[step] if not done else (None, None)
-        res = {"step": step, "side": side, "kind": kind, "done": done, "roles": roles,
-               "open_roles": open_roles, "teams": {}, "data": self.data_info(ds, tour)}
+        res = {
+            "step": step,
+            "side": side,
+            "kind": kind,
+            "done": done,
+            "roles": roles,
+            "open_roles": open_roles,
+            "teams": {},
+            "data": self.data_info(ds, tour),
+        }
         for s in ("blue", "red"):
             other = "red" if s == "blue" else "blue"
             res["teams"][s] = self.team_summary(teams[s]["picks"], teams[other]["picks"], roles[s], roles[other])
@@ -235,8 +162,13 @@ class ProEngine:
     def _by_norm(self, key):
         if not hasattr(self, "_norm_map"):
             self._norm_map = {norm(c["name"]): cid for cid, c in self.champs.by_id.items()}
-            self._norm_map.update({"nunu": self.champs.id("Nunu & Willump"), "wukong": self.champs.id("Wukong"),
-                                   "renata": self.champs.id("Renata Glasc")})
+            self._norm_map.update(
+                {
+                    "nunu": self.champs.id("Nunu & Willump"),
+                    "wukong": self.champs.id("Wukong"),
+                    "renata": self.champs.id("Renata Glasc"),
+                }
+            )
         return self._norm_map.get(key)
 
     def _feasible(self, ds, cid, open_r, thr=0.12):
@@ -244,7 +176,7 @@ class ProEngine:
 
     def enemy_left_in_role(self, step, other):
         """Picks que le quedan al rival despues de este paso."""
-        return sum(1 for s, k in DRAFT_ORDER[step + 1:] if s == other and k == "pick")
+        return sum(1 for s, k in DRAFT_ORDER[step + 1 :] if s == other and k == "pick")
 
     # -- picks
     def picks(self, ds, cands, side, other, teams, roles, open_roles, step):
@@ -270,11 +202,11 @@ class ProEngine:
             fit, fit_why = self.engine.ally_fit(cid, [(c, 1.0) for c in mine])
             parts["comp"] = fit
             why += fit_why
-            vc, vc_why = self.engine.vs_comp(cid, theirs)   # incluye el counter a la composicion rival
+            vc, vc_why = self.engine.vs_comp(cid, theirs)  # incluye el counter a la composicion rival
             parts["counter"] = vc
             why += vc_why
             lane_v, rest_v, items, loaded = self.engine.vs_enemy(cid, role, enemy_roles)
-            parts["matchup"] = 0.6 * lane_v + 0.4 * rest_v      # Master+ como aproximacion
+            parts["matchup"] = 0.6 * lane_v + 0.4 * rest_v  # Master+ como aproximacion
             opp_known = role in enemy_roles.values()
             risk, risk_items = (0.0, [])
             if not opp_known and left_after > 0:
@@ -290,17 +222,28 @@ class ProEngine:
             if not loaded:
                 self.lola.request(cid, role, self.champs.slug(cid))
             total = sum(parts.values())
-            out.append({"id": cid, "name": self.champs.name(cid), "role": role, "role_short": ROLE_SHORT[role],
-                        "score": round(total, 2), "parts": {k: round(v, 2) for k, v in parts.items()},
-                        "why": [{"sign": a, "text": b} for a, b in why][:5],
-                        "matchups": items[:3], "risk_items": risk_items, "pro": p, "loaded": loaded,
-                        "tags": "".join(sorted(T.tags(self.champs, cid)))})
+            out.append(
+                {
+                    "id": cid,
+                    "name": self.champs.name(cid),
+                    "role": role,
+                    "role_short": ROLE_SHORT[role],
+                    "score": round(total, 2),
+                    "parts": {k: round(v, 2) for k, v in parts.items()},
+                    "why": [{"sign": a, "text": b} for a, b in why][:5],
+                    "matchups": items[:3],
+                    "risk_items": risk_items,
+                    "pro": p,
+                    "loaded": loaded,
+                    "tags": "".join(sorted(T.tags(self.champs, cid))),
+                }
+            )
         out.sort(key=lambda x: -x["score"])
         return out
 
     # -- bans
     def bans(self, ds, cands, side, other, teams, roles, open_roles, step):
-        mine, theirs = teams[side]["picks"], teams[other]["picks"]
+        theirs = teams[other]["picks"]
         second_phase = step >= 12
         # no banear lo que vas a coger tu antes de que elija el rival
         next_pick = next(((s, i) for i, (s, k) in enumerate(DRAFT_ORDER[step:]) if k == "pick"), (None, 0))
@@ -340,9 +283,18 @@ class ProEngine:
                 parts["role_need"] = 0.4
                 why.append(("+", f"al rival le falta {ROLE_SHORT[role]}"))
             total = sum(parts.values())
-            out.append({"id": cid, "name": self.champs.name(cid), "role": role, "role_short": ROLE_SHORT[role],
-                        "score": round(total, 2), "parts": {k: round(v, 2) for k, v in parts.items()},
-                        "why": [{"sign": a, "text": b} for a, b in why][:4], "pro": p})
+            out.append(
+                {
+                    "id": cid,
+                    "name": self.champs.name(cid),
+                    "role": role,
+                    "role_short": ROLE_SHORT[role],
+                    "score": round(total, 2),
+                    "parts": {k: round(v, 2) for k, v in parts.items()},
+                    "why": [{"sign": a, "text": b} for a, b in why][:4],
+                    "pro": p,
+                }
+            )
         out.sort(key=lambda x: -x["score"])
         return out
 
@@ -369,19 +321,38 @@ class ProEngine:
             opp = next((e for e, er in enemy_roles.items() if er == r), None)
             if opp:
                 row = ((self.lola.matchups(c, r) or {}).get(r, {})).get(str(opp))
-                lanes.append({"role": ROLE_SHORT[r], "me": self.champs.name(c), "vs": self.champs.name(opp),
-                              "d2": round(row["d2"], 1) if row else None})
-        return {"identity": ident, "identity_es": T.IDENTITY_ES[ident], "scores": {k: round(v, 1) for k, v in sc.items()},
-                "notes": notes, "lanes": lanes,
-                "picks": [{"id": c, "name": self.champs.name(c), "role": roles.get(c, ""),
-                           "role_short": ROLE_SHORT.get(roles.get(c, ""), "")} for c in picks]}
+                lanes.append(
+                    {
+                        "role": ROLE_SHORT[r],
+                        "me": self.champs.name(c),
+                        "vs": self.champs.name(opp),
+                        "d2": round(row["d2"], 1) if row else None,
+                    }
+                )
+        return {
+            "identity": ident,
+            "identity_es": T.IDENTITY_ES[ident],
+            "scores": {k: round(v, 1) for k, v in sc.items()},
+            "notes": notes,
+            "lanes": lanes,
+            "picks": [
+                {
+                    "id": c,
+                    "name": self.champs.name(c),
+                    "role": roles.get(c, ""),
+                    "role_short": ROLE_SHORT.get(roles.get(c, ""), ""),
+                }
+                for c in picks
+            ],
+        }
 
     def verdict(self, teams):
         def score(t):
             s = {"engage": 1.0, "range": 1.0, "protect": 0.8, "": 0.0}[t["identity"]]
             s -= 0.6 * len(t["notes"])
-            s += 0.15 * sum(l["d2"] for l in t["lanes"] if l["d2"] is not None)
+            s += 0.15 * sum(lane["d2"] for lane in t["lanes"] if lane["d2"] is not None)
             return s
+
         b, r = score(teams["blue"]), score(teams["red"])
         lean = "blue" if b - r > 0.3 else "red" if r - b > 0.3 else ""
         return {"blue": round(b, 2), "red": round(r, 2), "lean": lean}

@@ -14,6 +14,8 @@ import shutil
 import sys
 from pathlib import Path
 
+# Dentro de draftbot.exe (PyInstaller) los recursos se extraen junto al paquete
+FROZEN = bool(getattr(sys, "frozen", False))
 PACKAGE_DIR = Path(__file__).resolve().parent
 UI_DIR = PACKAGE_DIR / "ui"
 DEFAULT_CONFIG = PACKAGE_DIR / "defaults" / "config.json"
@@ -69,7 +71,9 @@ LEGACY = {
 
 def migrate_legacy(project_dir: Path = PROJECT_DIR) -> list[str]:
     """Mueve los datos que versiones anteriores guardaban junto al codigo. Devuelve lo movido."""
-    moved = []
+    moved: list[str] = []
+    if FROZEN:  # el ejecutable no tiene carpeta de proyecto
+        return moved
     for name, target in LEGACY.items():
         old, new = project_dir / name, target()
         if old.is_file() and not new.exists():

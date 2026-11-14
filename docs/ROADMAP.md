@@ -31,8 +31,10 @@
 - [ ] Perfil por cuenta (puuid): historial y maestría separados si se usan varias cuentas
 - [ ] Primer arranque guiado: rol principal/secundario, campeones a practicar, nunca elegir
 - [ ] Todos los ajustes editables desde el panel (también bans prioritarios y bonus de pool)
-- [ ] Ejecutable de Windows (PyInstaller) sin consola, con icono en la bandeja
-- [ ] Publicar versiones en GitHub Releases y aviso de actualización al arrancar
+- [x] Ejecutable de Windows (PyInstaller), un solo archivo
+- [ ] Sin consola, con icono en la bandeja
+- [x] Publicar versiones en GitHub Releases (al subir una etiqueta `vX.Y.Z`)
+- [ ] Aviso de actualización al arrancar (necesita repo público o un canal propio)
 - [ ] Automatizaciones que deciden por el jugador desactivadas por defecto y marcadas como experimentales
 - [ ] Aviso legal de Riot visible en el panel
 - [ ] Registrar el producto en el Developer Portal (clave personal)

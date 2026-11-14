@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.6.0] - 2026-11-14
+
+### Añadido
+- `draftbot.exe`: un solo archivo con Python dentro (`scripts/build_exe.py`, PyInstaller). Doble
+  clic y listo; si falla al arrancar, la ventana muestra el error en vez de cerrarse.
+- Publicación automática en GitHub Releases al subir una etiqueta `vX.Y.Z` (workflow `release.yml`).
+- Test de arranque del punto de entrada.
+
 ## [0.5.1] - 2026-11-14
 
 ### Corregido

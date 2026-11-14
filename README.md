@@ -9,7 +9,21 @@ Asistente de cola y selección de campeón para League of Legends, con panel loc
 - Tu parte sale de tu **historial** (soloq, flex, normal draft y partida rápida) y tus **puntos de maestría**.
 
 ## Requisitos
-Windows con el cliente de LoL abierto y Python 3.10 o superior (sin librerías extra).
+Windows con el cliente de LoL abierto. Con el ejecutable no hace falta nada más; desde el código,
+Python 3.10 o superior (sin librerías extra).
+
+## Ejecutable (lo más fácil para compartir)
+Descarga `draftbot.exe` de *Releases* en GitHub (o pídeselo a quien te lo pase), abre el cliente
+de LoL y haz doble clic. Se abre el panel en el navegador; cerrar la ventana negra cierra draftbot.
+
+- Windows avisa de que es una app desconocida (no está firmada): *Más información → Ejecutar de
+  todas formas*. Algún antivirus puede marcarlo por error; es un falso positivo habitual de PyInstaller.
+- Tus ajustes y datos van a `%APPDATA%\draftbot`, así que puedes sustituir el `.exe` por una
+  versión nueva sin perder nada.
+
+Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/draftbot.exe`.
+Publicar una versión: sube la etiqueta (`git tag v0.6.0 && git push origin v0.6.0`) y GitHub
+Actions construye el `.exe` y lo publica en *Releases* con las notas del CHANGELOG.
 
 ## Uso
 Desde esta carpeta:

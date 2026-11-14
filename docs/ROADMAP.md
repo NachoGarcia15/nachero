@@ -14,38 +14,33 @@
   views or opinions of Riot Games or anyone officially involved in producing or managing Riot
   Games properties…"*.
 - Debe existir acceso gratuito.
+- Los productos deben obtener los datos de servicios oficiales de Riot: en una versión pública,
+  nada de leer Lolalytics ni gol.gg (ver `docs/DATOS.md`).
+- Estadísticas agregadas sí; jugadores concretos, MMR o calculadoras de ELO no.
+- Desde el 6 de octubre de 2026 Riot bloquea el acceso a la memoria del juego a apps
+  desconocidas. draftbot no lee memoria: solo la API local del cliente, que no tiene soporte
+  oficial y puede cambiar.
 - API keys ([tipos](https://developer.riotgames.com/docs/portal)): *personal* para proyectos
   personales o grupos pequeños; *production* para cualquier uso público. Nunca dentro del ejecutable.
 
 ## Fase 0 · Cimientos (hecha)
 
-- [x] Repositorio privado, `.gitignore` sin datos personales, `.gitattributes`
-- [x] Paquete por capas (`clients`, `sources`, `domain`, `app`, `ui`)
-- [x] Datos del usuario en `%APPDATA%\draftbot`, con migración automática
-- [x] `pyproject.toml`, ruff, mypy, pytest, pre-commit
-- [x] Tests del motor, del simulador, de los lectores y de la configuración
-- [x] CI en GitHub Actions (Windows, Python 3.10 y 3.13)
+Repositorio, paquete por capas, datos del usuario fuera del repo, tests, CI, ejecutable de
+Windows (0.6.0) y publicación en GitHub Releases.
 
-## Fase 1 · Para ti y tus amigos
+## Fases siguientes
 
-- [ ] Perfil por cuenta (puuid): historial y maestría separados si se usan varias cuentas
-- [ ] Primer arranque guiado: rol principal/secundario, campeones a practicar, nunca elegir
-- [ ] Todos los ajustes editables desde el panel (también bans prioritarios y bonus de pool)
-- [x] Ejecutable de Windows (PyInstaller), un solo archivo
-- [ ] Sin consola, con icono en la bandeja
-- [x] Publicar versiones en GitHub Releases (al subir una etiqueta `vX.Y.Z`)
-- [ ] Aviso de actualización al arrancar (necesita repo público o un canal propio)
-- [ ] Automatizaciones que deciden por el jugador desactivadas por defecto y marcadas como experimentales
-- [ ] Aviso legal de Riot visible en el panel
-- [ ] Registrar el producto en el Developer Portal (clave personal)
-- [ ] Indicador de frescura de datos y aviso si una fuente cambia de formato
-- [ ] Medir la calidad: WR estimado frente a resultado real de tus partidas (calibración)
+Seguimiento en la issue fijada **#28** (hoja de ruta) y en los hitos de GitHub. Una issue por
+chat, en este orden salvo que el usuario diga otra cosa.
 
-## Fase 2 · Más gente
+### Fase 1 · Tú y tus amigos
+Robustez, ajustes, normas de Riot para uso personal y preparar el cambio de fuente de datos:
+#3, #15, #7, #17, #8, #5, #4, #16, #6, #9.
 
-- [ ] Datos propios: proceso programado con la API de Riot (clave production) que recoge partidas
-      Master+, calcula WR por rol y matchups, y publica un archivo por parche
-- [ ] Datos de competitivo desde Leaguepedia (licencia CC BY-SA) en lugar de gol.gg
-- [ ] Interfaz en español e inglés
-- [ ] Firma del ejecutable, página pública, licencia
-- [ ] Telemetría solo con consentimiento y anónima
+### Fase 2 · Datos propios (clave personal, EUW Master+)
+Recolector con la API de Riot, formato propio, publicación, validación y competitivo desde
+Leaguepedia: #18, #19, #20, #21, #22. Detalle en `docs/DATOS.md`.
+
+### Fase 3 · Versión pública
+Clave de producción y todas las regiones y ligas, cumplimiento de normas, inglés, distribución
+pública y privacidad: #23, #24, #25, #26, #27.

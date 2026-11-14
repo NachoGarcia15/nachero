@@ -29,9 +29,20 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 - Nunca trabajar en `main`: rama (`feat/`, `fix/`, `chore/`, `docs/`) → PR → CI verde → squash merge.
 - Fusionar solo cuando el usuario lo pida. El repo es privado (NachoGarcia15/draftbot); GitHub no
   permite auto-merge en él.
-- Cada versión: `__version__` en `src/draftbot/__init__.py` + entrada en `CHANGELOG.md`.
-  Publicar el `.exe`: etiqueta `vX.Y.Z` igual a `__version__` (workflow `release.yml`), solo si el usuario lo pide.
+- Cada PR que cambie la app: sube `__version__` en `src/draftbot/__init__.py` (semver: `fix` →
+  parche, `feat` → menor) y añade su entrada en `CHANGELOG.md`. Eso no publica nada.
 - Toda lógica nueva con tests en `tests/` (dobles en `tests/conftest.py`, sin cliente ni red).
+
+## Publicar una versión (solo cuando el usuario lo pida: «publica», «saca el .exe»…)
+1. `main` actualizado, CI verde y `__version__` = versión a publicar, con su entrada en el CHANGELOG.
+2. `git tag -a vX.Y.Z -m "draftbot X.Y.Z"` y `git push origin vX.Y.Z`.
+3. `release.yml` pasa los tests, comprueba que la etiqueta coincide con `__version__`, construye
+   `draftbot.exe`, lo prueba y lo publica en Releases con las notas del CHANGELOG.
+4. Vigilar el run (`gh run watch`) y comprobar la Release (`gh release view vX.Y.Z`).
+- Si el run falla, no borrar ni mover etiquetas ya subidas: arreglar en una PR y publicar la
+  siguiente versión de parche, o subir a mano con `gh release create` el `.exe` de
+  `scripts/build_exe.py` construido desde esa etiqueta.
+- La Release es privada (repo privado): solo la descargan los colaboradores invitados.
 
 ## Reglas del proyecto
 - `domain/` es lógica pura (sin red ni disco). Fuentes externas en `sources/`, cliente en `clients/`.

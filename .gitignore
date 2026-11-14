@@ -1,0 +1,30 @@
+# Datos personales y caches (nunca al repositorio)
+history_cache.json
+player_cache.json
+lolalytics_cache.json
+gol_cache.json
+*.tmp
+profiles/
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editores y herramientas locales
+.claude/
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store

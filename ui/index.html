@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>draftbot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="bar-left">
+    <span class="brand">draftbot</span>
+    <span class="conn" id="conn"><i></i><span>Conectando</span></span>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-view="draft" class="on">Draft</button>
+    <button data-view="pool">Tu pool</button>
+    <button data-view="pro">Simulador pro</button>
+    <button data-view="log">Actividad</button>
+  </nav>
+  <div class="bar-right">
+    <span class="rank" id="rank"></span>
+    <div class="seg" id="modes" role="radiogroup" aria-label="Modo">
+      <button data-mode="paused" role="radio">Pausado</button>
+      <button data-mode="observe" role="radio">Observar</button>
+      <button data-mode="active" role="radio">Activo</button>
+    </div>
+    <button class="icon-btn" id="open-settings" aria-label="Ajustes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="demo-banner" id="demo" hidden>Modo demo · draft simulado con tus datos reales. No se toca el cliente.</div>
+
+<main>
+  <section id="view-draft" class="view"></section>
+  <section id="view-pool" class="view" hidden></section>
+  <section id="view-pro" class="view" hidden></section>
+  <section id="view-log" class="view" hidden></section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <h2>Ajustes</h2>
+    <button class="icon-btn" id="close-settings" aria-label="Cerrar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body">
+    <h3>Recomendación</h3>
+    <div id="pickmode-settings"></div>
+    <h3>En modo activo</h3>
+    <div id="toggles"></div>
+    <h3>Cómo pesa cada parte</h3>
+    <div id="weights"></div>
+    <h3>Datos</h3>
+    <div id="datainfo" class="datainfo"></div>
+  </div>
+</aside>
+
+<script src="/app.js"></script>
+<script src="/pro.js"></script>
+</body>
+</html>

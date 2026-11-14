@@ -1,0 +1,66 @@
+{
+  "_info": "Interruptores y pesos se cambian en vivo desde el panel. El resto se aplica al reiniciar draftbot.",
+  "start_mode": "observe",
+  "ui_port": 8765,
+  "auto_accept": true,
+  "accept_delay_seconds": [
+    1.0,
+    3.0
+  ],
+  "auto_ban": true,
+  "auto_hover_pick": true,
+  "auto_lock_pick": false,
+  "lock_when_seconds_left": 8,
+  "auto_spells": true,
+  "spells_by_role": {
+    "jungle": [
+      "Smite",
+      "Flash"
+    ],
+    "top": [
+      "Teleport",
+      "Flash"
+    ],
+    "middle": [
+      "Ignite",
+      "Flash"
+    ],
+    "bottom": [
+      "Heal",
+      "Flash"
+    ],
+    "utility": [
+      "Ignite",
+      "Flash"
+    ]
+  },
+  "open_coachless_on_lock": true,
+  "_pick_mode_info": "\"pool\": tu pool pesa (por defecto). \"meta\": ignora tu pool y recomienda solo por fuerza en el parche y encaje en el draft.",
+  "pick_mode": "pool",
+  "weights": {
+    "_info": "Multiplicadores (0-2) de cada parte de la recomendacion.",
+    "pool": 1.0,
+    "meta": 1.0,
+    "matchup": 1.0,
+    "comp": 1.0
+  },
+  "style": {
+    "_info": "Tu perfil: carry, farmear y tener peso. Sube/baja estos pesos (0-2).",
+    "carry_weight": 1.0,
+    "utility_weight": 0.2
+  },
+  "_pool_bonus_info": "Puntos de WR extra (o negativos) para campeones concretos, p. ej. uno que estas practicando.",
+  "pool_bonus": {},
+  "never_pick": [],
+  "_ban_info": "Opcional: bans que quieres priorizar por rol. El resto se calcula con datos Master+.",
+  "ban_priority": {
+    "jungle": [],
+    "top": [],
+    "middle": [],
+    "bottom": [],
+    "utility": []
+  },
+  "history_queues": [
+    420
+  ]
+}

@@ -433,3 +433,12 @@ input[type=range] { width: 100%; accent-color: var(--text); }
   .pro-progress { gap: 2px; }
   .pro-controls select { max-width: 100%; }
 }
+
+/* ------------------------------------------------------------------ runas */
+.runes { margin-top: 14px; padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,.03); border: 1px solid var(--line); font-size: 13px; max-width: 400px; }
+.runes .lbl { display: block; font-size: 11.5px; color: var(--text-3); margin-bottom: 2px; }
+.runes small { display: block; color: var(--text-3); font-size: 12px; margin-top: 3px; line-height: 1.45; }
+.runes.imported { border-color: rgba(92,195,148,.35); }
+.runes.imported .lbl { color: var(--pos); }
+.runes.failed .lbl { color: var(--neg); }
+.runes.muted { color: var(--text-3); }

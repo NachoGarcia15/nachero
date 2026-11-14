@@ -7,6 +7,7 @@ import time
 from draftbot import paths
 from draftbot.app.demo import Demo
 from draftbot.app.draft import Draft
+from draftbot.app.runes import RuneImporter
 from draftbot.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
 from draftbot.clients.cdragon import CDragon
 from draftbot.clients.lcu import LCU
@@ -180,7 +181,8 @@ def run_session():
         APP["pool"], APP["refresh_idle"] = [], True
     log(f"Listo · rol principal {ROLE_ES[player.main_role]} · {len(player.games)} partidas de soloq analizadas", "ok")
 
-    draft, demo = Draft(lcu, champs, engine), (Demo(champs) if OPTS["demo"] else None)
+    draft = Draft(lcu, champs, engine, RuneImporter(src))
+    demo = Demo(champs) if OPTS["demo"] else None
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
     while True:
         mode = APP["mode"]

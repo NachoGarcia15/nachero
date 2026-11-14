@@ -118,9 +118,10 @@ def test_parse_build_estado_qwik():
         {"data": "3", "lane": "2", "$$type": "1"},
     ]
     html = '<script type="qwik/json">' + json.dumps({"objs": objs}) + "</script>"
-    lanes, slugs = parse_build(html)
+    lanes, slugs, runes = parse_build(html)
     assert lanes == {"jungle": {"64": {"wr": 56.3, "d1": 7.2, "d2": 1.6, "pr": 10.1, "n": 1736}}}
     assert slugs == {}
+    assert runes == {}
 
 
 # ------------------------------------------------------------------ servidor

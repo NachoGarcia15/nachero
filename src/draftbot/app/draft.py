@@ -6,18 +6,20 @@ import webbrowser
 
 from draftbot.app.state import SPELL_IDS, TIMER_ES, log
 from draftbot.config import CFG
+from draftbot.domain import runes as R
 from draftbot.domain import tags as T
 from draftbot.domain.common import ROLE_ES, ROLE_SHORT
 from draftbot.domain.engine import comp_notes, comp_summary
 
 
 class Draft:
-    def __init__(self, lcu, champs, engine):
-        self.lcu, self.champs, self.engine = lcu, champs, engine
+    def __init__(self, lcu, champs, engine, runes=None):
+        self.lcu, self.champs, self.engine, self.runes = lcu, champs, engine, runes
         self.reset()
 
     def reset(self):
-        self.done_ban = self.spells_set = self.coachless_opened = False
+        self.done_ban = self.spells_set = self.coachless_opened = self.runes_done = False
+        self.runes_state = "pending"
         self.seen, self.last_best = set(), None
 
     def note(self, msg, kind="action"):
@@ -156,6 +158,9 @@ class Draft:
                 status.append(("info", f"Marcaría {best['name']}"))
         self.last_best = best["id"] if best else None
 
+        # runas: la recomendada para el campeon confirmado (o vista previa del recomendado)
+        runes_info = self.handle_runes(locked or (best["id"] if best else None), role, bool(locked), acting, status)
+
         # coachless
         coach = None
         if my_pick and my_pick["completed"] and my_pick["championId"]:
@@ -231,6 +236,7 @@ class Draft:
             "ban_suggestions": bans,
             "status": [{"kind": k, "msg": m} for k, m in status],
             "coachless": coach,
+            "runes": runes_info,
             "mode": ctx["mode"],
             "lane_known": ctx["lane_known"],
             "enemy_left_after": enemy_left_after,
@@ -240,3 +246,34 @@ class Draft:
                 else None
             ),
         }
+
+    def handle_runes(self, cid, role, locked, acting, status):
+        """Importa (o describe) la pagina de runas de Lolalytics para `cid` en `role`.
+        Devuelve el resumen para el panel, o None si no hay nada que mostrar."""
+        if not cid or not self.runes or not CFG.get("import_runes", True):
+            return None
+        sets = self.engine.lola.runes(cid, role)
+        name = self.champs.name(cid)
+        if sets is None:
+            return {"state": "loading"}
+        source = CFG.get("runes_source", "pick")
+        rune_set = sets.get(source) or sets.get("pick") or sets.get("win")
+        if not rune_set:
+            if locked and not self.runes_done:
+                self.runes_done = True
+                self.note(f"Sin runas recomendadas para {name} en este rol: no importo nada", "hint")
+            return {"state": "none"}
+        info = self.runes.describe(rune_set) or {}
+        info["source"] = R.SOURCE_ES.get(source if sets.get(source) else "pick", "")
+        if not locked:
+            return {**info, "state": "preview"}
+        if self.runes_done:
+            return {**info, "state": self.runes_state}
+        if not acting:
+            status.append(("info", f"Importaría runas: {info.get('keystone', '')}"))
+            return {**info, "state": "would"}
+        self.runes_done = True
+        ok, msg = self.runes.apply(self.lcu, name, ROLE_SHORT.get(role, ""), rune_set)
+        self.runes_state = "imported" if ok else "failed"
+        self.note(msg, "action" if ok else "warn")
+        return {**info, "state": self.runes_state}

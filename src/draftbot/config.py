@@ -9,7 +9,15 @@ from typing import Any
 
 from draftbot import paths
 
-TOGGLES = ["auto_accept", "auto_ban", "auto_hover_pick", "auto_lock_pick", "auto_spells", "open_coachless_on_lock"]
+TOGGLES = [
+    "auto_accept",
+    "auto_ban",
+    "auto_hover_pick",
+    "auto_lock_pick",
+    "auto_spells",
+    "import_runes",
+    "open_coachless_on_lock",
+]
 WEIGHT_KEYS = ("pool", "meta", "matchup", "comp")
 
 
@@ -52,6 +60,9 @@ def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
         elif k == "lock_when_seconds_left" and isinstance(v, (int, float)) and not isinstance(v, bool) and 1 <= v <= 30:
             cfg[k] = int(v)
             changed.append(k)
+        elif k == "runes_source" and v in ("pick", "win"):
+            cfg[k] = v
+            changed.append("runas " + ("más populares" if v == "pick" else "de mayor WR"))
         elif k == "pick_mode" and v in ("pool", "meta"):
             cfg[k] = v
             changed.append("modo " + ("tu pool" if v == "pool" else "solo meta y draft"))

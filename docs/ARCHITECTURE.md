@@ -12,7 +12,7 @@ src/draftbot/
              cdragon.py  CommunityDragon: mismos datos estáticos cuando el cliente está cerrado
   sources/   Fuentes de datos (red, caché en disco, parseo)
              champions.py  metadatos e imágenes de campeones
-             history.py    historial de soloq del jugador
+             history.py    historial del jugador (rol de cada partida)
              lolalytics.py tier list y matchups Master+ (incl. parser del estado qwik)
              golgg.py      estadísticas de competitivo por torneo
              (lolalytics.py también extrae las páginas de runas recomendadas)

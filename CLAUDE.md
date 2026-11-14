@@ -57,3 +57,7 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
   la caché del panel antiguo).
 - La API local tarda a veces más de 5 s (historial): usa timeouts largos y no bloquees el bucle.
 - La app aún no detecta el tipo de cola: en ARAM/Arena recomienda como si fuera la Grieta (issue #3).
+- Conexión al cliente: línea de comandos de `LeagueClientUx.exe` y, si no se puede leer (cliente
+  como administrador), el `lockfile` de la carpeta del juego.
+- Crear la sala de Practice Tool por la API falla (`INVALID_LOBBY`): pide al usuario que la abra.
+- La consola de Windows congela el proceso si se hace clic en ella (QuickEdit): `main` lo desactiva.

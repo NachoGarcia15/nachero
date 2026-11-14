@@ -123,6 +123,11 @@ class Engine:
     def w(self, k):
         return float(self.cfg.get("weights", {}).get(k, 1.0))
 
+    def main_role(self):
+        """Rol fuera de la champ select: el elegido en ajustes o, en "auto", el que mas juegas."""
+        r = self.cfg.get("main_role", "auto")
+        return r if r in ROLES else self.player.main_role
+
     @property
     def mode(self):
         return "meta" if self.cfg.get("pick_mode") == "meta" else "pool"

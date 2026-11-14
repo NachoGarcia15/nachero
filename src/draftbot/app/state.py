@@ -1,5 +1,6 @@
 """Estado compartido entre el bucle principal y el servidor del panel."""
 
+import contextlib
 import logging
 import threading
 import time
@@ -75,5 +76,7 @@ def log(msg: str, kind: str = "info") -> None:
     """Mensaje para el panel (pestana Actividad), la consola y el archivo de log."""
     with LOCK:
         APP["log"].appendleft({"t": time.strftime("%H:%M:%S"), "msg": msg, "kind": kind})
-    print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+    # sin consola (pythonw) o con una consola rota, el registro sigue en el panel y el archivo
+    with contextlib.suppress(OSError, ValueError, AttributeError):
+        print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
     logger.log(logging.WARNING if kind == "warn" else logging.INFO, "%s", msg)

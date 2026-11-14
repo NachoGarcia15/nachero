@@ -3,6 +3,22 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.5.1] - 2026-11-14
+
+### Corregido
+- Rol: el historial reconoce mejor el rol de cada partida (antes se perdían partidas de support)
+  y cuenta también flex, normal draft y partida rápida, así que el rol principal de quien no es
+  jungla ya no sale «Jungla». En la champ select manda siempre el rol asignado por el cliente.
+- Conexión: si el cliente está abierto como administrador, se conecta con el `lockfile` de la
+  carpeta del juego en vez de quedarse en «cliente cerrado».
+- Un fallo puntual al leer la fase del cliente ya no reinicia toda la sesión (antes podía dejar
+  la app recargando datos durante la champ select).
+- Hacer clic en la ventana de la consola ya no congela draftbot (modo de selección de Windows).
+
+### Añadido
+- Selector de rol principal en la pantalla de espera (Auto o un rol fijo).
+- La pantalla de espera avisa de que en modo Observar no se acepta la partida.
+
 ## [0.5.0] - 2026-11-14
 
 ### Añadido

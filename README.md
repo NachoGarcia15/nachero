@@ -6,7 +6,7 @@ Asistente de cola y selección de campeón para League of Legends, con panel loc
   su memoria ni Vanguard, y no lee nombres de jugadores en champ select.
 - Estadísticas **Master+ del parche actual** de Lolalytics (cache local, pocas peticiones).
 - Estadísticas de **competitivo** de gol.gg para el simulador de drafts pro.
-- Tu parte sale de tu **historial de soloq** y tus **puntos de maestría**.
+- Tu parte sale de tu **historial** (soloq, flex, normal draft y partida rápida) y tus **puntos de maestría**.
 
 ## Requisitos
 Windows con el cliente de LoL abierto y Python 3.10 o superior (sin librerías extra).
@@ -30,9 +30,15 @@ Si draftbot ya está abierto, volver a ejecutarlo abre el panel existente.
 
 ## Modos
 - **Pausado**: no analiza ni actúa.
-- **Observar**: recomienda y dice qué haría, sin tocar el cliente.
+- **Observar** (el modo con el que arranca): recomienda y dice qué haría, sin tocar el cliente.
+  No acepta la partida: para eso, pasa a **Activo**.
 - **Activo**: actúa según los interruptores del panel de ajustes (aceptar partida, banear,
   marcar pick, confirmar pick, hechizos, abrir Coachless).
+
+## Roles
+En la selección de campeón recomienda para el rol que te asigna el cliente, sea cual sea.
+Fuera de ella (y en colas sin roles, como Practice Tool) usa tu rol principal: por defecto el que
+más juegas, o el que elijas en la pantalla de espera del panel.
 
 ## Cómo recomienda
 Hay dos modos (selector en el panel y en ajustes):

@@ -40,6 +40,8 @@
   "runes_source": "pick",
   "_pick_mode_info": "\"pool\": tu pool pesa (por defecto). \"meta\": ignora tu pool y recomienda solo por fuerza en el parche y encaje en el draft.",
   "pick_mode": "pool",
+  "_main_role_info": "Rol para las recomendaciones fuera de la champ select: \"auto\" (el que mas juegas) o top, jungle, middle, bottom, utility. En la champ select manda el rol que te asigna el cliente.",
+  "main_role": "auto",
   "weights": {
     "_info": "Multiplicadores (0-2) de cada parte de la recomendacion.",
     "pool": 1.0,
@@ -63,7 +65,11 @@
     "bottom": [],
     "utility": []
   },
+  "_history_queues_info": "Colas del historial que cuentan para tu pool: 420 soloq, 440 flex, 400 normal draft, 490 partida rapida.",
   "history_queues": [
-    420
+    420,
+    440,
+    400,
+    490
   ]
 }

@@ -69,6 +69,24 @@ def print_profile():
 
 
 def main(argv=None):
+    """Arranca draftbot. En el ejecutable, si algo falla al arrancar, la ventana no se cierra sola."""
+    try:
+        run(argv)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        if not paths.FROZEN:
+            raise
+        import traceback
+
+        traceback.print_exc()
+        print()
+        print(f"draftbot no ha podido arrancar. El registro está en {paths.log_dir()}")
+        with contextlib.suppress(EOFError):
+            input("Pulsa Enter para cerrar…")
+
+
+def run(argv=None):
     with contextlib.suppress(AttributeError, ValueError):
         sys.stdout.reconfigure(encoding="utf-8")
     args = parse_args(argv)
@@ -97,6 +115,10 @@ def main(argv=None):
         srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     except OSError:
         print(f"draftbot ya está abierto en {url}; abro el panel.")
+        if paths.FROZEN:
+            import time
+
+            time.sleep(3)  # que se lea el mensaje antes de que se cierre la ventana
         if not args.no_browser:
             webbrowser.open(f"{url}/?v={__version__}")
         return

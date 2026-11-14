@@ -12,6 +12,7 @@ dependencies = []          # solo biblioteca estandar
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
+build = ["pyinstaller>=6.10"]   # para scripts/build_exe.py (draftbot.exe)
 
 [project.scripts]
 draftbot = "draftbot.app.main:main"

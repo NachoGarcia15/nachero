@@ -1,0 +1,73 @@
+"""Ajustes: valores por defecto del paquete + los del usuario (en su carpeta de datos).
+
+Solo se guardan en el archivo del usuario; los valores por defecto nunca se modifican.
+"""
+
+import json
+from copy import deepcopy
+from typing import Any
+
+from draftbot import paths
+
+TOGGLES = ["auto_accept", "auto_ban", "auto_hover_pick", "auto_lock_pick", "auto_spells", "open_coachless_on_lock"]
+WEIGHT_KEYS = ("pool", "meta", "matchup", "comp")
+
+
+def deep_merge(base: dict, over: dict) -> dict:
+    """Mezcla recursiva: lo de `over` gana, pero conserva las claves nuevas de `base`."""
+    out = deepcopy(base)
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = deep_merge(out[k], v)
+        else:
+            out[k] = deepcopy(v)
+    return out
+
+
+def load() -> dict:
+    defaults = json.loads(paths.DEFAULT_CONFIG.read_text(encoding="utf-8"))
+    f = paths.config_file()
+    if f.exists():
+        try:
+            return deep_merge(defaults, json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            pass
+    return defaults
+
+
+def save(cfg: dict) -> None:
+    f = paths.config_file()
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(f)
+
+
+def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
+    """Valida y aplica cambios del panel. Devuelve la lista de cambios aceptados."""
+    changed = []
+    for k, v in body.items():
+        if k in TOGGLES and isinstance(v, bool):
+            cfg[k] = v
+            changed.append(k)
+        elif k == "lock_when_seconds_left" and isinstance(v, (int, float)) and not isinstance(v, bool) and 1 <= v <= 30:
+            cfg[k] = int(v)
+            changed.append(k)
+        elif k == "pick_mode" and v in ("pool", "meta"):
+            cfg[k] = v
+            changed.append("modo " + ("tu pool" if v == "pool" else "solo meta y draft"))
+        elif k == "weights" and isinstance(v, dict):
+            for wk, wv in v.items():
+                if wk in WEIGHT_KEYS and isinstance(wv, (int, float)) and not isinstance(wv, bool) and 0 <= wv <= 2:
+                    cfg.setdefault("weights", {})[wk] = round(float(wv), 2)
+                    changed.append(f"peso {wk}")
+    return changed
+
+
+CFG: dict = {}
+
+
+def init() -> dict:
+    """Carga los ajustes en el diccionario compartido CFG (se llama al arrancar)."""
+    CFG.clear()
+    CFG.update(load())
+    return CFG

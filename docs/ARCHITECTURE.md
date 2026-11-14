@@ -1,0 +1,67 @@
+# Arquitectura
+
+draftbot es una app local: un proceso de Python que habla con el cliente de LoL, descarga
+estadísticas públicas y sirve un panel web en `127.0.0.1`. No hay servidor propio.
+
+## Capas
+
+```
+src/draftbot/
+  clients/   Cómo hablamos con el exterior "del juego"
+             lcu.py      API local del cliente de LoL (lockfile/puerto + token)
+             cdragon.py  CommunityDragon: mismos datos estáticos cuando el cliente está cerrado
+  sources/   Fuentes de datos (red, caché en disco, parseo)
+             champions.py  metadatos e imágenes de campeones
+             history.py    historial de soloq del jugador
+             lolalytics.py tier list y matchups Master+ (incl. parser del estado qwik)
+             golgg.py      estadísticas de competitivo por torneo
+  domain/    Lógica pura: sin red ni disco, testeable con dobles
+             common.py   roles, tiers, shrink, normalización de nombres
+             player.py   modelo personal (experiencia, forma, residuo de WR)
+             tags.py     papel de cada campeón en una composición e identidad de equipo
+             engine.py   recomendación de picks y bans de soloq
+             pro.py      motor del simulador de draft pro
+  app/       Orquestación
+             state.py    estado compartido, log
+             draft.py    champ select de soloq (lee sesión, recomienda, actúa)
+             demo.py     draft simulado
+             worker.py   bucle principal y sesión con el cliente
+             server.py   API HTTP del panel y archivos estáticos
+             main.py     argumentos y arranque
+  ui/        Panel (HTML/CSS/JS sin dependencias)
+  defaults/  Ajustes por defecto
+  config.py, paths.py, jsonio.py
+```
+
+Regla de dependencias: `app → domain ← sources/clients`. El dominio no importa nada de `app`,
+`sources` ni `clients`; recibe objetos con la interfaz que necesita (`champs`, `lola`, `gol`).
+Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni internet.
+
+## Flujo de una recomendación (soloq)
+
+1. `worker` lee la fase del cliente cada segundo.
+2. En champ select, `draft.Draft.tick` lee la sesión, separa aliados (elegidos y marcados),
+   rivales, bans y orden de picks.
+3. `engine.Engine.picks` puntúa candidatos: fuerza en el parche + tú + matchups (rival de línea
+   y resto, con roles estimados) + encaje con tu equipo + respuesta a su comp + riesgo de counter.
+4. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto counterea tus picks).
+5. El panel consulta `/api/state` cada segundo y pinta.
+
+## Datos y privacidad
+
+- Los datos del usuario (ajustes, historial, maestría, cachés, logs) viven en
+  `%APPDATA%\draftbot` (o `DRAFTBOT_HOME`), nunca en el repositorio.
+- No se envía nada del usuario a ningún sitio. Solo se descargan estadísticas públicas.
+- Las fuentes externas se piden con caché y ~1,5 s entre peticiones.
+
+## Decisiones
+
+| Decisión | Motivo |
+|---|---|
+| Solo biblioteca estándar en tiempo de ejecución | Instalar y empaquetar sin fricción. |
+| Panel web local en vez de ventana nativa | Funciona en cualquier navegador; empaquetar como exe es independiente. |
+| Todo en puntos de winrate | Las partes se pueden sumar, comparar y explicar al usuario. |
+| *Delta 2* para matchups | Mide solo la interacción; no cuenta dos veces la fuerza del campeón. |
+| Encogimiento por muestra (`shrink`) | Pocas partidas dicen poco: evita recomendaciones por suerte. |
+| No usar APIs ofuscadas ni saltarse protecciones | Respetar a las fuentes de datos. |
+| No automatizar decisiones de juego en versiones compartidas | Normas de Riot (ver ROADMAP). |

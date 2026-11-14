@@ -15,13 +15,16 @@ Windows con el cliente de LoL abierto y Python 3.10 o superior (sin librerías e
 Desde esta carpeta:
 
 ```
-python draftbot.py              # abre el panel en http://127.0.0.1:8765
-python draftbot.py --observe    # arranca en modo Observar
-python draftbot.py --demo       # draft simulado con tus datos reales
-python draftbot.py --no-browser # no abre el navegador
-python draftbot.py --profile    # tu pool en consola
-python draftbot.py --port 8766  # otro puerto para el panel
+python run.py              # abre el panel en http://127.0.0.1:8765
+python run.py --observe    # arranca en modo Observar
+python run.py --demo       # draft simulado con tus datos reales
+python run.py --no-browser # no abre el navegador
+python run.py --profile    # tu pool en consola
+python run.py --port 8766  # otro puerto para el panel
+python run.py --version
 ```
+
+Si lo instalas (`pip install -e .`), el comando es `draftbot` con las mismas opciones.
 
 Si draftbot ya está abierto, volver a ejecutarlo abre el panel existente.
 
@@ -106,7 +109,13 @@ cache de 12 h y 1,5 s entre peticiones.
 Si el cliente de LoL está cerrado, draftbot usa tu historial y maestría guardados y los datos de
 campeones de CommunityDragon (el mismo contenido que el cliente). Al abrir el cliente se conecta solo.
 
-## Configuración (`config.json`)
+## Tus datos
+Ajustes, historial, maestría, cachés y logs se guardan en **`%APPDATA%\draftbot`**, no en esta
+carpeta. Si vienes de una versión anterior, se mueven solos la primera vez que arrancas.
+
+## Configuración
+Los valores por defecto están en `src/draftbot/defaults/config.json`; los tuyos, en
+`%APPDATA%\draftbot\config.json` (solo lo que cambias desde el panel o a mano).
 - `pick_mode`: `pool` (por defecto) o `meta` (ignora tu pool).
 - `weights`: multiplicadores de cada parte (también desde el panel).
 - `pool_bonus`: puntos extra para campeones concretos, p. ej. `{"Zaahen": 1.0}`.
@@ -114,15 +123,13 @@ campeones de CommunityDragon (el mismo contenido que el cliente). Al abrir el cl
 - `ban_priority`: bans que quieres priorizar por rol (el resto se calcula).
 - `spells_by_role`, `style`, `start_mode`, `lock_when_seconds_left`.
 
-## Archivos
-- `draftbot.py`: app, servidor del panel y demo.
-- `model.py`: modelo del jugador y motor de picks/bans de soloq.
-- `tags.py`: papel de cada campeón en una composición e identidad de equipo.
-- `pro.py`: datos de gol.gg y motor del simulador pro.
-- `data.py`: datos de campeones y Lolalytics.
-- `lcu.py`: conexión con el cliente.
-- `ui/`: el panel.
-- `history_cache.json`, `player_cache.json`, `lolalytics_cache.json`, `gol_cache.json`: cachés locales (se pueden borrar).
+## Proyecto
+- `src/draftbot/`: el paquete, por capas (`clients`, `sources`, `domain`, `app`, `ui`).
+  Detalles en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- `tests/`: pruebas (sin cliente ni internet).
+- [docs/ROADMAP.md](docs/ROADMAP.md): hoja de ruta y normas de Riot que la condicionan.
+- [CONTRIBUTING.md](CONTRIBUTING.md): entorno de desarrollo, comprobaciones y flujo de trabajo.
+- [CHANGELOG.md](CHANGELOG.md): cambios por versión.
 
 ## Coachless
 No tiene API pública y sus condiciones no permiten leer sus datos automáticamente, así que
@@ -131,3 +138,8 @@ draftbot solo abre su página del campeón y rol en tu navegador al confirmar.
 ## Recomendación
 Deja **Confirmar pick** desactivado en ranked: un fallo puede costarte un dodge o un pick
 que no querías, y es la parte más dudosa de las normas de Riot.
+
+## Aviso legal
+draftbot isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or
+anyone officially involved in producing or managing Riot Games properties. Riot Games, and all
+associated properties are trademarks or registered trademarks of Riot Games, Inc.

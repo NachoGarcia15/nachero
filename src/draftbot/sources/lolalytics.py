@@ -3,53 +3,21 @@
 Lolalytics no tiene API publica. Su robots.txt permite el acceso general (Allow: /),
 asi que draftbot lee pocas paginas, con cache de varias horas y una peticion cada ~1,5 s.
 """
-import json, os, queue, re, threading, time, urllib.request
+
+import json
+import os
+import queue
+import re
+import threading
+import time
+import urllib.request
+
+from draftbot.jsonio import read_json, write_json
 
 LOLA_LANE = {"top": "top", "jungle": "jungle", "middle": "middle", "bottom": "bottom", "utility": "support"}
-TIER_NAMES = {1: "S+", 2: "S", 3: "S-", 4: "A+", 5: "A", 6: "A-", 7: "B+", 8: "B", 9: "B-",
-              10: "C+", 11: "C", 12: "C-", 13: "D+", 14: "D", 15: "D-"}
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) draftbot/2.0 (uso personal)"
 
 
-# ---------------------------------------------------------------- campeones (cliente)
-class Champs:
-    def __init__(self, lcu):
-        summ = lcu.get("/lol-game-data/assets/v1/champion-summary.json") or []
-        self.by_id = {c["id"]: c for c in summ if 0 < c["id"] < 10000}
-        self.by_name = {c["name"].lower(): c["id"] for c in self.by_id.values()}
-        self.lcu, self.detail, self.lock = lcu, {}, threading.Lock()
-
-    def id(self, name):
-        return self.by_name.get(name.lower())
-
-    def name(self, cid):
-        return self.by_id.get(cid, {}).get("name", str(cid))
-
-    def brief(self, cid):
-        return {"id": cid, "name": self.name(cid)} if cid else None
-
-    def slug(self, cid):
-        return re.sub(r"[^a-z0-9]", "", self.name(cid).lower())
-
-    def info(self, cid):
-        with self.lock:
-            if cid in self.detail:
-                return self.detail[cid]
-        d = self.lcu.get(f"/lol-game-data/assets/v1/champions/{cid}.json") or {}
-        t, p = d.get("tacticalInfo", {}), d.get("playstyleInfo", {})
-        skin = (d.get("skins") or [{}])[0]
-        info = {"dmg": {"kMagic": "AP", "kPhysical": "AD"}.get(t.get("damageType"), "MIX"),
-                "damage": p.get("damage", 2), "durability": p.get("durability", 2),
-                "cc": p.get("crowdControl", 1), "mobility": p.get("mobility", 1),
-                "utility": p.get("utility", 1), "roles": d.get("roles", []),
-                "img": {"tile": skin.get("tilePath"), "splash": skin.get("uncenteredSplashPath") or skin.get("splashPath"),
-                        "icon": d.get("squarePortraitPath")}}
-        with self.lock:
-            self.detail[cid] = info
-        return info
-
-
-# ---------------------------------------------------------------- Lolalytics
 class Lolalytics:
     TIER_TTL = 6 * 3600
     COUNTER_TTL = 24 * 3600
@@ -62,13 +30,13 @@ class Lolalytics:
         self.cache = {"tiers": {}, "builds": {}, "slugs": {}}
         if os.path.exists(self.path):
             try:
-                saved = json.load(open(self.path, encoding="utf-8"))
-                saved.pop("counters", None)   # formato antiguo (solo tu linea)
+                saved = read_json(self.path, {})
+                saved.pop("counters", None)  # formato antiguo (solo tu linea)
                 self.cache.update(saved)
             except Exception:
                 pass
         self.failed, self.pending = {}, set()
-        self.slug_fallback = None   # funcion cid -> slug, hasta tener el mapa real de Lolalytics
+        self.slug_fallback = None  # funcion cid -> slug, hasta tener el mapa real de Lolalytics
         self.q, self.last_req, self.patch = queue.Queue(), 0.0, None
         threading.Thread(target=self._worker, daemon=True).start()
 
@@ -84,9 +52,7 @@ class Lolalytics:
 
     def _save(self):
         with self.lock:
-            tmp = self.path + ".tmp"
-            json.dump(self.cache, open(tmp, "w", encoding="utf-8"))
-            os.replace(tmp, self.path)
+            write_json(self.path, self.cache)
 
     # -- tier list por linea
     def refresh_tiers(self, patch, force=False):
@@ -95,18 +61,31 @@ class Lolalytics:
             t = self.cache["tiers"].get(role)
             if not force and t and t.get("patch") == patch and time.time() - t["t"] < self.TIER_TTL:
                 continue
-            url = (f"https://a1.lolalytics.com/mega/?ep=list&p=d&v=1&patch={patch}&lane={lane}"
-                   f"&tier={self.tier_name}&queue=ranked&region=all")
+            url = (
+                f"https://a1.lolalytics.com/mega/?ep=list&p=d&v=1&patch={patch}&lane={lane}"
+                f"&tier={self.tier_name}&queue=ranked&region=all"
+            )
             try:
                 d = json.loads(self._fetch(url))
                 champs = {}
                 for cid, v in d.get("cid", {}).items():
-                    champs[cid] = {"wr": v["wr"], "pr": v["pr"], "br": v["br"], "games": v["games"],
-                                   "tier": v.get("tier", 0), "rank": v.get("rank", 0), "pct": v.get("pctLane", 0)}
+                    champs[cid] = {
+                        "wr": v["wr"],
+                        "pr": v["pr"],
+                        "br": v["br"],
+                        "games": v["games"],
+                        "tier": v.get("tier", 0),
+                        "rank": v.get("rank", 0),
+                        "pct": v.get("pctLane", 0),
+                    }
                 with self.lock:
-                    self.cache["tiers"][role] = {"t": time.time(), "patch": patch, "avg": d.get("avgWr", 50.0),
-                                                 "games": sum(c["games"] for c in champs.values()) // 10,
-                                                 "champs": champs}
+                    self.cache["tiers"][role] = {
+                        "t": time.time(),
+                        "patch": patch,
+                        "avg": d.get("avgWr", 50.0),
+                        "games": sum(c["games"] for c in champs.values()) // 10,
+                        "champs": champs,
+                    }
             except Exception as e:
                 self.log(f"Lolalytics: no pude leer la tier list de {role} ({e.__class__.__name__})", "warn")
         self._save()
@@ -147,7 +126,11 @@ class Lolalytics:
             cid, role, slug = self.q.get()
             key = f"{cid}:{role}"
             try:
-                slug = self.cache["slugs"].get(str(cid)) or slug or (self.slug_fallback(cid) if self.slug_fallback else None)
+                slug = (
+                    self.cache["slugs"].get(str(cid))
+                    or slug
+                    or (self.slug_fallback(cid) if self.slug_fallback else None)
+                )
                 if not slug:
                     raise ValueError("sin slug")
                 url = f"https://lolalytics.com/lol/{slug}/build/?lane={LOLA_LANE[role]}&tier={self.tier_name}"
@@ -187,6 +170,7 @@ def _qwik(html):
                 return v
             v, depth = nv, depth - 1
         return v
+
     return objs, ref
 
 

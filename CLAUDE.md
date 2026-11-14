@@ -6,7 +6,8 @@ Incluye un simulador de draft pro (datos de gol.gg) e importación de runas (Lol
 
 Lee primero lo que necesites de: `docs/ARCHITECTURE.md` (capas, flujo, decisiones),
 `docs/ROADMAP.md` (fases y normas de Riot), `CONTRIBUTING.md`, `README.md` (fórmula y uso).
-Las tareas pendientes están en las issues de GitHub (`gh issue list`).
+Las tareas están en las issues de GitHub, por hitos (Fase 1, 2 y 3); el orden, en la issue
+fijada #28. Estrategia de datos (Lolalytics ahora, API de Riot después): `docs/DATOS.md`.
 
 ## Usuario
 - Escribe en español: responde en español; la UI y los comentarios del código también.
@@ -27,6 +28,9 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 
 ## Flujo de trabajo
 - Nunca trabajar en `main`: rama (`feat/`, `fix/`, `chore/`, `docs/`) → PR → CI verde → squash merge.
+- Una issue por chat: rama `tipo/<n>-descripcion`, PR con `Closes #n`. Al terminar, marcar la
+  casilla en #28 si la PR no la cierra sola. Issues nuevas con hito y etiquetas
+  (`datos`, `cliente`, `panel`, `normas-riot`, `infra`, `distribucion`).
 - Fusionar solo cuando el usuario lo pida. El repo es privado (NachoGarcia15/draftbot); GitHub no
   permite auto-merge en él.
 - Cada PR que cambie la app: sube `__version__` en `src/draftbot/__init__.py` (semver: `fix` →

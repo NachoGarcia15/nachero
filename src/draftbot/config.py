@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Any
 
 from draftbot import paths
+from draftbot.domain.common import ROLES
 
 TOGGLES = [
     "auto_accept",
@@ -32,12 +33,19 @@ def deep_merge(base: dict, over: dict) -> dict:
     return out
 
 
+def migrate(user: dict, defaults: dict) -> dict:
+    """Actualiza valores guardados que eran el antiguo valor por defecto."""
+    if user.get("history_queues") == [420]:  # antes solo soloq: las demas colas tambien son experiencia
+        user["history_queues"] = defaults["history_queues"]
+    return user
+
+
 def load() -> dict:
     defaults = json.loads(paths.DEFAULT_CONFIG.read_text(encoding="utf-8"))
     f = paths.config_file()
     if f.exists():
         try:
-            return deep_merge(defaults, json.loads(f.read_text(encoding="utf-8")))
+            return deep_merge(defaults, migrate(json.loads(f.read_text(encoding="utf-8")), defaults))
         except (OSError, ValueError):
             pass
     return defaults
@@ -66,6 +74,9 @@ def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
         elif k == "pick_mode" and v in ("pool", "meta"):
             cfg[k] = v
             changed.append("modo " + ("tu pool" if v == "pool" else "solo meta y draft"))
+        elif k == "main_role" and v in ("auto", *ROLES):
+            cfg[k] = v
+            changed.append("rol principal " + ("automático" if v == "auto" else v))
         elif k == "weights" and isinstance(v, dict):
             for wk, wv in v.items():
                 if wk in WEIGHT_KEYS and isinstance(wv, (int, float)) and not isinstance(wv, bool) and 0 <= wv <= 2:

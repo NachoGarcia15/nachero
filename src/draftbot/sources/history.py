@@ -4,6 +4,27 @@ import os
 
 from draftbot.jsonio import read_json, write_json
 
+LANE_ROLE = {"TOP": "top", "JUNGLE": "jungle", "MIDDLE": "middle", "MID": "middle"}
+
+
+def role_of(p: dict) -> str:
+    """Rol de una partida del historial del cliente, o "" si no se puede saber.
+
+    El cliente da `timeline.lane`/`timeline.role` (a veces "NONE"): Smite manda; despues la linea;
+    en la linea de abajo (o sin linea), el rol SUPPORT es support.
+    """
+    tl = p.get("timeline", {})
+    lane, role = tl.get("lane", ""), tl.get("role", "")
+    if 11 in (p.get("spell1Id"), p.get("spell2Id")):
+        return "jungle"
+    if lane in LANE_ROLE:
+        return LANE_ROLE[lane]
+    if "SUPPORT" in role:
+        return "utility"
+    if lane == "BOTTOM":
+        return "bottom"
+    return ""
+
 
 def load_history(lcu, cache_path, queues, log):
     cache = {}
@@ -26,14 +47,8 @@ def load_history(lcu, cache_path, queues, log):
         if g["queueId"] not in queues or g["gameDuration"] <= 300:
             continue
         p = g["participants"][0]
-        s, tl = p["stats"], p.get("timeline", {})
-        role = (
-            "jungle"
-            if 11 in (p["spell1Id"], p["spell2Id"])
-            else {"TOP": "top", "MIDDLE": "middle", "MID": "middle"}.get(tl.get("lane"), "")
-        )
-        if not role and tl.get("lane") == "BOTTOM":
-            role = "utility" if "SUPPORT" in tl.get("role", "") else "bottom"
+        s = p["stats"]
+        role = role_of(p)
         if not role:
             continue
         m = g["gameDuration"] / 60

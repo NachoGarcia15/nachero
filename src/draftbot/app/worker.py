@@ -12,7 +12,7 @@ from draftbot.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
 from draftbot.clients.cdragon import CDragon
 from draftbot.clients.lcu import LCU
 from draftbot.config import CFG
-from draftbot.domain.common import ROLE_ES
+from draftbot.domain.common import ROLE_ES, ROLES
 from draftbot.domain.common import tier_name as TIER
 from draftbot.domain.engine import Engine
 from draftbot.domain.player import Player
@@ -25,9 +25,9 @@ from draftbot.sources.lolalytics import Lolalytics
 
 
 def pool_rows(engine, champs):
-    p = engine.player
-    keys = {(c, r) for (c, r), gs in p.by_cr.items() if len(gs) >= 2 or r == p.main_role}
-    t_main = engine.lola.tier(p.main_role)
+    p, main = engine.player, engine.main_role()
+    keys = {(c, r) for (c, r), gs in p.by_cr.items() if len(gs) >= 2 or r == main}
+    t_main = engine.lola.tier(main)
     for cid, m in p.mastery.items():
         if (
             m.get("championPoints", 0) >= 80000
@@ -35,7 +35,7 @@ def pool_rows(engine, champs):
             and str(cid) in t_main["champs"]
             and t_main["champs"][str(cid)]["games"] >= 1500
         ):
-            keys.add((cid, p.main_role))
+            keys.add((cid, main))
     rows = []
     for cid, role in keys:
         you = p.components(cid, role)
@@ -174,16 +174,19 @@ def run_session():
         patch=patch,
         pro=ProEngine(champs, lola, engine, gol()),
     )
-    for r in engine.picks(player.main_role, set(), set(), [], [])[0][:10]:
-        lola.request(r["id"], player.main_role, champs.slug(r["id"]))
+    main = engine.main_role()
+    for r in engine.picks(main, set(), set(), [], [])[0][:10]:
+        lola.request(r["id"], main, champs.slug(r["id"]))
     with LOCK:
         APP["connected"], APP["offline"], APP["rank"], APP["loading"] = online, not online, rank, False
         APP["pool"], APP["refresh_idle"] = [], True
-    log(f"Listo · rol principal {ROLE_ES[player.main_role]} · {len(player.games)} partidas de soloq analizadas", "ok")
+    roles = ", ".join(f"{ROLE_ES[r]} {n}" for r, n in sorted(player.role_games.items(), key=lambda x: -x[1]))
+    log(f"Listo · rol principal {ROLE_ES[main]} · {len(player.games)} partidas analizadas ({roles or 'ninguna'})", "ok")
 
     draft = Draft(lcu, champs, engine, RuneImporter(src))
     demo = Demo(champs) if OPTS["demo"] else None
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
+    fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
     while True:
         mode = APP["mode"]
         if not online:
@@ -194,8 +197,14 @@ def run_session():
             phase = "ChampSelect" if OPTS["demo"] else None
         else:
             try:
-                phase = "ChampSelect" if OPTS["demo"] else lcu.get("/lol-gameflow/v1/gameflow-phase")
-            except Exception:
+                phase = "ChampSelect" if OPTS["demo"] else lcu.get("/lol-gameflow/v1/gameflow-phase", timeout=10)
+                fails = 0
+            except Exception as e:
+                fails += 1
+                if fails < 4:
+                    log(f"El cliente no responde ({e.__class__.__name__}); reintento…", "warn")
+                    time.sleep(1)
+                    continue
                 with LOCK:
                     APP["connected"], APP["phase"] = False, None
                 raise Restart("Cliente desconectado") from None
@@ -219,9 +228,17 @@ def run_session():
         if (time.time() - last_idle > 20 or APP.get("refresh_idle")) and phase != "ChampSelect":
             last_idle = time.time()
             APP["refresh_idle"] = False
-            picks = engine.picks(player.main_role, set(), set(), [], [])[0][:5]
+            main = engine.main_role()
+            picks = engine.picks(main, set(), set(), [], [])[0][:5]
+            for p in picks:
+                lola.matchups(p["id"], main)  # deja listos sus matchups y runas
             with LOCK:
-                APP["idle"] = {"role_es": ROLE_ES[player.main_role], "picks": picks}
+                APP["idle"] = {
+                    "role": main,
+                    "role_es": ROLE_ES[main],
+                    "auto": CFG.get("main_role", "auto") not in ROLES,
+                    "picks": picks,
+                }
                 APP["pool"] = pool_rows(engine, champs)
         if not APP["pool"]:
             with LOCK:

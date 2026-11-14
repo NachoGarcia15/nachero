@@ -31,7 +31,8 @@ class Draft:
         ch, eng = self.champs, self.engine
         me = s["localPlayerCellId"]
         my = next((m for m in s["myTeam"] if m["cellId"] == me), {})
-        role = my.get("assignedPosition") or eng.player.main_role
+        # el rol que te asigna el cliente; en colas sin roles (blind, practice tool), tu rol principal
+        role = my.get("assignedPosition") or eng.main_role()
         acts = [a for grp in s["actions"] for a in grp]
         bans_ally = [
             a["championId"]

@@ -12,6 +12,24 @@ from draftbot.app.state import APP, OPTS, log, setup_logging
 from draftbot.config import CFG
 
 
+def disable_quick_edit() -> None:
+    """En la consola de Windows, hacer clic en la ventana la deja en modo seleccion y congela
+    cualquier print(): draftbot dejaria de aceptar partidas y de seguir la champ select."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        k32 = ctypes.windll.kernel32
+        handle = k32.GetStdHandle(-10)  # STD_INPUT_HANDLE
+        mode = ctypes.c_uint32()
+        if k32.GetConsoleMode(handle, ctypes.byref(mode)):
+            # sin ENABLE_QUICK_EDIT_MODE (0x40); ENABLE_EXTENDED_FLAGS (0x80) hace que se aplique
+            k32.SetConsoleMode(handle, (mode.value & ~0x40) | 0x80)
+    except Exception:
+        pass
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="draftbot", description="Asistente de draft para League of Legends.")
     p.add_argument("--observe", action="store_true", help="arranca en modo Observar (no actúa en el cliente)")
@@ -54,6 +72,7 @@ def main(argv=None):
     with contextlib.suppress(AttributeError, ValueError):
         sys.stdout.reconfigure(encoding="utf-8")
     args = parse_args(argv)
+    disable_quick_edit()
     setup_logging()
     moved = paths.migrate_legacy()
     config.init()

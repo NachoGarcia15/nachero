@@ -252,7 +252,9 @@ function renderIdle(el, idle, s) {
   const picks = (idle && idle.picks) || [];
   el.innerHTML = `<div class="idle">
     <h1>${paused ? "draftbot está en pausa" : "Esperando a la selección de campeón"}</h1>
-    <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · actuará según tus ajustes" : " · solo recomendará, sin tocar el cliente"}</p>
+    <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · actuará según tus ajustes" : " · modo Observar: solo recomienda, no acepta la partida ni toca el cliente"}</p>
+    ${idle ? `<div class="idle-role"><span>Tu rol</span>${roleSwitch(idle, s.main_role)}
+      <small>${idle.auto ? "Automático: el que más juegas." : "Fijado por ti."} En la selección de campeón manda el rol que te asigne el cliente.</small></div>` : ""}
     ${picks.length ? `
       <div class="block-head"><h3>Si entras ahora de ${esc(idle.role_es)}, a ciegas</h3>${modeSwitch(s.pick_mode)}</div>
       <div class="idle-grid">${picks.map((p) => `
@@ -264,6 +266,15 @@ function renderIdle(el, idle, s) {
       : "Con tu pool: suma tu experiencia, forma y resultados con cada campeón a su fuerza en Master+ este parche."}</p>
   </div>`;
   bindModeSwitch(el);
+  el.querySelectorAll(".roleswitch button").forEach((b) => (b.onclick = () => post("/api/settings", { main_role: b.dataset.role })));
+}
+
+const ROLE_BTNS = [["top", "Top"], ["jungle", "Jungla"], ["middle", "Mid"], ["bottom", "ADC"], ["utility", "Support"]];
+function roleSwitch(idle, chosen) {
+  const auto = !chosen || chosen === "auto";
+  return `<div class="seg seg-sm roleswitch" role="radiogroup" aria-label="Tu rol">
+    <button data-role="auto" class="${auto ? "on" : ""}">Auto${auto ? " · " + esc(idle.role_es) : ""}</button>
+    ${ROLE_BTNS.map(([r, t]) => `<button data-role="${r}" class="${!auto && chosen === r ? "on" : ""}">${t}</button>`).join("")}</div>`;
 }
 
 /* ------------------------------------------------------------------ pool */
@@ -397,7 +408,7 @@ async function poll() {
     const s = await (await fetch("/api/state")).json();
     STATE = s;
     renderHeader(s);
-    once("draft", [s.draft, s.idle, { connected: s.connected || s.offline, offline: s.offline, loading: s.loading, mode: s.mode,
+    once("draft", [s.draft, s.idle, { connected: s.connected || s.offline, offline: s.offline, loading: s.loading, mode: s.mode, main_role: (s.settings || {}).main_role,
       phase_es: s.offline ? "Cliente cerrado · datos guardados" : s.phase_es, pick_mode: s.settings.pick_mode }], renderDraft);
     once("pool", s.pool, renderPool);
     once("log", s.log, renderLog);

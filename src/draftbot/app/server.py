@@ -55,6 +55,7 @@ class Handler(BaseHTTPRequestHandler):
                 "weights": CFG.get("weights", {}),
                 "pick_mode": CFG.get("pick_mode", "pool"),
                 "runes_source": CFG.get("runes_source", "pick"),
+                "main_role": CFG.get("main_role", "auto"),
             }
             return self.send(200, st)
         if path == "/api/pro/tournaments":

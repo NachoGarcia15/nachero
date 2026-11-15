@@ -54,13 +54,14 @@ def test_clasifica_la_cola(f, kind, name):
 
 
 # sesiones reales del cliente (parche 16.22, solo `gameData.queue` y `map`, sin datos personales):
-# en personalizadas y Practice Tool la cola llega completa, con su propio id
+# la cola llega completa, con su propio id (también en ARAM por cola, 450)
 @pytest.mark.parametrize(
     ("fichero", "kind", "qid", "name"),
     [
         ("gameflow_practice.json", "blind", 3140, "Herramienta de práctica"),
         ("gameflow_custom.json", "blind", 3100, "Personalizada"),
         ("gameflow_custom_aram.json", "other", 3220, "Personalizada · ARAM"),
+        ("gameflow_aram.json", "other", 450, "ARAM"),
     ],
 )
 def test_clasifica_sesiones_reales_del_cliente(fichero, kind, qid, name):

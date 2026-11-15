@@ -49,7 +49,8 @@ def classify(flow: dict | None) -> dict:
     fmap = flow.get("map") or {}
     qid = queue.get("id")
     qid = qid if isinstance(qid, int) else -1
-    # en personalizadas la cola viene casi vacia: el mapa y el modo estan en `map`
+    # personalizadas (3100) y Practice Tool (3140) traen la cola completa; si llegara casi
+    # vacia, el mapa y el modo tambien estan en `map`
     map_id = queue.get("mapId") or fmap.get("id") or 0
     mode = (queue.get("gameMode") or fmap.get("gameMode") or "").upper()
     custom = bool(game.get("isCustomGame"))

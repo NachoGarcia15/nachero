@@ -1,5 +1,8 @@
 """Tipo de cola: draft, a ciegas o fuera de la Grieta (y que en este ultimo no se toque el cliente)."""
 
+import json
+from pathlib import Path
+
 import pytest
 
 from draftbot.app.draft import Draft
@@ -7,6 +10,8 @@ from draftbot.app.worker import champ_select_view
 from draftbot.config import CFG
 from draftbot.domain.queues import classify, has_bans
 from test_roles_conexion import _engine, _game, session
+
+DATA = Path(__file__).parent / "data"
 
 
 def flow(qid=-1, map_id=11, mode="CLASSIC", custom=False, desc="", fmap=None):
@@ -31,7 +36,7 @@ def flow(qid=-1, map_id=11, mode="CLASSIC", custom=False, desc="", fmap=None):
         (flow(700), "draft", "Clash"),
         (flow(430), "blind", "Normal (a ciegas)"),
         (flow(490), "blind", "Partida rápida"),
-        # personalizadas: la cola llega casi vacia y el mapa va en `map`
+        # por si una personalizada llega con la cola casi vacia: el mapa va en `map`
         (flow(-1, 0, "", custom=True, fmap={"id": 11, "gameMode": "CLASSIC"}), "blind", "Personalizada"),
         (flow(-1, 0, "", custom=True, fmap={"id": 11, "gameMode": "PRACTICETOOL"}), "blind", "Herramienta de práctica"),
         (flow(-1, 11, "PRACTICETOOL"), "blind", "Herramienta de práctica"),
@@ -46,6 +51,20 @@ def flow(qid=-1, map_id=11, mode="CLASSIC", custom=False, desc="", fmap=None):
 def test_clasifica_la_cola(f, kind, name):
     q = classify(f)
     assert (q["kind"], q["name"]) == (kind, name)
+
+
+# sesiones reales del cliente (parche 16.22, solo `gameData.queue` y `map`, sin datos personales):
+# en personalizadas y Practice Tool la cola llega completa, con su propio id
+@pytest.mark.parametrize(
+    ("fichero", "qid", "name"),
+    [
+        ("gameflow_practice.json", 3140, "Herramienta de práctica"),
+        ("gameflow_custom.json", 3100, "Personalizada"),
+    ],
+)
+def test_clasifica_sesiones_reales_del_cliente(fichero, qid, name):
+    real = json.loads((DATA / fichero).read_text(encoding="utf-8"))
+    assert classify(real) == {"kind": "blind", "id": qid, "name": name}
 
 
 @pytest.mark.parametrize("f", [None, {}, {"gameData": {}}, "texto", {"gameData": {"queue": {"id": -1}}}])

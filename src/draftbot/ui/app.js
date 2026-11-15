@@ -292,6 +292,18 @@ const POOL_COLS = [
   ["you", "Tú"], ["tier", "Tier"], ["meta", "Meta"], ["est", "Estimado"],
 ];
 
+// El cliente solo da tus ultimas 200 partidas de cualquier cola: explica por que el pool
+// puede sumar menos partidas que las victorias y derrotas de la cabecera.
+function historyNote(h) {
+  if (!h || !h.games) return "";
+  const since = h.since ? new Date(h.since).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "";
+  let txt = `${nf0.format(h.games)} partidas de soloq, flex y normales${since ? ` desde el ${esc(since)}` : ""}.`;
+  if (h.missing > 0) {
+    txt += ` Tu ranked de la temporada tiene ${nf0.format(h.season)}: el cliente solo guarda tus últimas ${h.client_limit} partidas de cualquier modo y las anteriores no se pueden leer. Desde ahora draftbot guarda todas las que juegues.`;
+  }
+  return `<p class="pool-note">${txt}</p>`;
+}
+
 function renderPool(rows) {
   const el = $("#view-pool");
   if (!rows || !rows.length) {
@@ -307,7 +319,7 @@ function renderPool(rows) {
   });
   el.innerHTML = `
     <div class="pool-head">
-      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol: tu experiencia y resultados con él, más su fuerza en Master+ este parche.</p></div>
+      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol: tu experiencia y resultados con él, más su fuerza en Master+ este parche.</p>${historyNote(STATE.history)}</div>
       <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos</button>${roles.map((r) => `<button data-r="${esc(r)}" class="${POOL_ROLE === r ? "on" : ""}">${esc(r)}</button>`).join("")}</div>
     </div>
     <div class="tablewrap"><table>

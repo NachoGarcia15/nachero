@@ -53,6 +53,7 @@ APP: dict = {
     "idle": None,
     "rank": None,
     "pool": [],
+    "history": None,
     "log": deque(maxlen=200),
     "demo": False,
     "data": {},

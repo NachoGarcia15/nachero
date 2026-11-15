@@ -33,6 +33,21 @@ class Player:
             self.by_c[g["champ"]].append(g)
         self.now_ms = time.time() * 1000
 
+    def history_summary(self, rank=None):
+        """Cuantas partidas tiene el pool y desde cuando, frente a tu ranked de la temporada.
+
+        El cliente solo da tus ultimas 200 partidas de cualquier cola, asi que el pool puede tener
+        menos partidas que la cabecera (victorias y derrotas de soloq de toda la temporada).
+        """
+        season = (rank["w"] + rank["l"]) if rank else None
+        return {
+            "games": len(self.games),
+            "since": min((g["t"] for g in self.games), default=None),
+            "season": season,
+            "missing": max(0, season - len(self.games)) if season is not None else 0,
+            "client_limit": 200,
+        }
+
     def exp_games(self, cid):
         """Partidas equivalentes de experiencia: recientes + maestria historica (~700 puntos por partida)."""
         pts = self.mastery.get(cid, {}).get("championPoints", 0)

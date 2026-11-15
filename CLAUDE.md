@@ -31,7 +31,7 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 - Una issue por chat: rama `tipo/<n>-descripcion`, PR con `Closes #n`. Al terminar, marcar la
   casilla en #28 si la PR no la cierra sola. Issues nuevas con hito y etiquetas
   (`datos`, `cliente`, `panel`, `normas-riot`, `infra`, `distribucion`).
-- Fusionar solo cuando el usuario lo pida. El repo es privado (NachoGarcia15/draftbot); GitHub no
+- Fusionar solo cuando el usuario lo pida. El repo es privado (NachoGarcia15/nachero); GitHub no
   permite auto-merge en él.
 - Cada PR que cambie la app: sube `__version__` en `src/nachero/__init__.py` (semver: `fix` →
   parche, `feat` → menor) y añade su entrada en `CHANGELOG.md`. Eso no publica nada.

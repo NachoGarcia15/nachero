@@ -17,6 +17,7 @@ from draftbot.app.state import APP, CTX, LOCK, PHASE_ES, log
 from draftbot.app.status import diagnostics, empty_states
 from draftbot.app.worker import gol
 from draftbot.config import CFG, TOGGLES
+from draftbot.domain.policy import GAME_DECISIONS, mode_help
 
 
 def snapshot() -> dict:
@@ -80,6 +81,8 @@ class Handler(BaseHTTPRequestHandler):
                 "runes_source": CFG.get("runes_source", "pick"),
                 "main_role": CFG.get("main_role", "auto"),
             }
+            st["modes"] = mode_help(CFG)
+            st["game_decisions"] = list(GAME_DECISIONS)
             return self.send(200, st)
         if path == "/api/pro/tournaments":
             try:

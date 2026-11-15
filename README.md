@@ -43,11 +43,18 @@ Si lo instalas (`pip install -e .`), el comando es `draftbot` con las mismas opc
 Si draftbot ya está abierto, volver a ejecutarlo abre el panel existente.
 
 ## Modos
-- **Pausado**: no analiza ni actúa.
-- **Observar** (el modo con el que arranca): recomienda y dice qué haría, sin tocar el cliente.
-  No acepta la partida: para eso, pasa a **Activo**.
-- **Activo**: actúa según los interruptores del panel de ajustes (aceptar partida, banear,
-  marcar pick, confirmar pick, hechizos, abrir Coachless).
+- **Pausado**: no analiza ni actúa: ni recomienda ni toca el cliente.
+- **Observar** (el modo con el que arranca): recomienda y dice qué haría, sin tocar el cliente
+  (solo lee la selección de campeón y tu historial). No acepta la partida: para eso, pasa a **Activo**.
+- **Activo**: actúa según los interruptores del panel de ajustes (aceptar partida, hechizos,
+  importar runas, abrir Coachless y, si los activas, banear, marcar pick y confirmar pick).
+
+El panel explica cada modo bajo la barra superior y en Ajustes, con lo que tocará en el cliente
+según tus interruptores.
+
+**Banear, marcar pick y confirmar pick vienen desactivados**: deciden por ti, y las normas de Riot
+no aceptan apps que tomen decisiones de juego por el jugador. Si ya los tenías activados, draftbot
+respeta tus ajustes guardados.
 
 ## Roles
 En la selección de campeón recomienda para el rol que te asigna el cliente, sea cual sea.

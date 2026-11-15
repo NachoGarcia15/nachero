@@ -1,17 +1,39 @@
 """Servidor HTTP local del panel (solo escucha en 127.0.0.1)."""
 
+import contextlib
+import getpass
 import json
 import mimetypes
+import platform
 import re
 import threading
 import urllib.parse
 from collections import deque
 from http.server import BaseHTTPRequestHandler
+from pathlib import Path
 
-from draftbot import config, paths
+from draftbot import __version__, config, paths
 from draftbot.app.state import APP, CTX, LOCK, PHASE_ES, log
+from draftbot.app.status import diagnostics, empty_states
 from draftbot.app.worker import gol
 from draftbot.config import CFG, TOGGLES
+
+
+def snapshot() -> dict:
+    """Copia del estado de la app para el panel (las colas pasan a listas)."""
+    with LOCK:
+        st: dict = {k: (list(v) if isinstance(v, deque) else v) for k, v in APP.items()}
+    st["phase_es"] = PHASE_ES.get(st["phase"], st["phase"])
+    st["empty"] = empty_states(st)
+    return st
+
+
+def private_words() -> tuple[str, ...]:
+    """Textos que no deben salir en un diagnóstico: el usuario del sistema y su carpeta."""
+    words = [Path.home().name]
+    with contextlib.suppress(Exception):
+        words.append(getpass.getuser())
+    return tuple(words)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -46,10 +68,11 @@ class Handler(BaseHTTPRequestHandler):
         if static:
             ctype = mimetypes.guess_type(static.name)[0] or "text/plain"
             return self.send(200, static.read_bytes(), ctype + "; charset=utf-8")
+        if path == "/api/diagnostics":
+            text = diagnostics(snapshot(), __version__, platform.platform(), paths.FROZEN, private_words())
+            return self.send(200, text, "text/plain; charset=utf-8")
         if path == "/api/state":
-            with LOCK:
-                st = {k: (list(v) if isinstance(v, deque) else v) for k, v in APP.items()}
-            st["phase_es"] = PHASE_ES.get(st["phase"], st["phase"])
+            st = snapshot()
             st["settings"] = {k: CFG[k] for k in TOGGLES} | {
                 "lock_when_seconds_left": CFG["lock_when_seconds_left"],
                 "weights": CFG.get("weights", {}),
@@ -141,7 +164,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(500, {"error": str(e)})
         if self.path == "/api/refresh":
             lola, patch = CTX.get("lola"), CTX.get("patch")
-            if lola:
+            if lola and patch:
                 threading.Thread(
                     target=lambda: (
                         lola.refresh_tiers(patch, force=True),

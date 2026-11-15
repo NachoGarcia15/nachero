@@ -39,11 +39,35 @@ window.addEventListener("DOMContentLoaded", () => {
   try { const v = localStorage.getItem("draftbot.view"); if (v) setView(v); } catch (_) {}
 });
 
+/* Qué falta para mostrar algo (códigos de `app/status.py: empty_states`). */
+const EMPTY = {
+  platform: (s) => ["draftbot necesita Windows",
+    `Estás en ${esc((s.platform || {}).name || "otro sistema")}: draftbot solo puede leer el cliente de LoL en Windows. Descarga draftbot.exe y ábrelo en Windows con el cliente abierto.`],
+  no_champions: () => ["Sin datos de campeones",
+    "No encuentro el cliente de LoL ni puedo descargar los datos de CommunityDragon. Abre el cliente o comprueba la conexión a internet: reintento solo."],
+  loading: () => ["Cargando", "Leyendo tu historial y las estadísticas Master+…"],
+  no_client: () => ["Abre el cliente de League of Legends",
+    "Sin el cliente no puedo leer tus partidas y no hay ninguna guardada. Cuando lo abras me conecto solo."],
+  no_games: () => ["Sin partidas en tu historial",
+    "El cliente no tiene partidas tuyas de soloq, flex o normales en la Grieta. Juega alguna y tu pool aparecerá aquí."],
+  no_patch: () => ["No sé cuál es el parche actual",
+    "Sin el cliente ni internet no puedo saberlo, así que no hay estadísticas Master+. Abre el cliente o comprueba la conexión."],
+  no_data: (s) => ["Sin estadísticas Master+",
+    `No he podido descargar las estadísticas de Lolalytics del parche ${esc(s.patch || "")}. Comprueba la conexión a internet y pulsa «Actualizar ahora» en Ajustes.`],
+};
+function emptyState(code, s) {
+  const [title, text] = (EMPTY[code] || EMPTY.loading)(s || {});
+  return `<div class="empty-state"><h2>${title}</h2><p>${text}</p></div>`;
+}
+
 function renderHeader(s) {
   const conn = $("#conn");
+  const noWin = s.platform && !s.platform.supported;
   conn.classList.toggle("ok", !!s.connected);
   conn.classList.toggle("off", !!s.offline);
-  conn.querySelector("span").textContent = s.loading ? "Cargando datos" : s.offline ? "Cliente cerrado" : !s.connected ? "Esperando al cliente" : s.phase_es || "Conectado";
+  conn.querySelector("span").textContent = noWin && !s.connected ? "Necesita Windows" : s.loading ? "Cargando datos" : s.offline ? "Cliente cerrado" : !s.connected ? "Esperando al cliente" : s.phase_es || "Conectado";
+  $("#platform").hidden = !noWin;
+  if (noWin) $("#platform").textContent = `draftbot necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga draftbot.exe y ábrelo en Windows.`;
   $("#rank").innerHTML = s.rank ? `<b>${esc(s.rank.tier)}</b> · ${s.rank.lp} LP · ${s.rank.w}V ${s.rank.l}D` : "";
   $("#demo").hidden = !s.demo;
   document.querySelectorAll("#modes button").forEach((b) => {
@@ -162,6 +186,7 @@ function subline(p) {
 
 function renderDraft([d, idle, s]) {
   const el = $("#view-draft");
+  if (s.empty && s.empty !== "loading") { el.innerHTML = emptyState(s.empty, s); return; }
   if (!s.connected || s.loading) {
     el.innerHTML = `<div class="loading">${s.connected ? "Cargando tu historial y las estadísticas Master+…" : "Abre el cliente de League of Legends."}</div>`;
     return;
@@ -307,7 +332,8 @@ function historyNote(h) {
 function renderPool(rows) {
   const el = $("#view-pool");
   if (!rows || !rows.length) {
-    el.innerHTML = `<div class="loading">Calculando tu pool…</div>`;
+    const why = STATE && STATE.empty && STATE.empty.pool;
+    el.innerHTML = why ? emptyState(why, STATE) : `<div class="loading">Calculando tu pool…</div>`;
     return;
   }
   const roles = [...new Set(rows.map((r) => r.role))];
@@ -345,8 +371,32 @@ function renderPool(rows) {
 
 /* ------------------------------------------------------------------ actividad */
 function renderLog(items) {
-  $("#view-log").innerHTML = `<div class="log"><h1>Actividad</h1>${items.map((l) => `<div class="log-item ${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
+  $("#view-log").innerHTML = `<div class="log"><div class="log-head"><h1>Actividad</h1>
+    <div><small id="diag-msg" role="status"></small><button class="btn" id="diag">Copiar diagnóstico</button></div></div>${items.map((l) => `<div class="log-item ${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
 }
+
+// Versión, sistema, fase, conexión, parche y log reciente, sin datos personales (lo limpia el servidor)
+async function copyDiagnostics() {
+  const msg = $("#diag-msg");
+  try {
+    const text = await (await fetch("/api/diagnostics")).text();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    msg.textContent = "Copiado: pégalo en tu mensaje";
+  } catch (_) {
+    msg.textContent = "No he podido copiarlo";
+  }
+  setTimeout(() => { if ($("#diag-msg")) $("#diag-msg").textContent = ""; }, 4000);
+}
+$("#view-log").addEventListener("click", (e) => { if (e.target.id === "diag") copyDiagnostics(); });
 
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [
@@ -402,9 +452,10 @@ function ago(ts) {
   return m < 1 ? "ahora mismo" : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`;
 }
 
-function renderData(dt) {
+function renderData(dt, why) {
+  if (why && why !== "no_data") { $("#datainfo").innerHTML = emptyState(why, STATE).replace("empty-state", "empty-state small"); return; }
   if (!dt || !dt.patch) { $("#datainfo").textContent = "Cargando…"; return; }
-  $("#datainfo").innerHTML = `
+  $("#datainfo").innerHTML = `${why ? `<p class="warn-line">${EMPTY.no_data(STATE)[1]}</p>` : ""}
     Lolalytics · ${esc(dt.tier)} · parche ${esc(dt.patch)}<br>
     ${nf0.format(dt.games)} partidas analizadas por rol<br>
     Matchups en caché: ${dt.counters}${dt.pending ? ` · descargando ${dt.pending}` : ""}<br>
@@ -429,12 +480,14 @@ async function poll() {
     const s = await (await fetch("/api/state")).json();
     STATE = s;
     renderHeader(s);
+    const empty = s.empty || {};
     once("draft", [s.draft, s.idle, { connected: s.connected || s.offline, offline: s.offline, loading: s.loading, mode: s.mode, main_role: (s.settings || {}).main_role,
-      phase_es: s.offline ? "Cliente cerrado · datos guardados" : s.phase_es, pick_mode: s.settings.pick_mode }], renderDraft);
-    once("pool", s.pool, renderPool);
+      phase_es: s.offline ? "Cliente cerrado · datos guardados" : s.phase_es, pick_mode: s.settings.pick_mode,
+      empty: empty.draft, platform: s.platform }], renderDraft);
+    once("pool", [s.pool, empty.pool], () => renderPool(s.pool));
     once("log", s.log, renderLog);
     once("settings", s.settings, renderSettings);
-    once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60) }, () => renderData(s.data));
+    once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
   } catch (_) {
     const conn = $("#conn");
     conn.classList.remove("ok");

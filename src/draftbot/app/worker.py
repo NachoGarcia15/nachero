@@ -9,7 +9,7 @@ from draftbot.app.demo import Demo
 from draftbot.app.draft import Draft
 from draftbot.app.runes import RuneImporter
 from draftbot.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
-from draftbot.clients.cdragon import CDragon
+from draftbot.clients.cdragon import CDragon, latest_patch
 from draftbot.clients.lcu import LCU
 from draftbot.config import CFG
 from draftbot.domain.common import ROLE_ES, ROLES
@@ -73,11 +73,25 @@ def data_status(lola, patch):
     }
 
 
-def current_patch(lcu, games):
-    v = lcu.get("/lol-patch/v1/game-version")
+def fallback_patch():
+    """Parche actual sin cliente: Data Dragon o CommunityDragon, con caché."""
+    return latest_patch(paths.cache_dir() / "patch.json")
+
+
+def current_patch(lcu, games, fallback=fallback_patch):
+    """Parche del cliente; si no lo da, el de tu última partida y, si no hay, el de internet."""
+    try:
+        v = lcu.get("/lol-patch/v1/game-version")
+    except Exception:
+        v = None
     if isinstance(v, str) and re.match(r"\d+\.\d+", v):
         return ".".join(v.split(".")[:2])
-    return games[0]["patch"] if games else "30"
+    return games[0]["patch"] if games else fallback()
+
+
+def offline_patch(games, fallback=fallback_patch):
+    """Sin cliente: el parche de internet (tu última partida puede ser de un parche viejo)."""
+    return fallback() or (games[0]["patch"] if games else None)
 
 
 QUEUE_LOG = {
@@ -149,7 +163,12 @@ def run_session():
     src = lcu if online else CDragon()
     champs = Champs(src)
     if not champs.by_id:
-        raise Restart("Sin datos de campeones; reintento…")
+        with LOCK:
+            APP["issue"] = "no_champions"
+        time.sleep(10)
+        raise Restart("Sin datos de campeones (ni cliente ni CommunityDragon); reintento…")
+    with LOCK:
+        APP["issue"] = None
     try:
         pcache = read_json(paths.player_file(), {})
     except Exception:
@@ -179,7 +198,7 @@ def run_session():
         except Exception:
             games = []
         mastery, rank = pcache.get("mastery", []), pcache.get("rank")
-        patch = games[0]["patch"] if games else "30"
+        patch = offline_patch(games)
         log(
             "Cliente de LoL cerrado: uso datos guardados y CommunityDragon" + (" · modo demo" if OPTS["demo"] else ""),
             "warn",
@@ -187,8 +206,11 @@ def run_session():
     player = Player(games, mastery)
     lola = Lolalytics(str(paths.cache_dir()), log)
     lola.slug_fallback = champs.slug
-    log(f"Leyendo estadísticas Master+ del parche {patch}…")
-    lola.refresh_tiers(patch)
+    if patch:
+        log(f"Leyendo estadísticas Master+ del parche {patch}…")
+        lola.refresh_tiers(patch)
+    else:
+        log("No sé cuál es el parche actual (sin cliente ni internet): sin estadísticas Master+", "warn")
     engine = Engine(champs, lola, player, CFG)
     CTX.update(
         lcu=lcu,
@@ -206,6 +228,7 @@ def run_session():
         APP["connected"], APP["offline"], APP["rank"], APP["loading"] = online, not online, rank, False
         APP["pool"], APP["refresh_idle"] = [], True
         APP["history"] = player.history_summary(rank)
+        APP["games"], APP["patch"] = len(player.games), patch
     roles = ", ".join(f"{ROLE_ES[r]} {n}" for r, n in sorted(player.role_games.items(), key=lambda x: -x[1]))
     log(f"Listo · rol principal {ROLE_ES[main]} · {len(player.games)} partidas analizadas ({roles or 'ninguna'})", "ok")
 
@@ -221,6 +244,8 @@ def run_session():
                 last_probe = time.time()
                 if client_ready(LCU()):
                     raise Restart("Cliente de LoL detectado: me conecto")
+                if not patch and fallback_patch():
+                    raise Restart("Parche actual encontrado: cargo las estadísticas")
             phase = "ChampSelect" if OPTS["demo"] else None
         else:
             try:
@@ -247,6 +272,7 @@ def run_session():
                 )
                 with LOCK:
                     APP["history"] = player.history_summary(APP.get("rank"))
+                    APP["games"] = len(player.games)
             if phase != "ChampSelect":
                 with LOCK:
                     APP["draft"] = None

@@ -7,15 +7,15 @@ import threading
 import webbrowser
 from http.server import ThreadingHTTPServer
 
-from draftbot import __version__, config, paths
-from draftbot.app.state import APP, OPTS, log, setup_logging
-from draftbot.app.status import platform_info, platform_warning
-from draftbot.config import CFG
+from nachero import __version__, config, paths
+from nachero.app.state import APP, OPTS, log, setup_logging
+from nachero.app.status import platform_info, platform_warning
+from nachero.config import CFG
 
 
 def disable_quick_edit() -> None:
     """En la consola de Windows, hacer clic en la ventana la deja en modo seleccion y congela
-    cualquier print(): draftbot dejaria de aceptar partidas y de seguir la champ select."""
+    cualquier print(): Nachero dejaria de aceptar partidas y de seguir la champ select."""
     if sys.platform != "win32":
         return
     try:
@@ -32,24 +32,24 @@ def disable_quick_edit() -> None:
 
 
 def parse_args(argv=None):
-    p = argparse.ArgumentParser(prog="draftbot", description="Asistente de draft para League of Legends.")
+    p = argparse.ArgumentParser(prog="nachero", description="Asistente de draft para League of Legends.")
     p.add_argument("--observe", action="store_true", help="arranca en modo Observar (no actúa en el cliente)")
     p.add_argument("--demo", action="store_true", help="champ select simulado para ver el panel")
     p.add_argument("--no-browser", action="store_true", help="no abre el navegador al arrancar")
     p.add_argument("--profile", action="store_true", help="muestra tu pool en consola y sale")
     p.add_argument("--port", type=int, default=None, help="puerto del panel (por defecto, el de los ajustes)")
-    p.add_argument("--version", action="version", version=f"draftbot {__version__}")
+    p.add_argument("--version", action="version", version=f"Nachero {__version__}")
     return p.parse_args(argv)
 
 
 def print_profile():
-    from draftbot.app.worker import current_patch, pool_rows
-    from draftbot.clients.lcu import LCU
-    from draftbot.domain.engine import Engine
-    from draftbot.domain.player import Player
-    from draftbot.sources.champions import Champs
-    from draftbot.sources.history import load_history
-    from draftbot.sources.lolalytics import Lolalytics
+    from nachero.app.worker import current_patch, pool_rows
+    from nachero.clients.lcu import LCU
+    from nachero.domain.engine import Engine
+    from nachero.domain.player import Player
+    from nachero.sources.champions import Champs
+    from nachero.sources.history import load_history
+    from nachero.sources.lolalytics import Lolalytics
 
     lcu = LCU()
     if not lcu.connect():
@@ -70,7 +70,7 @@ def print_profile():
 
 
 def main(argv=None):
-    """Arranca draftbot. En el ejecutable, si algo falla al arrancar, la ventana no se cierra sola."""
+    """Arranca Nachero. En el ejecutable, si algo falla al arrancar, la ventana no se cierra sola."""
     try:
         run(argv)
     except (KeyboardInterrupt, SystemExit):
@@ -82,7 +82,7 @@ def main(argv=None):
 
         traceback.print_exc()
         print()
-        print(f"draftbot no ha podido arrancar. El registro está en {paths.log_dir()}")
+        print(f"Nachero no ha podido arrancar. El registro está en {paths.log_dir()}")
         with contextlib.suppress(EOFError):
             input("Pulsa Enter para cerrar…")
 
@@ -92,9 +92,12 @@ def run(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     args = parse_args(argv)
     disable_quick_edit()
+    renamed = paths.migrate_old_name()  # antes de abrir el registro, que vive en esa carpeta
     setup_logging()
     moved = paths.migrate_legacy()
     config.init()
+    if renamed:
+        log(f"Datos de {renamed} pasados a {paths.user_dir()} (draftbot ahora se llama Nachero)", "ok")
     if moved:
         log(f"Datos movidos a {paths.user_dir()}: {', '.join(moved)}", "ok")
     APP["platform"] = platform_info()
@@ -108,18 +111,18 @@ def run(argv=None):
         print_profile()
         return
 
-    from draftbot.app.server import Handler
-    from draftbot.app.worker import worker
+    from nachero.app.server import Handler
+    from nachero.app.worker import worker
 
     port = args.port or CFG.get("ui_port", 8765)
     url = f"http://127.0.0.1:{port}"
     # En Windows, SO_REUSEADDR deja que dos procesos escuchen en el mismo puerto: lo desactivamos
-    # para que un segundo draftbot detecte al primero en vez de quedarse "en sombra".
+    # para que un segundo Nachero detecte al primero en vez de quedarse "en sombra".
     ThreadingHTTPServer.allow_reuse_address = False
     try:
         srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     except OSError:
-        print(f"draftbot ya está abierto en {url}; abro el panel.")
+        print(f"Nachero ya está abierto en {url}; abro el panel.")
         if paths.FROZEN:
             import time
 
@@ -128,7 +131,7 @@ def run(argv=None):
             webbrowser.open(f"{url}/?v={__version__}")
         return
     threading.Thread(target=worker, daemon=True).start()
-    log(f"draftbot {__version__} · panel en {url}", "ok")
+    log(f"Nachero {__version__} · panel en {url}", "ok")
     if not args.no_browser:
         webbrowser.open(f"{url}/?v={__version__}")
     try:

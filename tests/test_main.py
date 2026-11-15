@@ -1,9 +1,9 @@
-"""Arranque: el punto de entrada importa y entiende sus opciones (lo que ejecuta draftbot.exe)."""
+"""Arranque: el punto de entrada importa y entiende sus opciones (lo que ejecuta nachero.exe)."""
 
 import pytest
 
-from draftbot import __version__, paths
-from draftbot.app import main as M
+from nachero import __version__, paths
+from nachero.app import main as M
 
 
 def test_opciones():

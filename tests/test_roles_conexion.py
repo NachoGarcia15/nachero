@@ -3,14 +3,14 @@
 import pytest
 
 from conftest import FakeLola, all_roles
-from draftbot import config
-from draftbot.app.draft import Draft
-from draftbot.clients.lcu import install_dirs, parse_lockfile
-from draftbot.config import CFG
-from draftbot.domain.common import ROLES
-from draftbot.domain.engine import Engine
-from draftbot.domain.player import Player
-from draftbot.sources.history import role_of
+from nachero import config
+from nachero.app.draft import Draft
+from nachero.clients.lcu import install_dirs, parse_lockfile
+from nachero.config import CFG
+from nachero.domain.common import ROLES
+from nachero.domain.engine import Engine
+from nachero.domain.player import Player
+from nachero.sources.history import role_of
 
 
 # ------------------------------------------------------------------ rol de cada partida del historial

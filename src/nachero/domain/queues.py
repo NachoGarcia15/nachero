@@ -1,4 +1,4 @@
-"""Tipo de cola de la partida: decide si draftbot recomienda y como.
+"""Tipo de cola de la partida: decide si Nachero recomienda y como.
 
 Entrada: la sesion de `/lol-gameflow/v1/session` (o un dict vacio si no se pudo leer).
 - "draft": Grieta con draft (ranked solo/flex, normal draft, Clash): todo como siempre.

@@ -12,12 +12,12 @@ from collections import deque
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
-from draftbot import __version__, config, paths
-from draftbot.app.state import APP, CTX, LOCK, PHASE_ES, log
-from draftbot.app.status import diagnostics, empty_states
-from draftbot.app.worker import gol
-from draftbot.config import CFG, TOGGLES
-from draftbot.domain.policy import GAME_DECISIONS, mode_help
+from nachero import __version__, config, paths
+from nachero.app.state import APP, CTX, LOCK, PHASE_ES, log
+from nachero.app.status import diagnostics, empty_states
+from nachero.app.worker import gol
+from nachero.config import CFG, TOGGLES
+from nachero.domain.policy import GAME_DECISIONS, mode_help
 
 
 def snapshot() -> dict:

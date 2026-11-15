@@ -3,13 +3,13 @@
 import json
 
 from conftest import FakeLola, all_roles
-from draftbot.app.server import Handler
-from draftbot.domain.common import norm
-from draftbot.domain.engine import Engine
-from draftbot.domain.player import Player
-from draftbot.domain.pro import DRAFT_ORDER, ProEngine
-from draftbot.sources.golgg import parse_gol
-from draftbot.sources.lolalytics import parse_build
+from nachero.app.server import Handler
+from nachero.domain.common import norm
+from nachero.domain.engine import Engine
+from nachero.domain.player import Player
+from nachero.domain.pro import DRAFT_ORDER, ProEngine
+from nachero.sources.golgg import parse_gol
+from nachero.sources.lolalytics import parse_build
 
 
 # ------------------------------------------------------------------ orden de draft

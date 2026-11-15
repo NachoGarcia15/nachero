@@ -3,7 +3,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "draftbot"
+name = "nachero"
 dynamic = ["version"]
 description = "Asistente de draft para League of Legends: picks y bans en soloq y simulador de draft pro"
 readme = "README.md"
@@ -12,19 +12,19 @@ dependencies = []          # solo biblioteca estandar
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
-build = ["pyinstaller>=6.10"]   # para scripts/build_exe.py (draftbot.exe)
+build = ["pyinstaller>=6.10"]   # para scripts/build_exe.py (nachero.exe)
 
 [project.scripts]
-draftbot = "draftbot.app.main:main"
+nachero = "nachero.app.main:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "draftbot.__version__" }
+version = { attr = "nachero.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-draftbot = ["ui/*", "defaults/*.json"]
+nachero = ["ui/*", "defaults/*.json"]
 
 # ------------------------------------------------------------------ calidad
 [tool.ruff]
@@ -46,7 +46,7 @@ ignore = [
 [tool.mypy]
 python_version = "3.10"
 mypy_path = "src"
-packages = ["draftbot"]
+packages = ["nachero"]
 ignore_missing_imports = true
 check_untyped_defs = false
 warn_unused_ignores = true

@@ -16,9 +16,9 @@ const ROLE_FILTERS = [["all", "Todos"], ["top", "Top"], ["jungle", "Jungla"], ["
 
 let PRO = { tournament: "", blue: { bans: [], picks: [] }, red: { bans: [], picks: [] }, fearless: [], history: [] };
 let PRO_UI = { tournaments: null, champs: [], res: null, filter: "all", q: "", fearlessMode: false, inited: false, timer: null };
-try { const s = JSON.parse(localStorage.getItem("draftbot.pro") || "null"); if (s && s.blue) PRO = { ...PRO, ...s }; } catch (_) {}
+try { const s = JSON.parse(localStorage.getItem("nachero.pro") || localStorage.getItem("draftbot.pro") || "null"); if (s && s.blue) PRO = { ...PRO, ...s }; } catch (_) {}
 
-function proSave() { try { localStorage.setItem("draftbot.pro", JSON.stringify(PRO)); } catch (_) {} }
+function proSave() { try { localStorage.setItem("nachero.pro", JSON.stringify(PRO)); } catch (_) {} }
 const proName = (id) => (PRO_UI.champs.find((c) => c.id === id) || {}).name || "";
 
 function proStepInfo(step) {
@@ -60,7 +60,7 @@ async function proSuggest() {
       body: JSON.stringify({ tournament: PRO.tournament, blue: PRO.blue, red: PRO.red, fearless: PRO.fearless }) });
     PRO_UI.res = await r.json();
   } catch (e) {
-    PRO_UI.res = { error: "draftbot no responde" };
+    PRO_UI.res = { error: "Nachero no responde" };
   }
   renderPro();
   // mientras se descargan datos (gol.gg o matchups), vuelve a pedir en unos segundos

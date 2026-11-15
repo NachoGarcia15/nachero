@@ -9,8 +9,8 @@
   decisions, but may highlight decisions that are important and give multiple choices"*.
   → Recomendar sí; **auto-ban, auto-marcar y auto-confirmar no** en versiones compartidas.
   Auto-aceptar: opcional y desactivado por defecto.
-- No identificar a jugadores ocultos por el juego (draftbot no lo hace).
-- Aviso obligatorio y visible: *"draftbot isn't endorsed by Riot Games and doesn't reflect the
+- No identificar a jugadores ocultos por el juego (Nachero no lo hace).
+- Aviso obligatorio y visible: *"Nachero isn't endorsed by Riot Games and doesn't reflect the
   views or opinions of Riot Games or anyone officially involved in producing or managing Riot
   Games properties…"*.
 - Debe existir acceso gratuito.
@@ -18,7 +18,7 @@
   nada de leer Lolalytics ni gol.gg (ver `docs/DATOS.md`).
 - Estadísticas agregadas sí; jugadores concretos, MMR o calculadoras de ELO no.
 - Desde el 6 de octubre de 2026 Riot bloquea el acceso a la memoria del juego a apps
-  desconocidas. draftbot no lee memoria: solo la API local del cliente, que no tiene soporte
+  desconocidas. Nachero no lee memoria: solo la API local del cliente, que no tiene soporte
   oficial y puede cambiar.
 - API keys ([tipos](https://developer.riotgames.com/docs/portal)): *personal* para proyectos
   personales o grupos pequeños; *production* para cualquier uso público. Nunca dentro del ejecutable.

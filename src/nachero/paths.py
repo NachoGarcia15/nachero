@@ -3,10 +3,10 @@
 El codigo y los recursos viven dentro del paquete. Los datos del usuario (ajustes, historial,
 caches, logs) viven fuera, en una carpeta propia:
 
-  Windows:  %APPDATA%\\draftbot
-  otros:    ~/.local/share/draftbot
+  Windows:  %APPDATA%\\nachero
+  otros:    ~/.local/share/nachero
 
-Se puede cambiar con la variable de entorno DRAFTBOT_HOME (util para pruebas).
+Se puede cambiar con la variable de entorno NACHERO_HOME (util para pruebas).
 """
 
 import os
@@ -14,7 +14,7 @@ import shutil
 import sys
 from pathlib import Path
 
-# Dentro de draftbot.exe (PyInstaller) los recursos se extraen junto al paquete
+# Dentro de nachero.exe (PyInstaller) los recursos se extraen junto al paquete
 FROZEN = bool(getattr(sys, "frozen", False))
 PACKAGE_DIR = Path(__file__).resolve().parent
 UI_DIR = PACKAGE_DIR / "ui"
@@ -24,16 +24,48 @@ DEFAULT_CONFIG = PACKAGE_DIR / "defaults" / "config.json"
 PROJECT_DIR = PACKAGE_DIR.parent.parent
 
 
+APP_DIR_NAME = "nachero"
+OLD_DIR_NAME = "draftbot"  # nombre de la app hasta la 0.7.0
+
+
+def data_parent() -> Path:
+    """Carpeta que contiene la de datos de la app (sin NACHERO_HOME)."""
+    if sys.platform == "win32" and os.environ.get("APPDATA"):
+        return Path(os.environ["APPDATA"])
+    return Path.home() / ".local" / "share"
+
+
 def user_dir() -> Path:
-    env = os.environ.get("DRAFTBOT_HOME")
-    if env:
-        base = Path(env)
-    elif sys.platform == "win32" and os.environ.get("APPDATA"):
-        base = Path(os.environ["APPDATA"]) / "draftbot"
-    else:
-        base = Path.home() / ".local" / "share" / "draftbot"
+    env = os.environ.get("NACHERO_HOME")
+    base = Path(env) if env else data_parent() / APP_DIR_NAME
     base.mkdir(parents=True, exist_ok=True)
     return base
+
+
+def migrate_old_name(parent: Path | None = None) -> Path | None:
+    """Pasa los datos de la carpeta del nombre antiguo (draftbot) a la nueva.
+
+    Se llama antes de abrir el registro. Si la app antigua sigue abierta y no deja mover la
+    carpeta, se copian los datos (sin los logs) y la antigua se queda. Devuelve la carpeta
+    antigua si se ha pasado algo.
+    """
+    if parent is None:
+        if os.environ.get("NACHERO_HOME"):
+            return None
+        parent = data_parent()
+    old, new = parent / OLD_DIR_NAME, parent / APP_DIR_NAME
+    if not old.is_dir() or (new.is_dir() and any(new.iterdir())):
+        return None
+    try:
+        if new.is_dir():
+            new.rmdir()
+        old.rename(new)
+    except OSError:
+        try:
+            shutil.copytree(old, new, dirs_exist_ok=True, ignore=shutil.ignore_patterns("logs"))
+        except (OSError, shutil.Error):
+            return None
+    return old
 
 
 def config_file() -> Path:

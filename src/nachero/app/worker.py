@@ -4,25 +4,25 @@ import random
 import re
 import time
 
-from draftbot import paths
-from draftbot.app.demo import Demo
-from draftbot.app.draft import Draft
-from draftbot.app.runes import RuneImporter
-from draftbot.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
-from draftbot.clients.cdragon import CDragon, latest_patch
-from draftbot.clients.lcu import LCU
-from draftbot.config import CFG
-from draftbot.domain.common import ROLE_ES, ROLES
-from draftbot.domain.common import tier_name as TIER
-from draftbot.domain.engine import Engine
-from draftbot.domain.player import Player
-from draftbot.domain.pro import ProEngine
-from draftbot.domain.queues import classify
-from draftbot.jsonio import read_json, write_json
-from draftbot.sources.champions import Champs
-from draftbot.sources.golgg import GolGG
-from draftbot.sources.history import load_history
-from draftbot.sources.lolalytics import Lolalytics
+from nachero import paths
+from nachero.app.demo import Demo
+from nachero.app.draft import Draft
+from nachero.app.runes import RuneImporter
+from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
+from nachero.clients.cdragon import CDragon, latest_patch
+from nachero.clients.lcu import LCU
+from nachero.config import CFG
+from nachero.domain.common import ROLE_ES, ROLES
+from nachero.domain.common import tier_name as TIER
+from nachero.domain.engine import Engine
+from nachero.domain.player import Player
+from nachero.domain.pro import ProEngine
+from nachero.domain.queues import classify
+from nachero.jsonio import read_json, write_json
+from nachero.sources.champions import Champs
+from nachero.sources.golgg import GolGG
+from nachero.sources.history import load_history
+from nachero.sources.lolalytics import Lolalytics
 
 
 def pool_rows(engine, champs):
@@ -97,7 +97,7 @@ def offline_patch(games, fallback=fallback_patch):
 QUEUE_LOG = {
     "draft": ("Cola: {name}", "info"),
     "blind": ("Cola: {name} · sin bans, recomiendo para tu rol principal", "info"),
-    "other": ("{name}: draftbot solo recomienda en la Grieta del Invocador; no toco nada", "hint"),
+    "other": ("{name}: Nachero solo recomienda en la Grieta del Invocador; no toco nada", "hint"),
     "unknown": ("No he podido leer el tipo de cola: recomiendo como en la Grieta", "warn"),
 }
 

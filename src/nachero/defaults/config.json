@@ -1,5 +1,5 @@
 {
-  "_info": "Interruptores y pesos se cambian en vivo desde el panel. El resto se aplica al reiniciar draftbot.",
+  "_info": "Interruptores y pesos se cambian en vivo desde el panel. El resto se aplica al reiniciar Nachero.",
   "start_mode": "observe",
   "ui_port": 8765,
   "auto_accept": true,

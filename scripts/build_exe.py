@@ -1,4 +1,4 @@
-"""Construye dist/draftbot.exe (Windows) con PyInstaller: un solo archivo con Python dentro.
+"""Construye dist/nachero.exe (Windows) con PyInstaller: un solo archivo con Python dentro.
 
 Uso:  python scripts/build_exe.py      (requiere: pip install -e ".[build]")
 """
@@ -13,19 +13,19 @@ BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 
 sys.path.insert(0, str(SRC))
-from draftbot import __version__  # noqa: E402
+from nachero import __version__  # noqa: E402
 
 VERSION_FILE = """VSVersionInfo(
   ffi=FixedFileInfo(filevers={t}, prodvers={t}, mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1,
                     subtype=0x0, date=(0, 0)),
   kids=[
     StringFileInfo([StringTable('040a04b0', [
-      StringStruct('CompanyName', 'draftbot'),
-      StringStruct('FileDescription', 'draftbot - asistente de draft para League of Legends'),
+      StringStruct('CompanyName', 'Nachero'),
+      StringStruct('FileDescription', 'Nachero - asistente de draft para League of Legends'),
       StringStruct('FileVersion', '{v}'),
-      StringStruct('InternalName', 'draftbot'),
-      StringStruct('OriginalFilename', 'draftbot.exe'),
-      StringStruct('ProductName', 'draftbot'),
+      StringStruct('InternalName', 'nachero'),
+      StringStruct('OriginalFilename', 'nachero.exe'),
+      StringStruct('ProductName', 'Nachero'),
       StringStruct('ProductVersion', '{v}')])]),
     VarFileInfo([VarStruct('Translation', [0x040a, 1200])])
   ]
@@ -41,7 +41,7 @@ def main() -> int:
     BUILD.mkdir(exist_ok=True)
     version_file = BUILD / "version_info.txt"
     version_file.write_text(VERSION_FILE.format(t=tuple(parts + [0]), v=__version__), encoding="utf-8")
-    (DIST / "draftbot.exe").unlink(missing_ok=True)
+    (DIST / "nachero.exe").unlink(missing_ok=True)
     sep = ";"  # separador de --add-data en Windows
     cmd = [
         sys.executable,
@@ -50,15 +50,15 @@ def main() -> int:
         "--noconfirm",
         "--clean",
         "--onefile",
-        "--console",  # la ventana muestra la actividad; cerrarla cierra draftbot
+        "--console",  # la ventana muestra la actividad; cerrarla cierra Nachero
         "--name",
-        "draftbot",
+        "nachero",
         "--paths",
         str(SRC),
         "--add-data",
-        f"{SRC / 'draftbot' / 'ui'}{sep}draftbot/ui",
+        f"{SRC / 'nachero' / 'ui'}{sep}nachero/ui",
         "--add-data",
-        f"{SRC / 'draftbot' / 'defaults'}{sep}draftbot/defaults",
+        f"{SRC / 'nachero' / 'defaults'}{sep}nachero/defaults",
         "--version-file",
         str(version_file),
         "--workpath",
@@ -70,7 +70,7 @@ def main() -> int:
         str(ROOT / "run.py"),
     ]
     subprocess.run(cmd, check=True)
-    exe = DIST / "draftbot.exe"
+    exe = DIST / "nachero.exe"
     print(f"\nListo: {exe} ({exe.stat().st_size / 1e6:.1f} MB) · versión {__version__}")
     return 0
 

@@ -2,11 +2,11 @@
 
 import json
 
-from draftbot.app.draft import Draft
-from draftbot.app.runes import RuneImporter
-from draftbot.config import CFG, apply_settings
-from draftbot.domain import runes as R
-from draftbot.sources.lolalytics import parse_build
+from nachero.app.draft import Draft
+from nachero.app.runes import RuneImporter
+from nachero.config import CFG, apply_settings
+from nachero.domain import runes as R
+from nachero.sources.lolalytics import parse_build
 
 # Catalogo minimo: dos ramas con sus runas y la fila de fragmentos (que aparece en todas)
 PERKSTYLES = {
@@ -118,9 +118,9 @@ def test_ramas_sin_fragmentos():
 
 
 def test_build_page_valida():
-    page = R.build_page(ELECTROCUTE, R.perk_styles(PERKSTYLES), "draftbot · Naafiri JG")
+    page = R.build_page(ELECTROCUTE, R.perk_styles(PERKSTYLES), "Nachero · Naafiri JG")
     assert page == {
-        "name": "draftbot · Naafiri JG",
+        "name": "Nachero · Naafiri JG",
         "primaryStyleId": 8100,
         "subStyleId": 8300,
         "selectedPerkIds": [8112, 8139, 8140, 8105, 8347, 8304, 5008, 5008, 5007],
@@ -142,20 +142,22 @@ def test_nombre_de_pagina_corto_y_reconocible():
 
 
 # ------------------------------------------------------------------ importacion
-def test_importa_y_solo_reemplaza_paginas_de_draftbot():
+def test_importa_y_solo_reemplaza_paginas_de_nachero():
     lcu = FakeLCU(
         [
             {"id": 1, "name": "Mi página", "isEditable": True},
-            {"id": 2, "name": "draftbot · Taliyah JG", "isEditable": True},
+            {"id": 2, "name": "Nachero · Taliyah JG", "isEditable": True},
             {"id": 3, "name": "Recomendada", "isEditable": False},
+            {"id": 4, "name": "draftbot · Graves JG", "isEditable": True},
         ]
     )
     ok, msg = RuneImporter(FakeCatalog()).apply(lcu, "Naafiri", "JG", ELECTROCUTE)
     assert ok and "Electrocute" in msg
     assert ("DELETE", "/lol-perks/v1/pages/2", None) in lcu.calls
+    assert ("DELETE", "/lol-perks/v1/pages/4", None) in lcu.calls  # nombre antiguo de la app
     assert not any(m == "DELETE" and p.endswith(("/1", "/3")) for m, p, _ in lcu.calls)
     post = next(b for m, p, b in lcu.calls if m == "POST")
-    assert post["name"] == "draftbot · Naafiri JG" and post["current"] is True
+    assert post["name"] == "Nachero · Naafiri JG" and post["current"] is True
 
 
 def test_sin_hueco_no_toca_tus_paginas():

@@ -4,13 +4,13 @@ import random
 import time
 import webbrowser
 
-from draftbot.app.state import SPELL_IDS, TIMER_ES, log
-from draftbot.config import CFG
-from draftbot.domain import runes as R
-from draftbot.domain import tags as T
-from draftbot.domain.common import ROLE_ES, ROLE_SHORT
-from draftbot.domain.engine import comp_notes, comp_summary
-from draftbot.domain.queues import has_bans
+from nachero.app.state import SPELL_IDS, TIMER_ES, log
+from nachero.config import CFG
+from nachero.domain import runes as R
+from nachero.domain import tags as T
+from nachero.domain.common import ROLE_ES, ROLE_SHORT
+from nachero.domain.engine import comp_notes, comp_summary
+from nachero.domain.queues import has_bans
 
 
 class Draft:
@@ -160,7 +160,7 @@ class Draft:
                     )
                     self.note(f"Confirmado {best['name']}")
                 else:
-                    # turn_auto: draftbot lo confirmara al final del turno; turn: lo haces tu
+                    # turn_auto: Nachero lo confirmara al final del turno; turn: lo haces tu
                     kind = "turn_auto" if acting and CFG.get("auto_lock_pick", False) else "turn"
                     status.append((kind, f"Te toca elegir: {best['name']}"))
             elif not acting and CFG.get("auto_hover_pick", False):

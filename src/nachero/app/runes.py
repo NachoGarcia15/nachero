@@ -1,9 +1,10 @@
 """Importar la pagina de runas recomendada al cliente.
 
-Solo crea, reemplaza o borra paginas cuyo nombre empieza por "draftbot": nunca toca las tuyas.
+Solo crea, reemplaza o borra paginas cuyo nombre empieza por "Nachero" (o "draftbot", su nombre
+antiguo): nunca toca las tuyas.
 """
 
-from draftbot.domain import runes as R
+from nachero.domain import runes as R
 
 
 class RuneImporter:
@@ -35,7 +36,7 @@ class RuneImporter:
             return False, f"La recomendación de runas de {champion} no es una página válida: no importo nada"
         pages = lcu.get("/lol-perks/v1/pages") or []
         for p in pages:
-            if p.get("isEditable") and str(p.get("name", "")).startswith(R.PAGE_PREFIX):
+            if p.get("isEditable") and R.is_own_page(str(p.get("name", ""))):
                 lcu.req("DELETE", f"/lol-perks/v1/pages/{p['id']}")
         inv = lcu.get("/lol-perks/v1/inventory") or {}
         if inv.get("canAddCustomPage") is False:

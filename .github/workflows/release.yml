@@ -1,6 +1,6 @@
 name: Release
 
-# Al subir una etiqueta vX.Y.Z se construye draftbot.exe y se publica en GitHub Releases.
+# Al subir una etiqueta vX.Y.Z se construye nachero.exe y se publica en GitHub Releases.
 #   git tag v0.6.0 && git push origin v0.6.0
 
 on:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   exe:
-    name: draftbot.exe
+    name: nachero.exe
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
       - name: La etiqueta coincide con la versión
         shell: bash
         run: |
-          v=$(python -c "import sys; sys.path.insert(0, 'src'); import draftbot; print(draftbot.__version__)")
+          v=$(python -c "import sys; sys.path.insert(0, 'src'); import nachero; print(nachero.__version__)")
           test "v$v" = "${GITHUB_REF_NAME}" || { echo "Etiqueta ${GITHUB_REF_NAME} y versión $v no coinciden"; exit 1; }
 
       - name: Construir
@@ -40,7 +40,7 @@ jobs:
 
       - name: Probar el ejecutable
         shell: bash
-        run: ./dist/draftbot.exe --version
+        run: ./dist/nachero.exe --version
 
       - name: Notas de la versión (CHANGELOG)
         shell: bash
@@ -50,7 +50,7 @@ jobs:
           v = os.environ["GITHUB_REF_NAME"].lstrip("v")
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(rf"^## \[{re.escape(v)}\].*?\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
-          notes = (m.group(1).strip() if m else f"draftbot {v}") + "\n\n---\nDescarga `draftbot.exe`, abre el cliente de LoL y ejecútalo. Windows puede avisar de que es una app desconocida: *Más información → Ejecutar de todas formas*."
+          notes = (m.group(1).strip() if m else f"Nachero {v}") + "\n\n---\nDescarga `nachero.exe`, abre el cliente de LoL y ejecútalo. Windows puede avisar de que es una app desconocida: *Más información → Ejecutar de todas formas*."
           # en UTF-8 y a archivo: la salida estandar de Python en Windows es cp1252
           open("notes.md", "w", encoding="utf-8").write(notes)
           EOF
@@ -59,4 +59,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/draftbot.exe --title "draftbot ${GITHUB_REF_NAME}" --notes-file notes.md
+        run: gh release create "${GITHUB_REF_NAME}" dist/nachero.exe --title "Nachero ${GITHUB_REF_NAME}" --notes-file notes.md

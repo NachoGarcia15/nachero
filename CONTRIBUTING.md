@@ -1,4 +1,4 @@
-# Cómo trabajar en draftbot
+# Cómo trabajar en Nachero
 
 ## Entorno
 
@@ -26,12 +26,12 @@ La integración continua ejecuta lo mismo en cada push y pull request.
   y entra por pull request con la CI en verde.
 - Mensajes de commit en imperativo y con prefijo:
   `feat: modo solo meta`, `fix: rol del enemigo flex`, `chore: actualizar ruff`.
-- Cada versión: subir `__version__` en `src/draftbot/__init__.py`, anotar en `CHANGELOG.md`
+- Cada versión: subir `__version__` en `src/nachero/__init__.py`, anotar en `CHANGELOG.md`
   y etiquetar (`git tag v0.5.0`).
 
 ## Reglas del proyecto
 
 - La lógica de recomendación va en `domain/` y no toca red ni disco: así se puede probar.
 - Toda fuente de datos nueva va en `sources/`, con caché y respetando su `robots.txt` y sus condiciones.
-- Nada de datos personales en el repositorio: viven en `%APPDATA%\draftbot`.
+- Nada de datos personales en el repositorio: viven en `%APPDATA%\nachero`.
 - No automatizar decisiones de juego en versiones compartidas (ver `docs/ROADMAP.md`).

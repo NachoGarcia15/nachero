@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from draftbot.app.draft import Draft
-from draftbot.app.worker import champ_select_view
-from draftbot.config import CFG
-from draftbot.domain.queues import classify, has_bans
+from nachero.app.draft import Draft
+from nachero.app.worker import champ_select_view
+from nachero.config import CFG
+from nachero.domain.queues import classify, has_bans
 from test_roles_conexion import _engine, _game, session
 
 DATA = Path(__file__).parent / "data"

@@ -1,4 +1,4 @@
-# draftbot · guía para Claude
+# Nachero · guía para Claude
 
 Asistente de draft para League of Legends (Windows): lee la champ select del cliente por su API
 local (LCU), recomienda picks/bans con datos Master+ y sirve un panel en `http://127.0.0.1:8765`.
@@ -21,7 +21,7 @@ fijada #28. Estrategia de datos (Lolalytics ahora, API de Riot después): `docs/
 .venv\Scripts\python -m mypy
 .venv\Scripts\python -m pytest
 python run.py [--demo] [--observe] [--port 8766] [--no-browser] [--profile]
-.venv\Scripts\python scripts/build_exe.py      # dist/draftbot.exe (pip install -e ".[build]")
+.venv\Scripts\python scripts/build_exe.py      # dist/nachero.exe (pip install -e ".[build]")
 ```
 Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .venv` y
 `.venv\Scripts\python -m pip install -e ".[dev]"`.
@@ -33,15 +33,15 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
   (`datos`, `cliente`, `panel`, `normas-riot`, `infra`, `distribucion`).
 - Fusionar solo cuando el usuario lo pida. El repo es privado (NachoGarcia15/draftbot); GitHub no
   permite auto-merge en él.
-- Cada PR que cambie la app: sube `__version__` en `src/draftbot/__init__.py` (semver: `fix` →
+- Cada PR que cambie la app: sube `__version__` en `src/nachero/__init__.py` (semver: `fix` →
   parche, `feat` → menor) y añade su entrada en `CHANGELOG.md`. Eso no publica nada.
 - Toda lógica nueva con tests en `tests/` (dobles en `tests/conftest.py`, sin cliente ni red).
 
 ## Publicar una versión (solo cuando el usuario lo pida: «publica», «saca el .exe»…)
 1. `main` actualizado, CI verde y `__version__` = versión a publicar, con su entrada en el CHANGELOG.
-2. `git tag -a vX.Y.Z -m "draftbot X.Y.Z"` y `git push origin vX.Y.Z`.
+2. `git tag -a vX.Y.Z -m "Nachero X.Y.Z"` y `git push origin vX.Y.Z`.
 3. `release.yml` pasa los tests, comprueba que la etiqueta coincide con `__version__`, construye
-   `draftbot.exe`, lo prueba y lo publica en Releases con las notas del CHANGELOG.
+   `nachero.exe`, lo prueba y lo publica en Releases con las notas del CHANGELOG.
 4. Vigilar el run (`gh run watch`) y comprobar la Release (`gh release view vX.Y.Z`).
 - Si el run falla, no borrar ni mover etiquetas ya subidas: arreglar en una PR y publicar la
   siguiente versión de parche, o subir a mano con `gh release create` el `.exe` de
@@ -51,7 +51,7 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 ## Reglas del proyecto
 - `domain/` es lógica pura (sin red ni disco). Fuentes externas en `sources/`, cliente en `clients/`.
 - Todas las partes de una recomendación se expresan en puntos de winrate y se suman (ver README).
-- Los datos del usuario viven en `%APPDATA%\draftbot` (`DRAFTBOT_HOME` en tests). Nunca al repo.
+- Los datos del usuario viven en `%APPDATA%\nachero` (`NACHERO_HOME` en tests). Nunca al repo.
 - Fuentes de datos: respetar `robots.txt` y condiciones, con caché y ~1,5 s entre peticiones.
   - **Coachless**: prohibido leer sus datos automáticamente (condiciones). Solo se abre su página.
   - **Lolalytics**: sin API pública; se lee el estado `qwik/json` incrustado en sus páginas
@@ -61,7 +61,7 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
   auto-marcar, auto-confirmar); no identificar jugadores ocultos. Recomendar e importar runas sí.
 
 ## Pruebas con el cliente
-- El usuario puede tener su draftbot abierto en 8765: probar en otro puerto (`--port 8766`).
+- El usuario puede tener su Nachero abierto en 8765: probar en otro puerto (`--port 8766`).
   No cerrar procesos suyos.
 - Champ select real sin partida larga: lobby de Practice Tool (blind: sin roles ni bans).
   Draft completo solo en Normal Draft/ranked: no esquivar partidas del usuario.

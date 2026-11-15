@@ -6,7 +6,7 @@ import re
 import time
 import urllib.request
 
-from draftbot.jsonio import read_json, write_json
+from nachero.jsonio import read_json, write_json
 
 
 class CDragon:
@@ -20,7 +20,7 @@ class CDragon:
         if method != "GET" or not path.startswith(self.PREFIX):
             return None
         url = self.BASE + path[len(self.PREFIX) :].lower()
-        req = urllib.request.Request(url, headers={"User-Agent": "draftbot/2.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "nachero/2.0"})
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.read()
@@ -59,7 +59,7 @@ def parse_versions(data) -> str | None:
 
 
 def _fetch_json(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "draftbot/2.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "nachero/2.0"})
     with urllib.request.urlopen(req, timeout=15) as resp:
         return json.loads(resp.read())
 

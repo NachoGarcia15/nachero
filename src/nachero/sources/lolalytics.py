@@ -1,7 +1,7 @@
 """Datos de campeones (cliente) y estadisticas Master+ (Lolalytics).
 
 Lolalytics no tiene API publica. Su robots.txt permite el acceso general (Allow: /),
-asi que draftbot lee pocas paginas, con cache de varias horas y una peticion cada ~1,5 s.
+asi que Nachero lee pocas paginas, con cache de varias horas y una peticion cada ~1,5 s.
 """
 
 import json
@@ -12,10 +12,10 @@ import threading
 import time
 import urllib.request
 
-from draftbot.jsonio import read_json, write_json
+from nachero.jsonio import read_json, write_json
 
 LOLA_LANE = {"top": "top", "jungle": "jungle", "middle": "middle", "bottom": "bottom", "utility": "support"}
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) draftbot/2.0 (uso personal)"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) nachero/2.0 (uso personal)"
 
 
 class Lolalytics:

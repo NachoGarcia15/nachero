@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from draftbot import config, paths
-from draftbot.domain.common import norm, shrink, tier_name
-from draftbot.jsonio import read_json, write_json
+from nachero import config, paths
+from nachero.domain.common import norm, shrink, tier_name
+from nachero.jsonio import read_json, write_json
 
 
 def test_shrink_tiende_a_cero_con_poca_muestra():
@@ -80,6 +80,39 @@ def test_migracion_de_datos_antiguos(home, tmp_path):
     (proyecto / "history_cache.json").write_text('["viejo"]', encoding="utf-8")
     assert paths.migrate_legacy(proyecto) == []
     assert paths.history_file().read_text(encoding="utf-8") == "[]"
+
+
+def test_pasa_los_datos_de_la_carpeta_draftbot(tmp_path):
+    antigua = tmp_path / "draftbot"
+    (antigua / "cache").mkdir(parents=True)
+    (antigua / "config.json").write_text('{"pick_mode": "meta"}', encoding="utf-8")
+    (antigua / "cache" / "gol_cache.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "nachero").mkdir()  # vacia: la crea cualquier arranque previo
+    assert paths.migrate_old_name(tmp_path) == antigua
+    assert (tmp_path / "nachero" / "config.json").read_text(encoding="utf-8") == '{"pick_mode": "meta"}'
+    assert (tmp_path / "nachero" / "cache" / "gol_cache.json").exists()
+    assert not antigua.exists()
+
+
+def test_no_pisa_datos_de_nachero(tmp_path):
+    (tmp_path / "draftbot").mkdir()
+    (tmp_path / "draftbot" / "config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "nachero").mkdir()
+    (tmp_path / "nachero" / "config.json").write_text('{"ya": 1}', encoding="utf-8")
+    assert paths.migrate_old_name(tmp_path) is None
+    assert (tmp_path / "nachero" / "config.json").read_text(encoding="utf-8") == '{"ya": 1}'
+    assert paths.migrate_old_name(tmp_path / "otra") is None  # sin carpeta antigua no hace nada
+
+
+def test_con_nachero_home_no_migra(home):
+    assert paths.migrate_old_name() is None
+
+
+def test_paginas_de_runas_propias_con_el_nombre_antiguo():
+    from nachero.domain import runes as R
+
+    assert R.is_own_page("Nachero · Naafiri JG") and R.is_own_page("draftbot · Taliyah JG")
+    assert not R.is_own_page("Mi página")
 
 
 def test_defaults_del_paquete_son_validos():

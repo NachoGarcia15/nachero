@@ -7,7 +7,7 @@ import time
 from collections import deque
 from logging.handlers import RotatingFileHandler
 
-from draftbot import paths
+from nachero import paths
 
 SPELL_IDS = {
     "Cleanse": 1,
@@ -64,7 +64,7 @@ APP: dict = {
 }
 CTX: dict = {}  # objetos de la sesion actual (cliente, motor, fuentes de datos)
 
-logger = logging.getLogger("draftbot")
+logger = logging.getLogger("nachero")
 
 
 def setup_logging() -> None:
@@ -72,7 +72,7 @@ def setup_logging() -> None:
     if logger.handlers:
         return
     logger.setLevel(logging.INFO)
-    fh = RotatingFileHandler(paths.log_dir() / "draftbot.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    fh = RotatingFileHandler(paths.log_dir() / "nachero.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8")
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(fh)
 

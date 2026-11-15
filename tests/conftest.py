@@ -2,7 +2,7 @@
 
 import pytest
 
-from draftbot.domain.common import ROLES, norm
+from nachero.domain.common import ROLES, norm
 
 # id: (nombre, tipo de dano, dano, aguante, control, movilidad, utilidad, roles del cliente)
 CHAMPS = {
@@ -92,7 +92,7 @@ def champs():
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     """Carpeta de datos de usuario aislada para cada prueba."""
-    monkeypatch.setenv("DRAFTBOT_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("NACHERO_HOME", str(tmp_path / "home"))
     return tmp_path / "home"
 
 

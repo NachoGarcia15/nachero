@@ -56,15 +56,16 @@ def test_clasifica_la_cola(f, kind, name):
 # sesiones reales del cliente (parche 16.22, solo `gameData.queue` y `map`, sin datos personales):
 # en personalizadas y Practice Tool la cola llega completa, con su propio id
 @pytest.mark.parametrize(
-    ("fichero", "qid", "name"),
+    ("fichero", "kind", "qid", "name"),
     [
-        ("gameflow_practice.json", 3140, "Herramienta de práctica"),
-        ("gameflow_custom.json", 3100, "Personalizada"),
+        ("gameflow_practice.json", "blind", 3140, "Herramienta de práctica"),
+        ("gameflow_custom.json", "blind", 3100, "Personalizada"),
+        ("gameflow_custom_aram.json", "other", 3220, "Personalizada · ARAM"),
     ],
 )
-def test_clasifica_sesiones_reales_del_cliente(fichero, qid, name):
+def test_clasifica_sesiones_reales_del_cliente(fichero, kind, qid, name):
     real = json.loads((DATA / fichero).read_text(encoding="utf-8"))
-    assert classify(real) == {"kind": "blind", "id": qid, "name": name}
+    assert classify(real) == {"kind": kind, "id": qid, "name": name}
 
 
 @pytest.mark.parametrize("f", [None, {}, {"gameData": {}}, "texto", {"gameData": {"queue": {"id": -1}}}])

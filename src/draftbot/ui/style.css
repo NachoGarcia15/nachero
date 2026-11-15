@@ -258,6 +258,7 @@ main { max-width: 1320px; margin: 0 auto; padding: 24px 20px 64px; }
 .pool-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
 .pool-head h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
 .pool-head p { margin: 4px 0 0; color: var(--text-2); font-size: 13px; max-width: 620px; }
+.pool-head p.pool-note { margin-top: 6px; color: var(--text-3); font-size: 12px; }
 .filters { display: flex; gap: 4px; }
 .filters button { border: 1px solid var(--line); background: none; color: var(--text-2); padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; }
 .filters button.on { background: var(--surface-3); color: var(--text); border-color: var(--line-2); }

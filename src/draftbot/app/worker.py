@@ -205,6 +205,7 @@ def run_session():
     with LOCK:
         APP["connected"], APP["offline"], APP["rank"], APP["loading"] = online, not online, rank, False
         APP["pool"], APP["refresh_idle"] = [], True
+        APP["history"] = player.history_summary(rank)
     roles = ", ".join(f"{ROLE_ES[r]} {n}" for r, n in sorted(player.role_games.items(), key=lambda x: -x[1]))
     log(f"Listo · rol principal {ROLE_ES[main]} · {len(player.games)} partidas analizadas ({roles or 'ninguna'})", "ok")
 
@@ -244,6 +245,8 @@ def run_session():
                 engine.player = player = Player(
                     games, lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20) or []
                 )
+                with LOCK:
+                    APP["history"] = player.history_summary(APP.get("rank"))
             if phase != "ChampSelect":
                 with LOCK:
                     APP["draft"] = None

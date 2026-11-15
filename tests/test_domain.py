@@ -136,3 +136,16 @@ def test_no_recomienda_lo_no_disponible(champs):
     picks, _ = eng.picks("jungle", {3}, set(), [], [])
     assert 3 not in {p["id"] for p in picks}
     assert lola.requested  # pide los matchups que faltan en segundo plano
+
+
+def test_resumen_del_historial_frente_a_la_temporada():
+    games = [game(3, days_ago=10), game(4, days_ago=2), game(5, role="")]
+    h = Player(games, []).history_summary({"tier": "Master", "lp": 558, "w": 135, "l": 116})
+    assert h["games"] == 2  # las partidas sin rol no cuentan
+    assert h["since"] == min(g["t"] for g in games[:2])
+    assert (h["season"], h["missing"], h["client_limit"]) == (251, 249, 200)
+
+
+def test_resumen_del_historial_sin_ranked_ni_partidas():
+    h = Player([], []).history_summary(None)
+    assert h == {"games": 0, "since": None, "season": None, "missing": 0, "client_limit": 200}

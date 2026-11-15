@@ -3,6 +3,13 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.6.2] - 2026-11-15
+
+### Corregido
+- Tu pool explica cuántas partidas tiene y desde cuándo. El cliente solo da tus últimas 200
+  partidas de cualquier modo, así que el pool podía sumar menos partidas que las victorias y
+  derrotas de la cabecera sin decir por qué. Las nuevas se siguen guardando todas.
+
 ## [0.6.1] - 2026-11-15
 
 ### Corregido

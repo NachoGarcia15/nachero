@@ -5,9 +5,9 @@ import time
 import pytest
 
 from conftest import FakeLola, all_roles
-from draftbot.domain import tags as T
-from draftbot.domain.engine import Engine, infer_roles
-from draftbot.domain.player import Player
+from nachero.domain import tags as T
+from nachero.domain.engine import Engine, infer_roles
+from nachero.domain.player import Player
 
 NOW = time.time() * 1000
 

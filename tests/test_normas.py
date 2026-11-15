@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from draftbot import config, paths
-from draftbot.app.draft import Draft
-from draftbot.config import CFG
-from draftbot.domain.policy import GAME_DECISIONS, RIOT_NOTICE, client_actions, mode_help, summary
+from nachero import config, paths
+from nachero.app.draft import Draft
+from nachero.config import CFG
+from nachero.domain.policy import GAME_DECISIONS, RIOT_NOTICE, client_actions, mode_help, summary
 from test_queues import FakeLCU
 from test_roles_conexion import _engine, _game, session
 
@@ -18,9 +18,9 @@ def _defaults():
 
 # ------------------------------------------------------------------ aviso legal
 def test_aviso_legal_con_el_texto_de_riot():
-    # https://developer.riotgames.com/policies/general, con «[Your product]» → draftbot
+    # https://developer.riotgames.com/policies/general, con «[Your product]» → Nachero
     assert RIOT_NOTICE == (
-        "draftbot isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or "
+        "Nachero isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or "
         "anyone officially involved in producing or managing Riot Games properties. Riot Games, and all "
         "associated properties are trademarks or registered trademarks of Riot Games, Inc."
     )
@@ -83,7 +83,7 @@ def test_modo_activo_por_defecto_no_marca_ni_confirma(champs, por_defecto):
     assert out["status"][0]["kind"] == "turn"  # el panel dice «hazlo tú»
 
 
-def test_confirmar_activado_avisa_de_que_lo_hara_draftbot(champs, por_defecto, monkeypatch):
+def test_confirmar_activado_avisa_de_que_lo_hara_nachero(champs, por_defecto, monkeypatch):
     monkeypatch.setitem(CFG, "auto_lock_pick", True)
     lcu = FakeLCU()
     out = Draft(lcu, champs, _engine(champs, [_game("jungle")] * 5)).tick(
@@ -106,7 +106,7 @@ def test_que_toca_el_modo_activo_con_los_valores_por_defecto():
     assert client_actions(_defaults()) == [
         "acepta la partida",
         "pone los hechizos de tu rol",
-        "crea la página de runas «draftbot»",
+        "crea la página de runas «Nachero»",
     ]
 
 

@@ -1,4 +1,4 @@
-# draftbot
+# Nachero
 
 Asistente de cola y selección de campeón para League of Legends, con panel local.
 
@@ -13,15 +13,15 @@ Windows con el cliente de LoL abierto. Con el ejecutable no hace falta nada más
 Python 3.10 o superior (sin librerías extra).
 
 ## Ejecutable (lo más fácil para compartir)
-Descarga `draftbot.exe` de *Releases* en GitHub (o pídeselo a quien te lo pase), abre el cliente
-de LoL y haz doble clic. Se abre el panel en el navegador; cerrar la ventana negra cierra draftbot.
+Descarga `nachero.exe` de *Releases* en GitHub (o pídeselo a quien te lo pase), abre el cliente
+de LoL y haz doble clic. Se abre el panel en el navegador; cerrar la ventana negra cierra Nachero.
 
 - Windows avisa de que es una app desconocida (no está firmada): *Más información → Ejecutar de
   todas formas*. Algún antivirus puede marcarlo por error; es un falso positivo habitual de PyInstaller.
-- Tus ajustes y datos van a `%APPDATA%\draftbot`, así que puedes sustituir el `.exe` por una
+- Tus ajustes y datos van a `%APPDATA%\nachero`, así que puedes sustituir el `.exe` por una
   versión nueva sin perder nada.
 
-Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/draftbot.exe`.
+Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/nachero.exe`.
 Publicar una versión: sube la etiqueta (`git tag v0.6.0 && git push origin v0.6.0`) y GitHub
 Actions construye el `.exe` y lo publica en *Releases* con las notas del CHANGELOG.
 
@@ -38,9 +38,9 @@ python run.py --port 8766  # otro puerto para el panel
 python run.py --version
 ```
 
-Si lo instalas (`pip install -e .`), el comando es `draftbot` con las mismas opciones.
+Si lo instalas (`pip install -e .`), el comando es `nachero` con las mismas opciones.
 
-Si draftbot ya está abierto, volver a ejecutarlo abre el panel existente.
+Si Nachero ya está abierto, volver a ejecutarlo abre el panel existente.
 
 ## Modos
 - **Pausado**: no analiza ni actúa: ni recomienda ni toca el cliente.
@@ -53,7 +53,7 @@ El panel explica cada modo bajo la barra superior y en Ajustes, con lo que tocar
 según tus interruptores.
 
 **Banear, marcar pick y confirmar pick vienen desactivados**: deciden por ti, y las normas de Riot
-no aceptan apps que tomen decisiones de juego por el jugador. Si ya los tenías activados, draftbot
+no aceptan apps que tomen decisiones de juego por el jugador. Si ya los tenías activados, Nachero
 respeta tus ajustes guardados.
 
 ## Roles
@@ -86,7 +86,7 @@ interacción, por eso se suma a la fuerza del parche sin contarla dos veces.
 El **rol de cada enemigo** se estima con la asignación más probable según el % de partidas que cada
 campeón juega en cada línea en Master+.
 
-**Sinergias entre aliados**: Lolalytics solo las sirve a través de su API interna ofuscada, y draftbot
+**Sinergias entre aliados**: Lolalytics solo las sirve a través de su API interna ofuscada, y Nachero
 no la usa. El encaje con tu equipo sale de lo que aporta cada campeón, no de estadísticas de parejas.
 
 **Bans**: valor = presencia del campeón en tu rol × (0,4 × fuerza en el meta + cuánto counterea
@@ -129,20 +129,20 @@ Los roles de cada equipo se deducen del reparto por rol de cada campeón en el t
 el draft da una valoración de ambas composiciones. **Siguiente partida (fearless)** bloquea los
 campeones elegidos para la siguiente partida de la serie, y también puedes marcar bloqueos a mano.
 
-Datos: gol.gg permite `/champion/` en su `robots.txt`. draftbot pide 6 páginas por torneo, con
+Datos: gol.gg permite `/champion/` en su `robots.txt`. Nachero pide 6 páginas por torneo, con
 cache de 12 h y 1,5 s entre peticiones.
 
 ## Sin cliente abierto
-Si el cliente de LoL está cerrado, draftbot usa tu historial y maestría guardados y los datos de
+Si el cliente de LoL está cerrado, Nachero usa tu historial y maestría guardados y los datos de
 campeones de CommunityDragon (el mismo contenido que el cliente). Al abrir el cliente se conecta solo.
 
 ## Tus datos
-Ajustes, historial, maestría, cachés y logs se guardan en **`%APPDATA%\draftbot`**, no en esta
+Ajustes, historial, maestría, cachés y logs se guardan en **`%APPDATA%\nachero`**, no en esta
 carpeta. Si vienes de una versión anterior, se mueven solos la primera vez que arrancas.
 
 ## Configuración
-Los valores por defecto están en `src/draftbot/defaults/config.json`; los tuyos, en
-`%APPDATA%\draftbot\config.json` (solo lo que cambias desde el panel o a mano).
+Los valores por defecto están en `src/nachero/defaults/config.json`; los tuyos, en
+`%APPDATA%\nachero\config.json` (solo lo que cambias desde el panel o a mano).
 - `pick_mode`: `pool` (por defecto) o `meta` (ignora tu pool).
 - `weights`: multiplicadores de cada parte (también desde el panel).
 - `pool_bonus`: puntos extra para campeones concretos, p. ej. `{"Zaahen": 1.0}`.
@@ -151,7 +151,7 @@ Los valores por defecto están en `src/draftbot/defaults/config.json`; los tuyos
 - `spells_by_role`, `style`, `start_mode`, `lock_when_seconds_left`.
 
 ## Proyecto
-- `src/draftbot/`: el paquete, por capas (`clients`, `sources`, `domain`, `app`, `ui`).
+- `src/nachero/`: el paquete, por capas (`clients`, `sources`, `domain`, `app`, `ui`).
   Detalles en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - `tests/`: pruebas (sin cliente ni internet).
 - [docs/ROADMAP.md](docs/ROADMAP.md): hoja de ruta y normas de Riot que la condicionan.
@@ -159,11 +159,11 @@ Los valores por defecto están en `src/draftbot/defaults/config.json`; los tuyos
 - [CHANGELOG.md](CHANGELOG.md): cambios por versión.
 
 ## Runas
-Al confirmar campeón (modo Activo), draftbot crea la página **«draftbot · Campeón Rol»** con las
+Al confirmar campeón (modo Activo), Nachero crea la página **«Nachero · Campeón Rol»** con las
 runas de Lolalytics Master+ del parche actual y la deja activa:
 
 - Fuente: la página **más popular** (por defecto) o la de **mayor WR**, desde el panel de ajustes.
-- Solo crea o reemplaza páginas que empiezan por «draftbot»: **nunca toca las tuyas**. Si no queda
+- Solo crea o reemplaza páginas que empiezan por «Nachero»: **nunca toca las tuyas**. Si no queda
   hueco para una página nueva, avisa y no hace nada.
 - Si el campeón no tiene datos suficientes en ese rol (p. ej. Zeri jungla), no importa nada; la
   página de Coachless se abre igualmente.
@@ -174,13 +174,13 @@ sus datos automáticamente.
 
 ## Coachless
 No tiene API pública y sus condiciones no permiten leer sus datos automáticamente, así que
-draftbot solo abre su página del campeón y rol en tu navegador al confirmar.
+Nachero solo abre su página del campeón y rol en tu navegador al confirmar.
 
 ## Recomendación
 Deja **Confirmar pick** desactivado en ranked: un fallo puede costarte un dodge o un pick
 que no querías, y es la parte más dudosa de las normas de Riot.
 
 ## Aviso legal
-draftbot isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or
+Nachero isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or
 anyone officially involved in producing or managing Riot Games properties. Riot Games, and all
 associated properties are trademarks or registered trademarks of Riot Games, Inc.

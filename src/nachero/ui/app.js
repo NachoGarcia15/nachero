@@ -33,16 +33,16 @@ function setView(v) {
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   ["draft", "pool", "pro", "log"].forEach((k) => ($("#view-" + k).hidden = k !== v));
   if (v === "pro" && typeof proInit === "function") proInit();
-  try { localStorage.setItem("draftbot.view", v); } catch (_) {}
+  try { localStorage.setItem("nachero.view", v); } catch (_) {}
 }
 window.addEventListener("DOMContentLoaded", () => {
-  try { const v = localStorage.getItem("draftbot.view"); if (v) setView(v); } catch (_) {}
+  try { const v = (localStorage.getItem("nachero.view") || localStorage.getItem("draftbot.view")); if (v) setView(v); } catch (_) {}
 });
 
 /* Qué falta para mostrar algo (códigos de `app/status.py: empty_states`). */
 const EMPTY = {
-  platform: (s) => ["draftbot necesita Windows",
-    `Estás en ${esc((s.platform || {}).name || "otro sistema")}: draftbot solo puede leer el cliente de LoL en Windows. Descarga draftbot.exe y ábrelo en Windows con el cliente abierto.`],
+  platform: (s) => ["Nachero necesita Windows",
+    `Estás en ${esc((s.platform || {}).name || "otro sistema")}: Nachero solo puede leer el cliente de LoL en Windows. Descarga nachero.exe y ábrelo en Windows con el cliente abierto.`],
   no_champions: () => ["Sin datos de campeones",
     "No encuentro el cliente de LoL ni puedo descargar los datos de CommunityDragon. Abre el cliente o comprueba la conexión a internet: reintento solo."],
   loading: () => ["Cargando", "Leyendo tu historial y las estadísticas Master+…"],
@@ -67,7 +67,7 @@ function renderHeader(s) {
   conn.classList.toggle("off", !!s.offline);
   conn.querySelector("span").textContent = noWin && !s.connected ? "Necesita Windows" : s.loading ? "Cargando datos" : s.offline ? "Cliente cerrado" : !s.connected ? "Esperando al cliente" : s.phase_es || "Conectado";
   $("#platform").hidden = !noWin;
-  if (noWin) $("#platform").textContent = `draftbot necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga draftbot.exe y ábrelo en Windows.`;
+  if (noWin) $("#platform").textContent = `Nachero necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga nachero.exe y ábrelo en Windows.`;
   $("#rank").innerHTML = s.rank ? `<b>${esc(s.rank.tier)}</b> · ${s.rank.lp} LP · ${s.rank.w}V ${s.rank.l}D` : "";
   $("#demo").hidden = !s.demo;
   const modes = s.modes || {};
@@ -224,7 +224,7 @@ function renderDraft([d, idle, s]) {
 
     <div class="center">
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
-      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind === "turn_auto" ? "draftbot lo confirmará al final del turno" : "hazlo tú"}</small></div>` : ""}
+      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind === "turn_auto" ? "Nachero lo confirmará al final del turno" : "hazlo tú"}</small></div>` : ""}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${best ? `
       <article class="hero">
@@ -292,7 +292,7 @@ function renderDraft([d, idle, s]) {
 function renderUnsupported(el, d) {
   el.innerHTML = `<div class="idle">
     <h1>${esc(d.queue || "Este modo")}: sin recomendaciones</h1>
-    <p class="lead">draftbot solo recomienda en la Grieta del Invocador (draft, a ciegas, personalizadas y herramienta de práctica). En este modo no toca el cliente: ni bans, ni picks, ni hechizos, ni runas.</p>
+    <p class="lead">Nachero solo recomienda en la Grieta del Invocador (draft, a ciegas, personalizadas y herramienta de práctica). En este modo no toca el cliente: ni bans, ni picks, ni hechizos, ni runas.</p>
   </div>`;
 }
 
@@ -300,7 +300,7 @@ function renderIdle(el, idle, s) {
   const paused = s.mode === "paused";
   const picks = (idle && idle.picks) || [];
   el.innerHTML = `<div class="idle">
-    <h1>${paused ? "draftbot está en pausa" : "Esperando a la selección de campeón"}</h1>
+    <h1>${paused ? "Nachero está en pausa" : "Esperando a la selección de campeón"}</h1>
     <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · modo Activo. " + esc(s.active_summary || "Actuará según tus ajustes.") : " · modo Observar: solo recomienda, no acepta la partida ni toca el cliente"}</p>
     ${idle ? `<div class="idle-role"><span>Tu rol</span>${roleSwitch(idle, s.main_role)}
       <small>${idle.auto ? "Automático: el que más juegas." : "Fijado por ti."} En la selección de campeón manda el rol que te asigne el cliente.</small></div>` : ""}
@@ -339,7 +339,7 @@ function historyNote(h) {
   const since = h.since ? new Date(h.since).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "";
   let txt = `${nf0.format(h.games)} partidas de soloq, flex y normales${since ? ` desde el ${esc(since)}` : ""}.`;
   if (h.missing > 0) {
-    txt += ` Tu ranked de la temporada tiene ${nf0.format(h.season)}: el cliente solo guarda tus últimas ${h.client_limit} partidas de cualquier modo y las anteriores no se pueden leer. Desde ahora draftbot guarda todas las que juegues.`;
+    txt += ` Tu ranked de la temporada tiene ${nf0.format(h.season)}: el cliente solo guarda tus últimas ${h.client_limit} partidas de cualquier modo y las anteriores no se pueden leer. Desde ahora Nachero guarda todas las que juegues.`;
   }
   return `<p class="pool-note">${txt}</p>`;
 }
@@ -420,7 +420,7 @@ const TOGGLES = [
   ["auto_hover_pick", "Marcar pick", "Deja marcado tu mejor campeón y lo actualiza con el draft. <em>Decide por ti.</em>"],
   ["auto_lock_pick", "Confirmar pick", "Confirma al final de tu turno. <em>Decide por ti; mejor desactivado en ranked.</em>"],
   ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],
-  ["import_runes", "Importar runas", "Al confirmar, crea la página «draftbot» con las runas de Lolalytics Master+. Nunca toca tus páginas."],
+  ["import_runes", "Importar runas", "Al confirmar, crea la página «Nachero» con las runas de Lolalytics Master+. Nunca toca tus páginas."],
   ["open_coachless_on_lock", "Abrir Coachless", "La build del campeón confirmado, en tu navegador."],
 ];
 const WEIGHTS = [
@@ -506,7 +506,7 @@ async function poll() {
   } catch (_) {
     const conn = $("#conn");
     conn.classList.remove("ok");
-    conn.querySelector("span").textContent = "draftbot no responde";
+    conn.querySelector("span").textContent = "Nachero no responde";
   }
 }
 poll();

@@ -1,12 +1,12 @@
 # Arquitectura
 
-draftbot es una app local: un proceso de Python que habla con el cliente de LoL, descarga
+Nachero es una app local: un proceso de Python que habla con el cliente de LoL, descarga
 estadísticas públicas y sirve un panel web en `127.0.0.1`. No hay servidor propio.
 
 ## Capas
 
 ```
-src/draftbot/
+src/nachero/
   clients/   Cómo hablamos con el exterior "del juego"
              lcu.py      API local del cliente de LoL (lockfile/puerto + token)
              cdragon.py  CommunityDragon: mismos datos estáticos cuando el cliente está cerrado
@@ -56,7 +56,7 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
 ## Datos y privacidad
 
 - Los datos del usuario (ajustes, historial, maestría, cachés, logs) viven en
-  `%APPDATA%\draftbot` (o `DRAFTBOT_HOME`), nunca en el repositorio.
+  `%APPDATA%\nachero` (o `NACHERO_HOME`), nunca en el repositorio.
 - No se envía nada del usuario a ningún sitio. Solo se descargan estadísticas públicas.
 - Las fuentes externas se piden con caché y ~1,5 s entre peticiones.
 

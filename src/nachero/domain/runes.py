@@ -4,7 +4,8 @@ Una recomendacion es {"pri": [4 runas], "sec": [2 runas], "mod": [3 fragmentos]}
 La rama principal y la secundaria se deducen del catalogo (perkstyles.json).
 """
 
-PAGE_PREFIX = "draftbot"
+PAGE_PREFIX = "Nachero"
+OLD_PAGE_PREFIXES = ("draftbot",)  # paginas creadas con el nombre antiguo de la app
 SOURCE_ES = {"pick": "la más popular en Master+", "win": "la de mayor WR en Master+"}
 
 
@@ -21,6 +22,11 @@ def perk_styles(perkstyles: dict) -> dict[int, int]:
                 if not is_shard(perk):
                     out[perk] = style["id"]
     return out
+
+
+def is_own_page(name: str) -> bool:
+    """Pagina creada por la app (con su nombre actual o el antiguo): la unica que se puede tocar."""
+    return name.startswith((PAGE_PREFIX, *OLD_PAGE_PREFIXES))
 
 
 def page_name(champion: str, role_short: str) -> str:

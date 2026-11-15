@@ -1,6 +1,6 @@
 """Simulador de drafts competitivos.
 
-Datos de competitivo: draftbot.sources.golgg.
+Datos de competitivo: nachero.sources.golgg.
 
 Conceptos aplicados (draft profesional):
   - Prioridad: campeones fuertes y seguros a ciegas (PrioScore de gol.gg).
@@ -16,8 +16,8 @@ Conceptos aplicados (draft profesional):
 import itertools
 import math
 
-from draftbot.domain import tags as T
-from draftbot.domain.common import ROLE_SHORT, ROLES, norm
+from nachero.domain import tags as T
+from nachero.domain.common import ROLE_SHORT, ROLES, norm
 
 # Orden de draft de torneo: 6 bans, 6 picks, 4 bans, 4 picks
 DRAFT_ORDER = [

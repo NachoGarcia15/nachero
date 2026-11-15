@@ -1,11 +1,11 @@
-"""Normas de Riot: aviso legal y qué toca draftbot en el cliente según el modo y los ajustes.
+"""Normas de Riot: aviso legal y qué toca Nachero en el cliente según el modo y los ajustes.
 
 Texto del aviso copiado de https://developer.riotgames.com/policies/general («legal boilerplate»,
 actualizado el 29 de mayo de 2025) con el nombre del producto en lugar de «[Your product]».
 """
 
 RIOT_NOTICE = (
-    "draftbot isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games "
+    "Nachero isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games "
     "or anyone officially involved in producing or managing Riot Games properties. Riot Games, and "
     "all associated properties are trademarks or registered trademarks of Riot Games, Inc."
 )
@@ -21,7 +21,7 @@ CLIENT_ACTIONS = (
     ("auto_ban", "banea"),
     ("auto_hover_pick", "marca tu pick"),
     ("auto_lock_pick", "confirma tu pick"),
-    ("import_runes", "crea la página de runas «draftbot»"),
+    ("import_runes", "crea la página de runas «Nachero»"),
 )
 
 MODES = {
@@ -35,7 +35,7 @@ MODES = {
 
 
 def client_actions(cfg: dict) -> list[str]:
-    """Lo que draftbot hará en el cliente en modo Activo con estos ajustes."""
+    """Lo que Nachero hará en el cliente en modo Activo con estos ajustes."""
     out = []
     for key, text in CLIENT_ACTIONS:
         if cfg.get(key, False):

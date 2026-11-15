@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.8.0] - 2026-11-15
+
+### Cambiado
+- La app se llama **Nachero**: `nachero.exe`, comando `nachero` y paquete `nachero`.
+- Los datos pasan de `%APPDATA%\draftbot` a `%APPDATA%\nachero` en el primer arranque, sin perder
+  ajustes, historial ni cachés. Si el draftbot antiguo sigue abierto, se copian y la carpeta antigua
+  se queda.
+- Las páginas de runas nuevas se llaman «Nachero · Campeón Rol». Las antiguas «draftbot · …» se
+  siguen tratando como propias y se reemplazan, así que no se quedan sueltas.
+- El panel conserva la pestaña abierta y el simulador pro guardados con el nombre antiguo.
+
 ## [0.7.0] - 2026-11-15
 
 ### Añadido

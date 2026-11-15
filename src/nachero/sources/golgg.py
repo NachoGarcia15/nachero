@@ -1,6 +1,6 @@
 """Estadisticas de competitivo de gol.gg (prioridad, picks, bans, WR y reparto por rol por torneo).
 
-Su robots.txt permite /champion/; draftbot pide pocas paginas, con cache de 12 h y 1,5 s entre peticiones.
+Su robots.txt permite /champion/; Nachero pide pocas paginas, con cache de 12 h y 1,5 s entre peticiones.
 """
 
 import html
@@ -12,11 +12,11 @@ import time
 import urllib.parse
 import urllib.request
 
-from draftbot.domain.common import norm
-from draftbot.jsonio import read_json, write_json
+from nachero.domain.common import norm
+from nachero.jsonio import read_json, write_json
 
 GOL_ROLE = {"top": "TOP", "jungle": "JUNGLE", "middle": "MID", "bottom": "ADC", "utility": "SUPPORT"}
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) draftbot/2.0 (uso personal)"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) nachero/2.0 (uso personal)"
 MAJOR = re.compile(r"Worlds|MSI|First Stand|LCK 20|LPL 20|LEC 20|LCS 20|LTA 20|LCP 20|EWC|Esports World Cup", re.I)
 
 

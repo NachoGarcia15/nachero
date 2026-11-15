@@ -23,9 +23,9 @@ import itertools
 import math
 from collections import defaultdict
 
-from draftbot.domain import tags as T
-from draftbot.domain.common import ROLES, shrink
-from draftbot.domain.common import tier_name as TIER
+from nachero.domain import tags as T
+from nachero.domain.common import ROLES, shrink
+from nachero.domain.common import tier_name as TIER
 
 # ---------------------------------------------------------------- utilidades del draft
 # Cuanto pesa el enfrentamiento contra cada linea enemiga segun tu rol (tu linea = 1).

@@ -7,8 +7,8 @@ import json
 from copy import deepcopy
 from typing import Any
 
-from draftbot import paths
-from draftbot.domain.common import ROLES
+from nachero import paths
+from nachero.domain.common import ROLES
 
 TOGGLES = [
     "auto_accept",

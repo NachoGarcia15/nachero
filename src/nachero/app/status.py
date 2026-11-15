@@ -7,7 +7,7 @@ import sys
 
 
 def platform_info(sys_platform: str | None = None, release: str | None = None) -> dict:
-    """Sistema en el que corre draftbot. Solo Windows puede hablar con el cliente de LoL."""
+    """Sistema en el que corre Nachero. Solo Windows puede hablar con el cliente de LoL."""
     sys_platform = sys.platform if sys_platform is None else sys_platform
     release = platform.release() if release is None else release
     if sys_platform == "win32":
@@ -26,8 +26,8 @@ def platform_warning(info: dict) -> str | None:
     if info.get("supported", True):
         return None
     return (
-        f"draftbot necesita Windows con el cliente de LoL abierto y estás en {info.get('name')}: "
-        "descarga draftbot.exe y ábrelo en Windows."
+        f"Nachero necesita Windows con el cliente de LoL abierto y estás en {info.get('name')}: "
+        "descarga nachero.exe y ábrelo en Windows."
     )
 
 
@@ -93,7 +93,7 @@ def diagnostics(app: dict, version: str, system: str, frozen: bool, secrets: tup
     empty = {k: v for k, v in empty_states(app).items() if v}
     log = list(app.get("log") or [])[:lines]
     rows = [
-        f"draftbot {version} ({'draftbot.exe' if frozen else 'código fuente'})",
+        f"Nachero {version} ({'nachero.exe' if frozen else 'código fuente'})",
         f"Sistema: {system}" + ("" if plat.get("supported", True) else f" · no compatible ({plat.get('name')})"),
         f"Conexión: {conn}{' · cargando' if app.get('loading') else ''}",
         f"Fase: {app.get('phase_es') or app.get('phase') or '—'} · modo {app.get('mode')}"

@@ -1,6 +1,6 @@
 # Estrategia de datos
 
-draftbot necesita, para el parche actual y la liga del jugador, estos datos:
+Nachero necesita, para el parche actual y la liga del jugador, estos datos:
 - WR, pick y ban rate por campeón y rol.
 - Matchups por pareja de líneas y sinergias.
 - Páginas de runas.

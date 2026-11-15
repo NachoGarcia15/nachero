@@ -2,9 +2,9 @@
 
 from collections import deque
 
-from draftbot.app.status import diagnostics, empty_states, platform_info, platform_warning, scrub
-from draftbot.app.worker import current_patch, offline_patch
-from draftbot.clients.cdragon import PATCH_TTL, latest_patch, parse_versions, short_patch
+from nachero.app.status import diagnostics, empty_states, platform_info, platform_warning, scrub
+from nachero.app.worker import current_patch, offline_patch
+from nachero.clients.cdragon import PATCH_TTL, latest_patch, parse_versions, short_patch
 
 DDRAGON = ["16.22.1", "16.21.1", "16.20.1"]
 CDRAGON = {"version": "16.22.8348910+branch.releases-16-22.content.release"}
@@ -81,7 +81,7 @@ def test_deteccion_de_plataforma():
     assert platform_info("darwin", "24.0.0") == {"supported": False, "name": "macOS"}
     assert platform_warning(platform_info("win32", "11")) is None
     msg = platform_warning(platform_info("linux", "5.15-microsoft-standard-WSL2"))
-    assert "Windows" in msg and "WSL" in msg and "draftbot.exe" in msg
+    assert "Windows" in msg and "WSL" in msg and "nachero.exe" in msg
 
 
 # ---------------------------------------------------------------- estados del panel
@@ -131,7 +131,7 @@ def test_datos_sin_parche_o_sin_lolalytics():
 # ---------------------------------------------------------------- diagnóstico
 def test_scrub_quita_datos_personales():
     txt = (
-        r"Datos movidos a C:\Users\Nacho Garcia\AppData\Roaming\draftbot: config.json"
+        r"Datos movidos a C:\Users\Nacho Garcia\AppData\Roaming\nachero: config.json"
         " · /home/pepe/x · /Users/ana/y · puuid " + "a" * 78 + " · 0f8fad5b-d9cb-469f-a165-70867728950e · Pepito"
     )
     out = scrub(txt, ("Pepito",))
@@ -143,13 +143,13 @@ def test_scrub_quita_datos_personales():
 def test_diagnostico_completo_y_limpio():
     log = deque(
         [
-            {"t": "10:00:02", "msg": r"Datos movidos a C:\Users\nacho\AppData\Roaming\draftbot", "kind": "ok"},
+            {"t": "10:00:02", "msg": r"Datos movidos a C:\Users\nacho\AppData\Roaming\nachero", "kind": "ok"},
             {"t": "10:00:01", "msg": "Cliente de LoL cerrado", "kind": "warn"},
         ]
     )
     st = estado(connected=False, offline=True, pool=[], games=0, phase_es="Sin cliente", mode="observe", log=log)
     text = diagnostics(st, "0.6.3", "Windows-11-10.0.26300-SP0", True, ("nacho",))
-    assert "draftbot 0.6.3 (draftbot.exe)" in text
+    assert "Nachero 0.6.3 (nachero.exe)" in text
     assert "Windows-11" in text and "sin cliente" in text and "Parche: 16.22" in text
     assert "Sin cliente" in text and "pool=no_client" in text
     assert "nacho" not in text

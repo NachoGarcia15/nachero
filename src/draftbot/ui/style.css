@@ -79,6 +79,8 @@ button { font: inherit; color: inherit; }
   background: var(--accent-soft); border-bottom: 1px solid rgba(227,178,90,.18);
 }
 
+.demo-banner.warn { color: #f3c37a; background: rgba(243,195,122,.08); border-bottom-color: rgba(243,195,122,.25); }
+
 main { max-width: 1320px; margin: 0 auto; padding: 24px 20px 64px; }
 
 /* ------------------------------------------------------------------ draft */
@@ -253,6 +255,13 @@ main { max-width: 1320px; margin: 0 auto; padding: 24px 20px 64px; }
 .idle-foot { margin-top: 26px; font-size: 13px; color: var(--text-3); }
 
 .loading { padding: 80px 0; text-align: center; color: var(--text-3); }
+.empty-state { max-width: 560px; margin: 0 auto; padding: 72px 0; text-align: center; }
+.empty-state h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--text); }
+.empty-state.small { padding: 4px 0; text-align: left; }
+.empty-state.small h2 { font-size: 14px; }
+.empty-state.small p { font-size: 13px; }
+.warn-line { margin: 0 0 8px; color: #f3c37a; }
+.empty-state p { margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.5; }
 
 /* ------------------------------------------------------------------ pool */
 .pool-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -280,7 +289,9 @@ tr:hover td { background: rgba(255,255,255,.015); }
 
 /* ------------------------------------------------------------------ log */
 .log { max-width: 760px; }
-.log h1 { margin: 0 0 16px; font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+.log h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+.log-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.log-head small { color: var(--text-3); font-size: 12px; margin-right: 8px; }
 .log-item { display: grid; grid-template-columns: 70px 1fr; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .log-item time { font: 12.5px var(--mono); color: var(--text-3); padding-top: 1px; }
 .log-item.action span { color: var(--pos); }

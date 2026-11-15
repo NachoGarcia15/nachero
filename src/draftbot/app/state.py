@@ -57,6 +57,10 @@ APP: dict = {
     "log": deque(maxlen=200),
     "demo": False,
     "data": {},
+    "platform": {"supported": True, "name": "Windows"},
+    "issue": None,  # problema que impide cargar (p. ej. "no_champions")
+    "games": 0,  # partidas del historial analizadas
+    "patch": None,
 }
 CTX: dict = {}  # objetos de la sesion actual (cliente, motor, fuentes de datos)
 

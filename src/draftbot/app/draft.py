@@ -133,7 +133,7 @@ class Draft:
         # ban
         ban_target = bans[0] if bans else None
         if my_ban and my_ban["isInProgress"] and ban_target and not self.done_ban:
-            if acting and CFG["auto_ban"]:
+            if acting and CFG.get("auto_ban", False):
                 time.sleep(random.uniform(1.5, 3))
                 self.lcu.req(
                     "PATCH",
@@ -147,12 +147,12 @@ class Draft:
 
         # pick
         if my_pick and not my_pick["completed"] and best:
-            if CFG["auto_hover_pick"] and acting and my_pick["championId"] != best["id"]:
+            if CFG.get("auto_hover_pick", False) and acting and my_pick["championId"] != best["id"]:
                 self.lcu.req(
                     "PATCH", f"/lol-champ-select/v1/session/actions/{my_pick['id']}", {"championId": best["id"]}
                 )
             if my_pick["isInProgress"]:
-                if acting and CFG["auto_lock_pick"] and left <= CFG["lock_when_seconds_left"]:
+                if acting and CFG.get("auto_lock_pick", False) and left <= CFG["lock_when_seconds_left"]:
                     self.lcu.req(
                         "PATCH",
                         f"/lol-champ-select/v1/session/actions/{my_pick['id']}",
@@ -160,8 +160,10 @@ class Draft:
                     )
                     self.note(f"Confirmado {best['name']}")
                 else:
-                    status.append(("turn", f"Te toca elegir: {best['name']}"))
-            elif not acting and CFG["auto_hover_pick"]:
+                    # turn_auto: draftbot lo confirmara al final del turno; turn: lo haces tu
+                    kind = "turn_auto" if acting and CFG.get("auto_lock_pick", False) else "turn"
+                    status.append((kind, f"Te toca elegir: {best['name']}"))
+            elif not acting and CFG.get("auto_hover_pick", False):
                 status.append(("info", f"Marcaría {best['name']}"))
         self.last_best = best["id"] if best else None
 

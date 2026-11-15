@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.7.0] - 2026-11-15
+
+### Añadido
+- Aviso legal de Riot al pie del panel, con el texto exacto de sus normas.
+- El panel explica qué hace cada modo (Pausado, Observar, Activo) y qué toca en el cliente con
+  tus ajustes: bajo la barra superior, al pasar por los botones de modo y en Ajustes.
+
+### Cambiado
+- Banear, marcar pick y confirmar pick vienen desactivados por defecto (normas de Riot: no
+  decidir por el jugador). Aceptar partida, hechizos e importar runas siguen disponibles. Los
+  ajustes que ya tengas guardados se respetan.
+- En tu turno, el panel dice «draftbot lo confirmará» solo si de verdad tiene activado confirmar
+  pick; si no, «hazlo tú».
+
 ## [0.6.3] - 2026-11-15
 
 ### Corregido

@@ -17,6 +17,7 @@ from draftbot.domain.common import tier_name as TIER
 from draftbot.domain.engine import Engine
 from draftbot.domain.player import Player
 from draftbot.domain.pro import ProEngine
+from draftbot.domain.queues import classify
 from draftbot.jsonio import read_json, write_json
 from draftbot.sources.champions import Champs
 from draftbot.sources.golgg import GolGG
@@ -77,6 +78,30 @@ def current_patch(lcu, games):
     if isinstance(v, str) and re.match(r"\d+\.\d+", v):
         return ".".join(v.split(".")[:2])
     return games[0]["patch"] if games else "30"
+
+
+QUEUE_LOG = {
+    "draft": ("Cola: {name}", "info"),
+    "blind": ("Cola: {name} · sin bans, recomiendo para tu rol principal", "info"),
+    "other": ("{name}: draftbot solo recomienda en la Grieta del Invocador; no toco nada", "hint"),
+    "unknown": ("No he podido leer el tipo de cola: recomiendo como en la Grieta", "warn"),
+}
+
+
+def read_queue(lcu):
+    """Tipo de cola de la partida actual (`domain.queues.classify`), o None si el cliente no responde."""
+    try:
+        flow = lcu.get("/lol-gameflow/v1/session", timeout=10)
+    except Exception:
+        return None
+    return classify(flow) if isinstance(flow, dict) else None
+
+
+def champ_select_view(draft, s, acting, queue):
+    """Lo que muestra el panel en la champ select: fuera de la Grieta, solo el aviso (sin actuar)."""
+    if queue["kind"] == "other":
+        return {"unsupported": True, "queue": queue["name"]}
+    return draft.tick(s, acting, queue=queue) if s else None
 
 
 # ---------------------------------------------------------------- bucle principal
@@ -187,6 +212,7 @@ def run_session():
     demo = Demo(champs) if OPTS["demo"] else None
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
+    queue, queue_tries = None, 0  # tipo de cola de la champ select actual
     while True:
         mode = APP["mode"]
         if not online:
@@ -212,6 +238,7 @@ def run_session():
             log(f"Fase: {PHASE_ES.get(phase, phase)}")
             if phase == "ChampSelect":
                 draft.reset()
+                queue, queue_tries = None, 0
             if phase in ("EndOfGame", "PreEndOfGame"):
                 games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
                 engine.player = player = Player(
@@ -263,10 +290,21 @@ def run_session():
                         if step < last_demo_step:
                             draft.reset()
                         last_demo_step = step
-                        d = draft.tick(s, False, pickable=set(), bannable=set())
+                        d = draft.tick(
+                            s, False, pickable=set(), bannable=set(), queue={"kind": "draft", "name": "Demo"}
+                        )
                     else:
-                        s = lcu.get("/lol-champ-select/v1/session")
-                        d = draft.tick(s, acting) if s else None
+                        if queue is None:
+                            # tres intentos; si el cliente no la da, se recomienda como en la Grieta
+                            queue_tries += 1
+                            queue = read_queue(lcu) or (classify(None) if queue_tries >= 3 else None)
+                            if queue:
+                                msg, kind = QUEUE_LOG[queue["kind"]]
+                                log(msg.format(name=queue["name"]), kind)
+                        d = None
+                        if queue:
+                            s = lcu.get("/lol-champ-select/v1/session")
+                            d = champ_select_view(draft, s, acting, queue)
                     with LOCK:
                         APP["draft"] = d
             except Exception as e:

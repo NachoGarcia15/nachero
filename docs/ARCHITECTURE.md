@@ -23,6 +23,7 @@ src/draftbot/
              engine.py   recomendación de picks y bans de soloq
              pro.py      motor del simulador de draft pro
              runes.py    validar una página de runas y pasarla al formato del cliente
+             queues.py   tipo de cola: draft, a ciegas o fuera de la Grieta
   app/       Orquestación
              state.py    estado compartido, log
              draft.py    champ select de soloq (lee sesión, recomienda, actúa)
@@ -43,12 +44,14 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
 ## Flujo de una recomendación (soloq)
 
 1. `worker` lee la fase del cliente cada segundo.
-2. En champ select, `draft.Draft.tick` lee la sesión, separa aliados (elegidos y marcados),
+2. Al entrar en champ select, `worker` lee la cola (`/lol-gameflow/v1/session`) y la clasifica
+   (`queues.classify`). Fuera de la Grieta solo se muestra un aviso: no se recomienda ni se actúa.
+3. En champ select, `draft.Draft.tick` lee la sesión, separa aliados (elegidos y marcados),
    rivales, bans y orden de picks.
-3. `engine.Engine.picks` puntúa candidatos: fuerza en el parche + tú + matchups (rival de línea
+4. `engine.Engine.picks` puntúa candidatos: fuerza en el parche + tú + matchups (rival de línea
    y resto, con roles estimados) + encaje con tu equipo + respuesta a su comp + riesgo de counter.
-4. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto counterea tus picks).
-5. El panel consulta `/api/state` cada segundo y pinta.
+5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto counterea tus picks).
+6. El panel consulta `/api/state` cada segundo y pinta.
 
 ## Datos y privacidad
 

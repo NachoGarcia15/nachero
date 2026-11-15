@@ -9,6 +9,7 @@ from http.server import ThreadingHTTPServer
 
 from draftbot import __version__, config, paths
 from draftbot.app.state import APP, OPTS, log, setup_logging
+from draftbot.app.status import platform_info, platform_warning
 from draftbot.config import CFG
 
 
@@ -96,6 +97,10 @@ def run(argv=None):
     config.init()
     if moved:
         log(f"Datos movidos a {paths.user_dir()}: {', '.join(moved)}", "ok")
+    APP["platform"] = platform_info()
+    warning = platform_warning(APP["platform"])
+    if warning:
+        log(warning, "warn")
     OPTS["demo"] = APP["demo"] = args.demo
     APP["mode"] = "observe" if (args.observe or args.demo) else CFG.get("start_mode", "observe")
 

@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.6.3] - 2026-11-15
+
+### Corregido
+- Fuera de Windows (Linux, WSL o macOS) draftbot avisa en la consola y en el panel de que
+  necesita Windows con el cliente abierto y recomienda `draftbot.exe`, en vez de quedarse cargando.
+- Sin cliente, el parche actual sale de Data Dragon o CommunityDragon (con caché de 6 h) en vez
+  del parche «30», que no existe. Sin internet se usa el último conocido.
+- El panel dice qué falta en vez de «Calculando tu pool…» o «Cargando…» para siempre: sin
+  cliente, sin partidas, sin datos de campeones, sin parche o sin estadísticas de Lolalytics.
+
+### Añadido
+- Botón «Copiar diagnóstico» en Actividad: versión, sistema, conexión, fase, parche y las
+  últimas líneas del registro, sin rutas de usuario ni identificadores, para mandar un informe.
+
 ## [0.6.2] - 2026-11-15
 
 ### Corregido

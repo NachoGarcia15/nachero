@@ -35,6 +35,7 @@
 </header>
 
 <div class="demo-banner warn" id="platform" hidden></div>
+<div class="mode-hint" id="mode-hint"></div>
 <div class="demo-banner" id="demo" hidden>Modo demo · draft simulado con tus datos reales. No se toca el cliente.</div>
 
 <main>
@@ -43,6 +44,8 @@
   <section id="view-pro" class="view" hidden></section>
   <section id="view-log" class="view" hidden></section>
 </main>
+
+<footer class="legal" id="legal">draftbot isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</footer>
 
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" aria-hidden="true">
@@ -53,9 +56,12 @@
     </button>
   </div>
   <div class="drawer-body">
+    <h3>Modos</h3>
+    <div id="modes-help"></div>
     <h3>Recomendación</h3>
     <div id="pickmode-settings"></div>
-    <h3>En modo activo</h3>
+    <h3>Qué hace en modo Activo</h3>
+    <p class="drawer-note">Banear, marcar y confirmar pick deciden por ti: vienen desactivados por las normas de Riot, que no aceptan apps que tomen decisiones de juego por el jugador. Aceptar partida, hechizos y runas siguen disponibles.</p>
     <div id="toggles"></div>
     <h3>Cómo pesa cada parte</h3>
     <div id="weights"></div>

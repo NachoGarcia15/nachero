@@ -70,10 +70,25 @@ function renderHeader(s) {
   if (noWin) $("#platform").textContent = `draftbot necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga draftbot.exe y ábrelo en Windows.`;
   $("#rank").innerHTML = s.rank ? `<b>${esc(s.rank.tier)}</b> · ${s.rank.lp} LP · ${s.rank.w}V ${s.rank.l}D` : "";
   $("#demo").hidden = !s.demo;
+  const modes = s.modes || {};
   document.querySelectorAll("#modes button").forEach((b) => {
     b.classList.toggle("on", b.dataset.mode === s.mode);
     b.setAttribute("aria-checked", b.dataset.mode === s.mode);
+    const m = modes[b.dataset.mode];
+    if (m) b.title = b.dataset.mode === "active" ? `${m.text} ${m.summary}` : m.text;
   });
+  const cur = modes[s.mode];
+  $("#mode-hint").innerHTML = cur ? `<b>${esc(cur.label)}</b> · ${esc(s.mode === "active" && !s.demo ? cur.text + " " + cur.summary : cur.text)}` : "";
+  once("modes", modes, () => renderModes(modes));
+}
+
+function renderModes(modes) {
+  $("#modes-help").innerHTML = ["paused", "observe", "active"].filter((k) => modes[k]).map((k) => {
+    const m = modes[k];
+    const touches = k !== "active" ? "No toca el cliente."
+      : m.touches.length ? `En el cliente: ${m.touches.map(esc).join(" · ")}.` : "Con tus ajustes no toca el cliente.";
+    return `<div class="opt"><div class="tx"><b>${esc(m.label)}</b><small>${esc(m.text)}<br>${touches}</small></div></div>`;
+  }).join("");
 }
 
 /* ------------------------------------------------------------------ draft */
@@ -196,8 +211,8 @@ function renderDraft([d, idle, s]) {
 
   const best = d.hero;
   const alts = d.locked ? d.picks.slice(0, 6) : d.picks.slice(1, 7);
-  const turn = d.status.find((x) => x.kind === "turn");
-  const infos = d.status.filter((x) => x.kind !== "turn");
+  const turn = d.status.find((x) => x.kind.startsWith("turn"));
+  const infos = d.status.filter((x) => !x.kind.startsWith("turn"));
   const low = d.timer_left <= 8 && d.my_turn;
 
   el.innerHTML = `<div class="cs">
@@ -209,7 +224,7 @@ function renderDraft([d, idle, s]) {
 
     <div class="center">
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
-      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${s.mode === "active" ? "draftbot lo hará" : "hazlo tú"}</small></div>` : ""}
+      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind === "turn_auto" ? "draftbot lo confirmará al final del turno" : "hazlo tú"}</small></div>` : ""}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${best ? `
       <article class="hero">
@@ -286,7 +301,7 @@ function renderIdle(el, idle, s) {
   const picks = (idle && idle.picks) || [];
   el.innerHTML = `<div class="idle">
     <h1>${paused ? "draftbot está en pausa" : "Esperando a la selección de campeón"}</h1>
-    <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · actuará según tus ajustes" : " · modo Observar: solo recomienda, no acepta la partida ni toca el cliente"}</p>
+    <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · modo Activo. " + esc(s.active_summary || "Actuará según tus ajustes.") : " · modo Observar: solo recomienda, no acepta la partida ni toca el cliente"}</p>
     ${idle ? `<div class="idle-role"><span>Tu rol</span>${roleSwitch(idle, s.main_role)}
       <small>${idle.auto ? "Automático: el que más juegas." : "Fijado por ti."} En la selección de campeón manda el rol que te asigne el cliente.</small></div>` : ""}
     ${picks.length ? `
@@ -401,9 +416,9 @@ $("#view-log").addEventListener("click", (e) => { if (e.target.id === "diag") co
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [
   ["auto_accept", "Aceptar partida", "Con 1–3 s de retraso aleatorio."],
-  ["auto_ban", "Banear", "El primer ban sugerido, sin pisar los picks marcados por aliados."],
-  ["auto_hover_pick", "Marcar pick", "Deja marcado tu mejor campeón y lo actualiza con el draft."],
-  ["auto_lock_pick", "Confirmar pick", "Confirma al final de tu turno. <em>Mejor desactivado en ranked.</em>"],
+  ["auto_ban", "Banear", "El primer ban sugerido, sin pisar los picks marcados por aliados. <em>Decide por ti.</em>"],
+  ["auto_hover_pick", "Marcar pick", "Deja marcado tu mejor campeón y lo actualiza con el draft. <em>Decide por ti.</em>"],
+  ["auto_lock_pick", "Confirmar pick", "Confirma al final de tu turno. <em>Decide por ti; mejor desactivado en ranked.</em>"],
   ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],
   ["import_runes", "Importar runas", "Al confirmar, crea la página «draftbot» con las runas de Lolalytics Master+. Nunca toca tus páginas."],
   ["open_coachless_on_lock", "Abrir Coachless", "La build del campeón confirmado, en tu navegador."],
@@ -481,7 +496,7 @@ async function poll() {
     STATE = s;
     renderHeader(s);
     const empty = s.empty || {};
-    once("draft", [s.draft, s.idle, { connected: s.connected || s.offline, offline: s.offline, loading: s.loading, mode: s.mode, main_role: (s.settings || {}).main_role,
+    once("draft", [s.draft, s.idle, { connected: s.connected || s.offline, offline: s.offline, loading: s.loading, mode: s.mode, active_summary: ((s.modes || {}).active || {}).summary, main_role: (s.settings || {}).main_role,
       phase_es: s.offline ? "Cliente cerrado · datos guardados" : s.phase_es, pick_mode: s.settings.pick_mode,
       empty: empty.draft, platform: s.platform }], renderDraft);
     once("pool", [s.pool, empty.pool], () => renderPool(s.pool));

@@ -81,7 +81,13 @@ button { font: inherit; color: inherit; }
 
 .demo-banner.warn { color: #f3c37a; background: rgba(243,195,122,.08); border-bottom-color: rgba(243,195,122,.25); }
 
+.mode-hint { padding: 6px 20px; font-size: 12.5px; color: var(--text-3); border-bottom: 1px solid var(--line); }
+.mode-hint:empty { display: none; }
+.mode-hint b { color: var(--text-2); font-weight: 500; }
+
 main { max-width: 1320px; margin: 0 auto; padding: 24px 20px 64px; }
+
+.legal { max-width: 1320px; margin: 0 auto; padding: 14px 20px 22px; border-top: 1px solid var(--line); color: var(--text-3); font-size: 11.5px; line-height: 1.5; }
 
 /* ------------------------------------------------------------------ draft */
 .cs { display: grid; grid-template-columns: 250px minmax(0, 1fr) 250px; gap: 28px; align-items: start; }
@@ -310,6 +316,7 @@ tr:hover td { background: rgba(255,255,255,.015); }
 .drawer-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
 .drawer-body { padding: 6px 18px 30px; overflow-y: auto; }
 .drawer h3 { margin: 22px 0 6px; font-size: 12px; font-weight: 600; color: var(--text-3); }
+.drawer-note { margin: 0 0 4px; color: var(--text-3); font-size: 12.5px; }
 .opt { display: flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .opt:last-child { border-bottom: 0; }
 .opt .tx { flex: 1; }

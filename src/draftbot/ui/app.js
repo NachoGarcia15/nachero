@@ -143,6 +143,7 @@ function bindModeSwitch(root) {
 }
 
 function draftContext(d) {
+  if (d.blind) return "A ciegas: el rival no ve tu pick ni tú el suyo";
   const opp = d.enemy_team.find((e) => e.lane_opp && e.champ);
   if (opp) return `Rival de línea: <b>${esc(opp.champ.name)}</b>`;
   if (d.enemy_left_after > 0) return `Tu rival de línea aún no ha elegido · ${d.enemy_left_after} pick${d.enemy_left_after > 1 ? "s" : ""} rival${d.enemy_left_after > 1 ? "es" : ""} después de ti`;
@@ -166,6 +167,7 @@ function renderDraft([d, idle, s]) {
     return;
   }
   if (!d) return renderIdle(el, idle, s);
+  if (d.unsupported) return renderUnsupported(el, d);
 
   const best = d.hero;
   const alts = d.locked ? d.picks.slice(0, 6) : d.picks.slice(1, 7);
@@ -181,7 +183,7 @@ function renderDraft([d, idle, s]) {
     </div>
 
     <div class="center">
-      <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b> · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
+      <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
       ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${s.mode === "active" ? "draftbot lo hará" : "hazlo tú"}</small></div>` : ""}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${best ? `
@@ -239,12 +241,19 @@ function renderDraft([d, idle, s]) {
     </div>
 
     <div class="team enemy">
-      <div class="team-head"><h2>Rival</h2><span>roles estimados</span></div>
+      <div class="team-head"><h2>Rival</h2><span>${d.blind ? "oculto a ciegas" : "roles estimados"}</span></div>
       <div class="slots">${d.enemy_team.map((p) => slot(p, "enemy")).join("")}</div>
       ${comp(d.enemy_comp)}
     </div>
   </div>`;
   bindModeSwitch(el);
+}
+
+function renderUnsupported(el, d) {
+  el.innerHTML = `<div class="idle">
+    <h1>${esc(d.queue || "Este modo")}: sin recomendaciones</h1>
+    <p class="lead">draftbot solo recomienda en la Grieta del Invocador (draft, a ciegas, personalizadas y herramienta de práctica). En este modo no toca el cliente: ni bans, ni picks, ni hechizos, ni runas.</p>
+  </div>`;
 }
 
 function renderIdle(el, idle, s) {

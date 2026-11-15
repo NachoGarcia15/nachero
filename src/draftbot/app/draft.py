@@ -10,6 +10,7 @@ from draftbot.domain import runes as R
 from draftbot.domain import tags as T
 from draftbot.domain.common import ROLE_ES, ROLE_SHORT
 from draftbot.domain.engine import comp_notes, comp_summary
+from draftbot.domain.queues import has_bans
 
 
 class Draft:
@@ -27,12 +28,17 @@ class Draft:
             self.seen.add(msg)
             log(msg, kind)
 
-    def tick(self, s, acting, pickable=None, bannable=None):
+    def tick(self, s, acting, pickable=None, bannable=None, queue=None):
+        """Recomienda (y en modo activo actua) en la champ select `s`. `queue` es el tipo de cola
+        de `domain.queues.classify`; si falta, se trata como un draft de la Grieta."""
         ch, eng = self.champs, self.engine
+        queue = queue or {}
+        # a ciegas (sin bans): nadie ve los picks del otro, asi que no hay riesgo de counter
+        blind = queue.get("kind") == "blind" and not has_bans(s)
         me = s["localPlayerCellId"]
         my = next((m for m in s["myTeam"] if m["cellId"] == me), {})
         # el rol que te asigna el cliente; en colas sin roles (blind, practice tool), tu rol principal
-        role = my.get("assignedPosition") or eng.main_role()
+        role = (None if blind else my.get("assignedPosition")) or eng.main_role()
         acts = [a for grp in s["actions"] for a in grp]
         bans_ally = [
             a["championId"]
@@ -69,8 +75,8 @@ class Draft:
         ]
         allies = [(c, w) for c, w in allies if c]
         # picks rivales que quedan despues de tu turno (para el riesgo de counter)
-        enemy_left_after = 5 - len(enemy_ids)
-        if my_pick:
+        enemy_left_after = 0 if blind else 5 - len(enemy_ids)
+        if my_pick and not blind:
             my_group = next(
                 (
                     gi
@@ -239,6 +245,8 @@ class Draft:
             "coachless": coach,
             "runes": runes_info,
             "mode": ctx["mode"],
+            "queue": queue.get("name", ""),
+            "blind": blind,
             "lane_known": ctx["lane_known"],
             "enemy_left_after": enemy_left_after,
             "my_pick": (

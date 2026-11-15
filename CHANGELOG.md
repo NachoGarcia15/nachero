@@ -3,6 +3,18 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.6.1] - 2026-11-15
+
+### Corregido
+- Tipo de cola: al entrar en la champ select se lee la cola de la partida.
+  - Grieta con draft (solo/dúo, flexible, normal draft, Clash): todo como antes.
+  - Grieta a ciegas, personalizadas y herramienta de práctica: recomienda para tu rol principal,
+    sin bans y sin riesgo de counter (nadie ve el pick del otro). Una personalizada con bans
+    se trata como draft.
+  - ARAM, Arena, URF y demás modos: no recomienda ni toca el cliente (antes, en modo Activo,
+    podía poner Smite + Flash o marcar un pick). El panel lo indica.
+- El panel muestra la cola junto a la fase de la champ select.
+
 ## [0.6.0] - 2026-11-14
 
 ### Añadido

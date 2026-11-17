@@ -27,10 +27,10 @@ VERSION_FILE = """VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040a04b0', [
       StringStruct('CompanyName', 'Nachero'),
-      StringStruct('FileDescription', 'Nachero - asistente de draft para League of Legends'),
+      StringStruct('FileDescription', 'Nachero'),
       StringStruct('FileVersion', '{v}'),
-      StringStruct('InternalName', 'nachero'),
-      StringStruct('OriginalFilename', 'nachero.exe'),
+      StringStruct('InternalName', 'Nachero'),
+      StringStruct('OriginalFilename', 'Nachero.exe'),
       StringStruct('ProductName', 'Nachero'),
       StringStruct('ProductVersion', '{v}')])]),
     VarFileInfo([VarStruct('Translation', [0x040a, 1200])])
@@ -50,7 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     BUILD.mkdir(exist_ok=True)
     version_file = BUILD / "version_info.txt"
     version_file.write_text(VERSION_FILE.format(t=tuple(parts + [0]), v=__version__), encoding="utf-8")
-    (DIST / "nachero.exe").unlink(missing_ok=True)
+    (DIST / "Nachero.exe").unlink(missing_ok=True)
+    (DIST / "nachero.exe").unlink(missing_ok=True)  # limpia nombre antiguo sin mayúscula
+    shutil.rmtree(DIST / "Nachero", ignore_errors=True)
     shutil.rmtree(DIST / "nachero", ignore_errors=True)
     sep = ";"  # separador de --add-data en Windows
     cmd = [
@@ -62,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         "--onedir" if args.onedir else "--onefile",
         "--windowed",  # sin consola: la app es su ventana (pywebview); cerrarla cierra Nachero
         "--name",
-        "nachero",
+        "Nachero",
         "--paths",
         str(SRC),
         "--add-data",
@@ -82,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     if ICON.is_file():
         cmd[-1:-1] = ["--icon", str(ICON)]
     subprocess.run(cmd, check=True)
-    exe = DIST / "nachero" / "nachero.exe" if args.onedir else DIST / "nachero.exe"
+    exe = DIST / "Nachero" / "Nachero.exe" if args.onedir else DIST / "Nachero.exe"
     files = [f for f in exe.parent.rglob("*") if f.is_file()] if args.onedir else [exe]
     size = sum(f.stat().st_size for f in files)
     print(f"\nListo: {exe} ({size / 1e6:.1f} MB) · versión {__version__}")

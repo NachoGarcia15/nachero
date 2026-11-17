@@ -31,10 +31,33 @@ def ico_images(data: bytes) -> dict[int, bytes]:
 
 
 def test_ico_tiene_todos_los_tamanos():
-    images = ico_images((UI / "icon.ico").read_bytes())
+    raw = (UI / "icon.ico").read_bytes()
+    assert raw[:4] == b"\x00\x00\x01\x00", "la cabecera debe ser 00 00 01 00 (formato ICO)"
+    images = ico_images(raw)
     assert sorted(images) == ICO_SIZES
+    for required in (16, 32, 48, 256):
+        assert required in images, f"falta resolución {required}x{required} requerida para Win32"
     for side, data in images.items():
         assert png_size(data) == (side, side)
+
+
+def test_resolve_icon_modo_normal_y_meipass(tmp_path, monkeypatch):
+    import sys
+
+    from nachero.app import desktop
+
+    # En modo normal devuelve el del paquete
+    monkeypatch.setattr(paths, "FROZEN", False)
+    assert desktop.resolve_icon() == desktop.ICON
+
+    # En modo empaquetado (PyInstaller) usa sys._MEIPASS
+    fake_meipass = tmp_path / "meipass"
+    fake_icon = fake_meipass / "nachero" / "ui" / "icon.ico"
+    fake_icon.parent.mkdir(parents=True, exist_ok=True)
+    fake_icon.write_bytes(b"ico")
+    monkeypatch.setattr(paths, "FROZEN", True)
+    monkeypatch.setattr(sys, "_MEIPASS", str(fake_meipass), raising=False)
+    assert desktop.resolve_icon() == fake_icon
 
 
 def test_png_de_la_bandeja():

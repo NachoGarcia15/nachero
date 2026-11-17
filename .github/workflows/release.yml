@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   exe:
-    name: nachero.exe
+    name: Nachero.exe
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,9 +44,9 @@ jobs:
         shell: bash
         run: |
           v=$(python -c "import sys; sys.path.insert(0, 'src'); import nachero; print(nachero.__version__)")
-          out=$(./dist/nachero.exe --version | tr -d '\r')
+          out=$(./dist/Nachero.exe --version | tr -d '\r')
           echo "$out"
-          test "$out" = "Nachero $v" || { echo "nachero.exe --version dice «$out», no «Nachero $v»"; exit 1; }
+          test "$out" = "Nachero $v" || { echo "Nachero.exe --version dice «$out», no «Nachero $v»"; exit 1; }
 
       - name: Notas de la versión (CHANGELOG)
         shell: bash
@@ -56,7 +56,7 @@ jobs:
           v = os.environ["GITHUB_REF_NAME"].lstrip("v")
           text = open("CHANGELOG.md", encoding="utf-8").read()
           m = re.search(rf"^## \[{re.escape(v)}\].*?\n(.*?)(?=^## \[|\Z)", text, re.S | re.M)
-          notes = (m.group(1).strip() if m else f"Nachero {v}") + "\n\n---\nDescarga `nachero.exe`, abre el cliente de LoL y ejecútalo: se abre en su propia ventana. Windows puede avisar de que es una app desconocida: *Más información → Ejecutar de todas formas*."
+          notes = (m.group(1).strip() if m else f"Nachero {v}") + "\n\n---\nDescarga `Nachero.exe`, abre el cliente de LoL y ejecútalo: se abre en su propia ventana. Windows puede avisar de que es una app desconocida: *Más información → Ejecutar de todas formas*."
           # en UTF-8 y a archivo: la salida estandar de Python en Windows es cp1252
           open("notes.md", "w", encoding="utf-8").write(notes)
           EOF
@@ -65,4 +65,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/nachero.exe --title "Nachero ${GITHUB_REF_NAME}" --notes-file notes.md
+        run: gh release create "${GITHUB_REF_NAME}" dist/Nachero.exe --title "Nachero ${GITHUB_REF_NAME}" --notes-file notes.md

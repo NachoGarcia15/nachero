@@ -18,10 +18,11 @@ Windows 10 u 11 con el cliente de LoL abierto. Con el ejecutable no hace falta n
 código, Python 3.10 o superior y `pip install -e .` (instala pywebview, para la ventana).
 
 ## Ejecutable (lo más fácil para compartir)
-Descarga `nachero.exe` de *Releases* en GitHub (o pídeselo a quien te lo pase), abre el cliente
+Descarga `Nachero.exe` de *Releases* en GitHub (o pídeselo a quien te lo pase), abre el cliente
 de LoL y haz doble clic. Nachero se abre en **su propia ventana**, sin consola ni navegador, y
 recuerda su tamaño y posición. Cerrar la ventana cierra Nachero. Si ya está abierto, volver a
-abrirlo trae su ventana al frente.
+abrirlo trae su ventana al frente. En la barra de tareas, Menú Inicio y `Alt + Tab` se muestra
+como **`Nachero`** con su icono personalizado.
 
 - La ventana usa WebView2, el motor de Edge que ya trae Windows 10 y 11. Si faltara, Nachero lo
   avisa y abre el panel en el navegador; el aviso queda abierto y, al cerrarlo, se cierra Nachero.
@@ -32,28 +33,38 @@ abrirlo trae su ventana al frente.
 - Tus ajustes y datos van a `%APPDATA%\nachero`, así que puedes sustituir el `.exe` por una
   versión nueva sin perder nada.
 
-Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/nachero.exe`
-(`--onedir` hace una carpeta, `dist/nachero/`, que arranca un segundo antes).
-El icono y el logo salen de `assets/icon.svg` con `python scripts/make_icons.py` (solo hace falta
-si cambia el diseño; lo generado ya está en el repositorio).
-Publicar una versión: sube la etiqueta (`git tag v0.6.0 && git push origin v0.6.0`) y GitHub
+Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/Nachero.exe`
+(`--onedir` hace una carpeta, `dist/Nachero/`, que arranca un segundo antes). Incluye metadatos
+de versión de Windows (`version_info.txt`) con `FileDescription = "Nachero"` y el icono multi-resolución.
+El icono y el logo salen de `assets/icon.svg` con `python scripts/make_icons.py` (genera el `.ico` con
+resoluciones de 16 a 256 px; solo hace falta si cambia el diseño; lo generado ya está en el repositorio).
+Publicar una versión: sube la etiqueta (`git tag v0.13.0 && git push origin v0.13.0`) y GitHub
 Actions construye el `.exe` y lo publica en *Releases* con las notas del CHANGELOG.
 
 ## Uso
 Desde esta carpeta:
 
 ```
-python run.py              # abre la ventana de Nachero (panel en http://127.0.0.1:8765)
-python run.py --browser    # el panel en el navegador, sin ventana (desarrollo)
-python run.py --observe    # arranca en modo Observar
-python run.py --demo       # draft simulado con tus datos reales
-python run.py --no-browser # ni ventana ni navegador: solo el servidor del panel
-python run.py --profile    # tu pool en consola
-python run.py --port 8766  # otro puerto para el panel
+python run.py                     # abre la ventana de Nachero (panel en http://127.0.0.1:8765)
+python run.py --browser           # el panel en el navegador, sin ventana (desarrollo)
+python run.py --observe           # arranca en modo Observar
+python run.py --demo              # draft simulado con tus datos reales
+python run.py --no-browser        # ni ventana ni navegador: solo el servidor del panel
+python run.py --profile           # tu pool en consola
+python run.py --install-shortcut  # crea el acceso directo en el Menú Inicio de Windows
+python run.py --port 8766         # otro puerto para el panel
 python run.py --version
 ```
 
-Si lo instalas (`pip install -e .`), el comando es `nachero` con las mismas opciones.
+Si lo instalas (`pip install -e .`), el comando es `nachero` con las mismas opciones (instalado bajo
+`gui-scripts` para no abrir ventana de consola en Windows).
+
+Para integrar la app con Windows:
+```
+nachero --install-shortcut
+```
+Crea `Nachero.lnk` en el Menú Inicio con su icono y `AppUserModelID`, permitiendo anclarlo a la
+barra de tareas mostrando `Nachero` y su icono en lugar del ejecutable genérico de Python.
 
 Si Nachero ya está abierto en ese puerto, volver a ejecutarlo trae su ventana al frente (o abre
 su panel en el navegador si va sin ventana). En otro puerto (`--port`) se abre una copia aparte.

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 32 32">
+  <!-- Nachero: la «N» que sube. Azul y rojo como las dos columnas del draft (aliado y rival);
+       la pata derecha acaba en flecha (la recomendación). Colores de src/nachero/ui/style.css.
+       Original: los .ico/.png salen de aquí con scripts/make_icons.py. -->
+  <title>Nachero</title>
+  <rect width="32" height="32" rx="7" fill="#18181c"/>
+  <path d="M8 23.5V10.5l13 13" fill="none" stroke="#6ea8ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21 23.5V13" fill="none" stroke="#ff7a7f" stroke-width="5" stroke-linecap="round"/>
+  <path d="M21 6l5 7H16z" fill="#ff7a7f" stroke="#ff7a7f" stroke-width="1" stroke-linejoin="round"/>
+</svg>

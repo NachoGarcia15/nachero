@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
+ICON = SRC / "nachero" / "ui" / "icon.ico"  # icono del .exe, la ventana y la barra de tareas (#45)
 
 sys.path.insert(0, str(SRC))
 from nachero import __version__  # noqa: E402
@@ -69,6 +70,8 @@ def main() -> int:
         str(DIST),
         str(ROOT / "run.py"),
     ]
+    if ICON.is_file():
+        cmd[-1:-1] = ["--icon", str(ICON)]
     subprocess.run(cmd, check=True)
     exe = DIST / "nachero.exe"
     print(f"\nListo: {exe} ({exe.stat().st_size / 1e6:.1f} MB) · versión {__version__}")

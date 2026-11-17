@@ -20,7 +20,7 @@ fijada #28. Estrategia de datos (Lolalytics ahora, API de Riot después): `docs/
 .venv\Scripts\python -m ruff format src tests run.py scripts
 .venv\Scripts\python -m mypy
 .venv\Scripts\python -m pytest
-python run.py [--demo] [--observe] [--port 8766] [--no-browser] [--profile]
+python run.py [--demo] [--observe] [--port 8766] [--browser | --no-browser] [--profile]
 .venv\Scripts\python scripts/build_exe.py      # dist/nachero.exe (pip install -e ".[build]")
 ```
 Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .venv` y
@@ -69,9 +69,10 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 - Con el cliente cerrado la app usa CommunityDragon y los datos guardados (modo sin cliente).
 
 ## Trampas conocidas
-- La herramienta de vista previa del navegador lanzaba una copia antigua: arrancar el servidor
-  con Bash en segundo plano y abrir `http://localhost:<puerto>/?v=<versión>` (la versión evita
-  la caché del panel antiguo).
+- `run.py` abre la ventana de la app (pywebview). Para probar el panel con la vista previa del
+  navegador: arrancar con `--no-browser` en Bash en segundo plano y abrir
+  `http://localhost:<puerto>/?v=<versión>` (la versión evita la caché del panel antiguo).
+- No abrir ventanas de prueba si el usuario está en partida (`League of Legends.exe`).
 - La API local tarda a veces más de 5 s (historial): usa timeouts largos y no bloquees el bucle.
 - Tipo de cola (`domain/queues.py`): fuera de la Grieta (ARAM, Arena, URF…) no se recomienda ni
   se toca el cliente; a ciegas y Practice Tool, rol principal y sin bans.

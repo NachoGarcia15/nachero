@@ -133,11 +133,28 @@ function parts(p, d) {
 }
 
 const ROLE_TAG = { top: "TOP", jungle: "JG", middle: "MID", bottom: "ADC", utility: "SUP" };
+const ROLE_NAME = { top: "Top", jungle: "Jungla", middle: "Mid", bottom: "ADC", utility: "Support" };
+const CONF_HELP = {
+  high: "Muchas partidas en este rol en Master+: la estimación es fiable.",
+  medium: "Bastantes partidas en este rol en Master+.",
+  low: "Pocas partidas en este rol en Master+: la fuerza se acerca a la de su rol principal y penaliza.",
+  none: "Casi sin partidas en este rol en Master+: estimación a partir de su rol principal.",
+};
+
+/* Rol del campeón (si no es su principal) y confianza de la estimación, en chips. */
+function roleChips(p) {
+  if (!p.confidence) return "";
+  const n = p.meta_games ? `${nf0.format(p.meta_games)} partidas` : "sin partidas";
+  const cat = p.role_cat && p.role_cat !== "main"
+    ? `<span class="chip cat" title="${esc(p.roles_label ? "Sus roles: " + p.roles_label : "")}">${esc(ROLE_NAME[p.role] || "")} ${esc(p.role_cat_es)}</span>` : "";
+  return `${cat}<span class="chip conf-${esc(p.confidence)}" title="${esc(CONF_HELP[p.confidence] || "")} ${n}${p.role_pct ? ` (${f1(p.role_pct)} % de sus partidas)` : ""}.">Confianza ${esc((p.confidence_es || "").toLowerCase())}</span>`;
+}
 
 function matchupLine(p) {
   if (!p.matchups_loaded) return `<div class="mus"><span class="loading-dot">Cargando matchups…</span></div>`;
   if (p.matchups.length) {
-    return `<div class="mus">${p.matchups.slice(0, 5).map((m) => `<span class="${m.lane ? "lane" : ""}">${esc(m.name)} <i>${ROLE_TAG[m.role] || ""}</i> <span class="num ${tone(m.d2, 0.9)}">${signed(m.d2)}</span></span>`).join("")}</div>`;
+    const other = p.matchups_other_role ? `<span class="muted other-note" title="Sin matchups de este rol: se usan los de su rol principal, con la mitad de peso.">* datos de otro rol</span>` : "";
+    return `<div class="mus">${p.matchups.slice(0, 5).map((m) => `<span class="${m.lane ? "lane" : ""}${m.other_role ? " other" : ""}">${esc(m.name)} <i>${ROLE_TAG[m.role] || ""}</i> <span class="num ${tone(m.d2, 0.9)}">${signed(m.d2)}</span>${m.other_role ? "*" : ""}</span>`).join("")}${other}</div>`;
   }
   if (p.risk_items && p.risk_items.length) {
     return `<div class="mus"><span class="muted">Le pueden counterear:</span>${p.risk_items.map((m) => `<span>${esc(m.name)} <span class="num ${tone(m.d2, 0.9)}">${signed(m.d2)}</span></span>`).join("")}</div>`;
@@ -191,6 +208,8 @@ function draftContext(d) {
 
 function subline(p) {
   const bits = [];
+  if (p.role_cat && p.role_cat !== "main") bits.push(`${ROLE_NAME[p.role] || ""} ${p.role_cat_es}`);
+  if (p.confidence && p.confidence !== "high") bits.push(`confianza ${(p.confidence_es || "").toLowerCase()}`);
   if (p.recent30 >= 2) bits.push(`${p.recent30} este mes`);
   if (p.games) bits.push(`${p.games} partidas · ${p.wr}%`);
   else if (p.exp >= 5) bits.push(`~${p.exp} partidas de maestría`);
@@ -200,7 +219,7 @@ function subline(p) {
 }
 
 function renderDraft([d, idle, s]) {
-  const el = $("#view-draft");
+  const el = $("#draft-main");
   if (s.empty && s.empty !== "loading") { el.innerHTML = emptyState(s.empty, s); return; }
   if (!s.connected || s.loading) {
     el.innerHTML = `<div class="loading">${s.connected ? "Cargando tu historial y las estadísticas Master+…" : "Abre el cliente de League of Legends."}</div>`;
@@ -232,6 +251,7 @@ function renderDraft([d, idle, s]) {
         <div class="hero-body">
           <div class="eyebrow">${d.locked ? "Tu pick confirmado" : "Mejor pick para " + esc(d.role_es)}${d.mode === "meta" ? " · sin tu pool" : ""}</div>
           <h1>${esc(best.name)}</h1>
+          <div class="chips">${roleChips(best)}</div>
           <div class="est"><span class="num">${f1(best.est)}%</span><small>WR estimado</small></div>
           ${parts(best, d)}
           ${matchupLine(best)}
@@ -258,7 +278,7 @@ function renderDraft([d, idle, s]) {
             <span class="c est">${f1(p.est)}%</span>
           </div>`; }).join("")}
         </div>
-        <p class="foot">WR estimado = 50 + suma de partes. Rival = línea + resto del rival + composición + riesgo de counter.</p>
+        <p class="foot">WR estimado = 50 + suma de partes. Rival = línea + resto del rival + composición + riesgo de counter. Fuera de su rol principal, la confianza baja con las partidas que tiene en tu rol.</p>
       </div>
 
       <div class="block ${d.ban_suggestions.length ? "split" : ""}">
@@ -329,7 +349,7 @@ function roleSwitch(idle, chosen) {
 /* ------------------------------------------------------------------ pool */
 const POOL_COLS = [
   ["name", "Campeón"], ["role", "Rol"], ["games", "Partidas"], ["wr", "WR"], ["exp", "Experiencia"],
-  ["you", "Tú"], ["tier", "Tier"], ["meta", "Meta"], ["est", "Estimado"],
+  ["you", "Tú"], ["tier", "Tier"], ["meta", "Meta"], ["meta_games", "Confianza"], ["est", "Estimado"],
 ];
 
 // El cliente solo da tus ultimas 200 partidas de cualquier cola: explica por que el pool
@@ -345,14 +365,15 @@ function historyNote(h) {
 }
 
 function renderPool(rows) {
-  const el = $("#view-pool");
+  const el = $("#pool-main");
   if (!rows || !rows.length) {
     const why = STATE && STATE.empty && STATE.empty.pool;
     el.innerHTML = why ? emptyState(why, STATE) : `<div class="loading">Calculando tu pool…</div>`;
     return;
   }
-  const roles = [...new Set(rows.map((r) => r.role))];
-  const list = rows.filter((r) => POOL_ROLE === "all" || r.role === POOL_ROLE).slice();
+  const count = (k) => rows.filter((r) => r.role_key === k).length;
+  if (POOL_ROLE !== "all" && !ROLE_NAME[POOL_ROLE]) POOL_ROLE = "all";  // filtro guardado de una versión anterior
+  const list = rows.filter((r) => POOL_ROLE === "all" || r.role_key === POOL_ROLE).slice();
   const k = POOL_SORT.key;
   list.sort((a, b) => {
     const va = a[k] ?? -1e9, vb = b[k] ?? -1e9;
@@ -360,28 +381,152 @@ function renderPool(rows) {
   });
   el.innerHTML = `
     <div class="pool-head">
-      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol: tu experiencia y resultados con él, más su fuerza en Master+ este parche.</p>${historyNote(STATE.history)}</div>
-      <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos</button>${roles.map((r) => `<button data-r="${esc(r)}" class="${POOL_ROLE === r ? "on" : ""}">${esc(r)}</button>`).join("")}</div>
+      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol: tu experiencia y resultados con él, más su fuerza en Master+ este parche. Con maestría alta, cada campeón sale también en sus roles principal y flex.</p>${historyNote(STATE.history)}</div>
+      <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos <small>${rows.length}</small></button>${ROLE_BTNS.map(([r, t]) => `<button data-r="${r}" class="${POOL_ROLE === r ? "on" : ""}" ${count(r) ? "" : "disabled"}>${t} <small>${count(r)}</small></button>`).join("")}</div>
     </div>
     <div class="tablewrap"><table>
       <thead><tr>${POOL_COLS.map(([key, label]) => `<th data-k="${key}" class="${key === k ? "sorted" : ""}">${label}${key === k ? (POOL_SORT.dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
       <tbody>${list.map((r) => `<tr>
-        <td class="ch"><div><img src="${img("tile", r.id)}" alt="">${esc(r.name)}</div></td>
-        <td class="rl">${esc(r.role)}</td>
+        <td class="ch"><div><img src="${img("tile", r.id)}" alt=""><span>${esc(r.name)}${r.roles_label ? `<small>${esc(r.roles_label)}</small>` : ""}</span></div></td>
+        <td class="rl">${esc(r.role)}${r.role_cat && r.role_cat !== "main" ? ` <span class="chip cat">${esc(r.role_cat_es)}</span>` : ""}</td>
         <td>${r.games || "—"}</td>
         <td class="${r.wr == null ? "muted" : r.wr >= 55 ? "pos" : r.wr < 45 ? "neg" : ""}">${r.wr == null ? "—" : r.wr + "%"}</td>
         <td><span class="exp"><i><b style="width:${Math.min(100, (r.exp / 150) * 100)}%"></b></i>${nf0.format(r.exp)}</span></td>
         <td class="${tone(r.you)}">${signed(r.you)}</td>
         <td><span class="tier">${esc(r.tier || "—")}</span></td>
         <td class="${tone(r.meta)}">${signed(r.meta)}</td>
+        <td><span class="chip conf-${esc(r.confidence)}" title="${nf0.format(r.meta_games || 0)} partidas en este rol en Master+">${esc(r.confidence_es || "—")}</span></td>
         <td><b>${f1(r.est)}%</b></td></tr>`).join("")}</tbody>
     </table></div>`;
-  el.querySelectorAll(".filters button").forEach((b) => (b.onclick = () => { POOL_ROLE = b.dataset.r; memo.pool = null; renderPool(STATE.pool); }));
+  el.querySelectorAll(".filters button").forEach((b) => (b.onclick = () => { POOL_ROLE = b.dataset.r; memo.pool = null; renderPool(STATE.pool); evalDefaults("pool"); }));
   el.querySelectorAll("th").forEach((th) => (th.onclick = () => {
     const key = th.dataset.k;
     POOL_SORT = { key, dir: POOL_SORT.key === key ? -POOL_SORT.dir : (key === "name" || key === "role" ? 1 : -1) };
     renderPool(STATE.pool);
   }));
+}
+
+/* ------------------------------------------------------------------ evaluar cualquier campeón */
+// Buscador de Draft y Tu pool: cualquier campeón en cualquier rol, con su confianza.
+// El formulario se pinta una vez; solo se repinta el resultado (el draft se repinta cada segundo).
+const EVAL = { draft: { id: null, role: null, res: null, t: 0, auto: true }, pool: { id: null, role: null, res: null, t: 0, auto: true } };
+let CHAMPS = [];
+
+async function loadChampList() {
+  if (CHAMPS.length) return;
+  try {
+    const r = await fetch("/api/champions");
+    if (!r.ok) return;
+    CHAMPS = await r.json();
+    $("#champ-list").innerHTML = CHAMPS.map((c) => `<option value="${esc(c.name)}"></option>`).join("");
+  } catch (_) {}
+}
+
+// Rol por defecto: el de tu champ select (Draft), el filtro de Tu pool o tu rol principal.
+function evalDefaultRole(where) {
+  const s = STATE || {};
+  if (where === "pool" && ROLE_NAME[POOL_ROLE]) return POOL_ROLE;
+  if (where === "draft" && s.draft && s.draft.role && ROLE_NAME[s.draft.role]) return s.draft.role;
+  return (s.idle && s.idle.role) || "jungle";
+}
+
+function evalDefaults(where) {
+  const e = EVAL[where];
+  if (!e.auto) return;
+  const role = evalDefaultRole(where);
+  if (role !== e.role) { e.role = role; renderEvalForm(where); if (e.id) evalFetch(where); }
+}
+
+function renderEvalForm(where) {
+  const box = $("#eval-" + where);
+  const e = EVAL[where];
+  if (!box.dataset.ready) {
+    box.dataset.ready = "1";
+    box.innerHTML = `<div class="block-head"><h3>Evaluar cualquier campeón</h3><span>${where === "draft" ? "en el rol que elijas, con el draft actual si estás en la selección" : "en el rol que elijas, a ciegas, como una fila más de tu pool"}</span></div>
+      <div class="eval-form">
+        <input type="search" list="champ-list" placeholder="Escribe un campeón…" aria-label="Campeón a evaluar" autocomplete="off">
+        <div class="seg seg-sm evalroles" role="radiogroup" aria-label="Rol"></div>
+      </div>
+      <div class="eval-out"></div>`;
+    const input = box.querySelector("input");
+    const pick = () => {
+      const c = CHAMPS.find((x) => x.name.toLowerCase() === input.value.trim().toLowerCase());
+      if (c && c.id !== e.id) { e.id = c.id; e.res = null; evalFetch(where); }
+      if (!input.value.trim()) { e.id = null; e.res = null; renderEvalOut(where); }
+    };
+    input.addEventListener("input", pick);
+    input.addEventListener("change", pick);
+    input.addEventListener("focus", loadChampList);
+    box.addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-erole]");
+      if (!b) return;
+      e.role = b.dataset.erole;
+      e.auto = false;
+      renderEvalForm(where);
+      if (e.id) evalFetch(where);
+    });
+  }
+  box.querySelector(".evalroles").innerHTML = ROLE_BTNS.map(([r, t]) => `<button data-erole="${r}" class="${e.role === r ? "on" : ""}" role="radio" aria-checked="${e.role === r}">${t}</button>`).join("");
+}
+
+async function evalFetch(where) {
+  const e = EVAL[where];
+  if (!e.id || !e.role) return;
+  e.t = Date.now();
+  const want = `${e.id}:${e.role}`;
+  try {
+    const r = await fetch(`/api/evaluate?id=${e.id}&role=${e.role}&view=${where}`);
+    const res = await r.json();
+    if (`${e.id}:${e.role}` !== want) return;  // ha cambiado mientras llegaba
+    e.res = r.ok ? res : { error: res.error || "No se puede evaluar ahora" };
+  } catch (_) {
+    e.res = { error: "Nachero no responde" };
+  }
+  renderEvalOut(where);
+}
+
+function splitLine(res, where) {
+  return `<div class="esplit">${(res.split || []).filter((x) => x.games > 0 || x.role === res.role_key || x.role === res.role).map((x) => {
+    const on = x.role === (res.role_key || res.role);
+    return `<button data-erole="${x.role}" class="${on ? "on" : ""}" title="${nf0.format(x.games)} partidas en Master+">${esc(x.role_es)} <b class="num">${f1(x.pct)} %</b>${x.category !== "main" ? ` <small>${esc({ flex: "flex", occasional: "ocasional", off: "fuera de rol" }[x.category] || "")}</small>` : ""}</button>`;
+  }).join("")}</div>`;
+}
+
+function renderEvalOut(where) {
+  const out = $(`#eval-${where} .eval-out`);
+  const e = EVAL[where];
+  if (!out) return;
+  if (!e.id) { out.innerHTML = `<p class="muted">Por ejemplo Teemo en jungla o Katarina en ADC: sale su estimación aunque casi no se juegue ahí, con la confianza que dan sus partidas en ese rol.</p>`; return; }
+  const res = e.res;
+  if (!res) { out.innerHTML = `<p class="muted">Calculando…</p>`; return; }
+  if (res.error) { out.innerHTML = `<p class="neg">${esc(res.error)}</p>`; return; }
+  const p = { ...res, role: res.role_key || res.role };
+  const head = `<div class="eval-head"><img src="${img("tile", res.id)}" alt=""><div><b>${esc(res.name)}</b> <span class="muted">en ${esc(ROLE_NAME[p.role] || "")}</span><div class="chips">${roleChips(p)}</div></div>
+    <div class="est"><span class="num">${f1(res.est)}%</span><small>${where === "pool" ? "WR estimado a ciegas" : res.in_draft ? "WR estimado en este draft" : "WR estimado a ciegas"}</small></div></div>`;
+  if (where === "pool") {
+    out.innerHTML = `${head}
+      <div class="parts">${[["you", "Tú con él", res.you], ["meta", "Fuerza en el parche", res.meta]].map(([, label, v]) => `<div class="part"><span>${label}</span><div class="track"><i class="${v >= 0 ? "p" : "n"}" style="width:${Math.min(50, (Math.abs(v) / 4) * 50)}%"></i></div><span class="v ${tone(v)}">${signed(v)}</span></div>`).join("")}</div>
+      <p class="muted esub">${esc(subline({ ...p, recent30: 0 }))}</p>
+      ${splitLine(res, where)}`;
+  } else {
+    out.innerHTML = `${head}${parts(res, res.ctx || {})}${matchupLine(res)}${whyList(res)}${splitLine(res, where)}`;
+  }
+}
+
+// Mientras se ve el buscador, refresca el resultado (matchups que llegan, picks nuevos del draft).
+function evalTick() {
+  const s = STATE || {};
+  const blocked = !STATE || s.loading || (!s.connected && !s.offline) || ["platform", "no_champions"].includes((s.empty || {}).draft);
+  for (const where of ["draft", "pool"]) {
+    $("#eval-" + where).hidden = !!blocked;
+    if (VIEW !== where || blocked) continue;
+    loadChampList();
+    renderEvalForm(where);
+    evalDefaults(where);
+    const e = EVAL[where];
+    if (e.id && Date.now() - e.t > (e.res && e.res.matchups_loaded === false ? 2000 : 4000)) evalFetch(where);
+    if (!e.id && !$(`#eval-${where} .eval-out`).innerHTML) renderEvalOut(where);
+  }
 }
 
 /* ------------------------------------------------------------------ actividad */
@@ -503,6 +648,7 @@ async function poll() {
     once("log", s.log, renderLog);
     once("settings", s.settings, renderSettings);
     once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
+    evalTick();
   } catch (_) {
     const conn = $("#conn");
     conn.classList.remove("ok");

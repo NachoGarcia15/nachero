@@ -3,6 +3,33 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.9.0] - 2026-11-17
+
+### Añadido
+- Roles de cada campeón: principal, flex, ocasional o fuera de rol según su reparto por línea en
+  Master+ (umbrales en `roles` de la config). Cualquier campeón se puede evaluar en cualquier rol.
+- Confianza en cada tarjeta (Alta, Media, Baja o Sin datos) según las partidas del campeón en ese
+  rol, y su rol si no es el principal («ADC flex»).
+- Buscador «Evaluar cualquier campeón» en Draft y Tu pool: campeón y rol, con su estimación y su
+  confianza (en la selección de campeón, con el draft actual).
+- Simulador pro: clic en la etiqueta de rol de un pick para elegirlo a mano si la asignación
+  automática falla.
+
+### Cambiado
+- Draft: entran los principales y flex del rol entre los fuertes del parche (Katarina ADC, Jayce
+  jungla, Cassiopeia top), lo que has jugado en el rol desde 1 partida y tu maestría si el rol es
+  al menos ocasional.
+- Fuera de su rol principal, la fuerza del campeón se encoge hacia la de su rol principal con una
+  penalización que crece cuanto menos se juega ahí (hasta −4 pp; medida con la caché real). Sustituye
+  el −2,5 fijo.
+- Sin matchups del campeón en ese rol, se usan los de su rol principal con la mitad de peso,
+  marcados como datos de otro rol.
+- Tu pool: la maestría cuenta en los roles principal y flex del campeón (no solo en tu rol
+  principal); filtro por los cinco roles y columna de confianza.
+- Simulador pro: un campeón se sugiere en sus roles flex de Master+ aunque en el torneo solo se haya
+  jugado en otro.
+- Roles del rival: suelo del 1 % para que un pick fuera de rol no descoloque al resto.
+
 ## [0.8.0] - 2026-11-15
 
 ### Cambiado

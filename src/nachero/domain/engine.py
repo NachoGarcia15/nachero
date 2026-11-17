@@ -4,7 +4,8 @@ Todas las piezas se expresan en puntos de winrate (pp) para poder sumarlas:
 
   WR estimado = 50 + meta + tu + rival_linea + resto_rival + encaje_aliado + respuesta_comp + riesgo_counter
 
-  meta            WR del campeon en tu rol en Master+ menos la media, encogido por muestra; penaliza fuera de rol.
+  meta            WR del campeon en tu rol en Master+ menos la media, encogido por muestra. Fuera de su rol
+                  principal se encoge hacia su fuerza alli y penaliza mas cuanto menos se juega (roles.py).
   tu              (solo modo "pool") experiencia + forma + tu residuo de WR/rendimiento con el campeon.
   rival_linea     "delta 2" de Lolalytics contra el enemigo que juega tu linea (rol estimado).
   resto_rival     "delta 2" contra los demas enemigos, ponderado por cuanto interactua tu rol con su linea.
@@ -23,6 +24,7 @@ import itertools
 import math
 from collections import defaultdict
 
+from nachero.domain import roles as R
 from nachero.domain import tags as T
 from nachero.domain.common import ROLES, shrink
 from nachero.domain.common import tier_name as TIER
@@ -97,19 +99,21 @@ def comp_notes(ally, enemy):
     return notes
 
 
-def infer_roles(enemy_ids, lola):
-    """Asignacion conjunta mas probable de roles a los enemigos (maximiza el producto de % por linea)."""
+def infer_roles(enemy_ids, lola, cfg=None):
+    """Asignacion conjunta mas probable de roles a los enemigos (maximiza el producto de % por linea).
+    Los roles casi sin partidas tienen un suelo: un Teemo jungla no descoloca al resto del equipo."""
     ids = [c for c in enemy_ids if c][:5]
     if not ids:
         return {}
-    pct = {}
+    th = R.settings(cfg)
+    weight = {}
     for cid in ids:
+        split = R.split_of(lola, cid)
         for r in ROLES:
-            t = lola.tier(r)
-            pct[(cid, r)] = (t or {}).get("champs", {}).get(str(cid), {}).get("pct", 0) if t else 0
+            weight[(cid, r)] = R.assign_weight(split, r, th)
     best, best_score = None, -1e9
     for perm in itertools.permutations(ROLES, len(ids)):
-        sc = sum(math.log(pct[(c, r)] + 0.5) for c, r in zip(ids, perm, strict=True))
+        sc = sum(math.log(weight[(c, r)]) for c, r in zip(ids, perm, strict=True))
         if sc > best_score:
             best, best_score = perm, sc
     return dict(zip(ids, best, strict=True))
@@ -119,6 +123,7 @@ def infer_roles(enemy_ids, lola):
 class Engine:
     def __init__(self, champs, lola, player, cfg):
         self.champs, self.lola, self.player, self.cfg = champs, lola, player, cfg
+        self.roles = R.RoleBook(lola, cfg)
 
     def w(self, k):
         return float(self.cfg.get("weights", {}).get(k, 1.0))
@@ -134,53 +139,66 @@ class Engine:
 
     # -- fuerza del campeon en el parche
     def meta(self, cid, role):
+        """(pp de fuerza en el rol, fila de la tier list o None). Cualquier rol: ver `roles.estimate`."""
         t = self.lola.tier(role)
         if not t:
             return 0.0, None
-        c = t["champs"].get(str(cid))
-        if not c:
-            return -2.5, None
-        delta = shrink(c["wr"] - t["avg"], c["games"], 1500)
-        offrole = -2.5 * (1 - min(1.0, c["games"] / 1500))
-        return delta + offrole, c
+        return self.roles.estimate(cid, role)["value"], t["champs"].get(str(cid))
+
+    def strong(self, role, n):
+        """Los `n` mas fuertes del parche entre los que juegan el rol como principal o flex."""
+        t = self.lola.tier(role)
+        if not t:
+            return []
+        ids = [int(c) for c in t["champs"] if R.at_least(self.roles.category(int(c), role), "flex")]
+        ids.sort(key=lambda c: -self.meta(c, role)[0])
+        return ids[:n]
 
     def candidates(self, role):
-        t = self.lola.tier(role)
+        """Principal y flex del rol entre los fuertes del parche; con tu pool, ademas lo que has jugado
+        en el rol (desde 1 partida) y tus campeones con maestria si el rol es al menos ocasional."""
         out = set()
         if self.mode == "meta":
-            if t:
-                viable = [(int(cid), c) for cid, c in t["champs"].items() if c["games"] >= 1000]
-                viable.sort(key=lambda x: -self.meta(x[0], role)[0])
-                out |= {cid for cid, _ in viable[:45]}
+            out |= set(self.strong(role, 45))
         else:
             for cid, r in self.player.by_cr:
                 if r == role:
                     out.add(cid)
-            if t:
-                ranked = sorted(
-                    t["champs"].items(), key=lambda kv: -(kv[1]["wr"] - t["avg"]) * min(1, kv[1]["games"] / 3000)
-                )
-                out |= set([int(cid) for cid, c in ranked if c["games"] >= 1500][:18])
-                for cid, m in self.player.mastery.items():
-                    c = t["champs"].get(str(cid))
-                    if m.get("championPoints", 0) >= 40000 and c and c["games"] >= 1500:
-                        out.add(cid)
+            out |= set(self.strong(role, 18))
+            for cid, m in self.player.mastery.items():
+                if m.get("championPoints", 0) >= 40000 and R.at_least(self.roles.category(cid, role), "occasional"):
+                    out.add(cid)
         never = {self.champs.id(n) for n in self.cfg.get("never_pick", [])}
         return {c for c in out if c and c not in never}
 
     # -- contra el rival
     def vs_enemy(self, cid, role, enemy_roles):
-        """Suma de delta 2 contra cada enemigo, ponderada por linea. Devuelve (linea, resto, items, cargado)."""
+        """Suma de delta 2 contra cada enemigo, ponderada por linea. Devuelve (linea, resto, items, cargado).
+
+        Si en este rol faltan datos de un enemigo (o de todos, porque apenas se juega ahi), usa los
+        del rol principal del campeon con menos peso, marcados como datos de otro rol."""
         lanes = self.lola.matchups(cid, role)
-        if lanes is None:
+        home = self.roles.main(cid)
+        alt = None
+        if home and home != role:
+            # con poca muestra en el rol se pide tambien su pagina principal; si no, solo si ya esta
+            thin = not R.at_least(self.roles.category(cid, role), "flex")
+            alt = self.lola.matchups(cid, home, fetch=thin)
+        if lanes is None and alt is None:
             return 0.0, 0.0, [], False
+        alt_weight = float(self.roles.th["other_role_weight"])
         lane_sum, rest_sum, items = 0.0, 0.0, []
         for e, er in enemy_roles.items():
-            row = lanes.get(er, {}).get(str(e))
+            row, other = (lanes or {}).get(er, {}).get(str(e)), False
+            if not row and alt:
+                row = alt.get(er, {}).get(str(e)) or max(
+                    (rows[str(e)] for rows in alt.values() if str(e) in rows), key=lambda x: x["n"], default=None
+                )
+                other = bool(row)
             if not row:
                 continue
             is_lane = er == role
-            weight = LANE_WEIGHT[role][er]
+            weight = LANE_WEIGHT[role][er] * (alt_weight if other else 1.0)
             v = shrink(row["d2"], row["n"], 250 if is_lane else 400) * weight
             if is_lane:
                 lane_sum += v
@@ -197,6 +215,7 @@ class Engine:
                     "role": er,
                     "weight": weight,
                     "value": round(v, 2),
+                    "other_role": other,
                 }
             )
         items.sort(key=lambda x: (not x["lane"], x["d2"]))
@@ -294,66 +313,91 @@ class Engine:
         ) * 0.3
 
     # -- recomendacion principal
+    def score(self, cid, role, allies, enemy_ids, enemy_roles, enemy_left_after):
+        """Tarjeta de un campeon en un rol: WR estimado, partes, matchups, rol y confianza."""
+        lane_known = any(r == role for r in enemy_roles.values())
+        pool_mode = self.mode == "pool"
+        meta, tierrow = self.meta(cid, role)
+        est = self.roles.estimate(cid, role)
+        you = self.player.components(cid, role)
+        lane_v, rest_v, mu_items, loaded = self.vs_enemy(cid, role, enemy_roles)
+        risk, risk_items = self.counter_risk(cid, role, lane_known, enemy_left_after)
+        fit, fit_why = self.ally_fit(cid, allies)
+        vc, vc_why = self.vs_comp(cid, enemy_ids)
+        parts = {
+            "you": you["total"] * self.w("pool") if pool_mode else 0.0,
+            "meta": meta * self.w("meta"),
+            "lane": lane_v * self.w("matchup"),
+            "enemies": rest_v * self.w("matchup"),
+            "allies": (fit + self.style(cid)) * self.w("comp"),
+            "vs_comp": vc * self.w("comp"),
+            "risk": risk * self.w("matchup"),
+        }
+        bonus = float(self.cfg.get("pool_bonus", {}).get(self.champs.name(cid), 0)) if pool_mode else 0.0
+        total = sum(parts.values()) + bonus
+        return {
+            "id": cid,
+            "name": self.champs.name(cid),
+            "role": role,
+            "est": round(50 + total, 1),
+            "total": total,
+            "parts": {k: round(v, 1) for k, v in parts.items()},
+            "why": [{"sign": s, "text": t} for s, t in fit_why + vc_why],
+            "dmg": self.champs.info(cid)["dmg"],
+            "games": you["games"],
+            "wr": round(100 * you["wins"] / you["games"]) if you["games"] else None,
+            "mastery": you["mastery"],
+            "exp": round(you["exp_games"]),
+            "recent30": you["recent30"],
+            "tier": TIER(tierrow) if est["games"] else None,
+            "meta_wr": tierrow["wr"] if tierrow and est["games"] else None,
+            "meta_games": est["games"],
+            "role_pct": round(est["pct"], 1),
+            "role_cat": est["category"],
+            "role_cat_es": est["category_es"],
+            "confidence": est["confidence"],
+            "confidence_es": est["confidence_es"],
+            "roles_label": self.roles.label(cid),
+            "matchups": mu_items,
+            "matchups_loaded": loaded,
+            "matchups_other_role": any(m["other_role"] for m in mu_items),
+            "risk_items": risk_items,
+        }
+
     def picks(self, role, unavailable, pickable, allies, enemy_ids, enemy_left_after=5, include=()):
         """allies: [(cid, peso)] de tus aliados (peso 0,5 si solo marcan). enemy_ids: picks rivales."""
-        enemy_roles = infer_roles(enemy_ids, self.lola)
-        lane_known = any(r == role for r in enemy_roles.values())
+        enemy_roles = infer_roles(enemy_ids, self.lola, self.cfg)
         forced = {c for c in include if c}
-        pool_mode = self.mode == "pool"
         out = []
         for cid in self.candidates(role) | forced:
             if cid not in forced and (cid in unavailable or (pickable and cid not in pickable)):
                 continue
-            meta, tierrow = self.meta(cid, role)
-            you = self.player.components(cid, role)
-            lane_v, rest_v, mu_items, loaded = self.vs_enemy(cid, role, enemy_roles)
-            risk, risk_items = self.counter_risk(cid, role, lane_known, enemy_left_after)
-            fit, fit_why = self.ally_fit(cid, allies)
-            vc, vc_why = self.vs_comp(cid, enemy_ids)
-            parts = {
-                "you": you["total"] * self.w("pool") if pool_mode else 0.0,
-                "meta": meta * self.w("meta"),
-                "lane": lane_v * self.w("matchup"),
-                "enemies": rest_v * self.w("matchup"),
-                "allies": (fit + self.style(cid)) * self.w("comp"),
-                "vs_comp": vc * self.w("comp"),
-                "risk": risk * self.w("matchup"),
-            }
-            bonus = float(self.cfg.get("pool_bonus", {}).get(self.champs.name(cid), 0)) if pool_mode else 0.0
-            total = sum(parts.values()) + bonus
-            out.append(
-                {
-                    "id": cid,
-                    "name": self.champs.name(cid),
-                    "est": round(50 + total, 1),
-                    "total": total,
-                    "parts": {k: round(v, 1) for k, v in parts.items()},
-                    "why": [{"sign": s, "text": t} for s, t in fit_why + vc_why],
-                    "dmg": self.champs.info(cid)["dmg"],
-                    "games": you["games"],
-                    "wr": round(100 * you["wins"] / you["games"]) if you["games"] else None,
-                    "mastery": you["mastery"],
-                    "exp": round(you["exp_games"]),
-                    "recent30": you["recent30"],
-                    "tier": TIER(tierrow),
-                    "meta_wr": tierrow["wr"] if tierrow else None,
-                    "meta_games": tierrow["games"] if tierrow else 0,
-                    "matchups": mu_items,
-                    "matchups_loaded": loaded,
-                    "risk_items": risk_items,
-                }
-            )
+            out.append(self.score(cid, role, allies, enemy_ids, enemy_roles, enemy_left_after))
         out.sort(key=lambda r: -r["total"])
         for r in out[:12]:
             if not r["matchups_loaded"]:
                 self.lola.request(r["id"], role, self.champs.slug(r["id"]))
         ctx = {
             "enemy_roles": enemy_roles,
-            "lane_known": lane_known,
+            "lane_known": any(r == role for r in enemy_roles.values()),
             "enemy_left_after": enemy_left_after,
             "mode": self.mode,
         }
         return out, ctx
+
+    def evaluate(self, cid, role, allies=(), enemy_ids=(), enemy_left_after=5):
+        """Cualquier campeon en cualquier rol (buscador del panel), aunque no sea candidato."""
+        enemy_roles = infer_roles(list(enemy_ids), self.lola, self.cfg)
+        row = self.score(cid, role, list(allies), list(enemy_ids), enemy_roles, enemy_left_after)
+        if not row["matchups_loaded"]:
+            self.lola.request(cid, role, self.champs.slug(cid))
+        row["split"] = self.roles.describe(cid)
+        row["ctx"] = {
+            "lane_known": any(r == role for r in enemy_roles.values()),
+            "enemy_left_after": enemy_left_after,
+            "mode": self.mode,
+        }
+        return row
 
     def bans(self, role, my_top, blocked):
         """my_top: lista de picks recomendados (ya ordenada). blocked: ids que no se pueden/quieren banear."""

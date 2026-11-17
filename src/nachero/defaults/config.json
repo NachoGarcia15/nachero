@@ -58,6 +58,22 @@
   "_pool_bonus_info": "Puntos de WR extra (o negativos) para campeones concretos, p. ej. uno que estas practicando.",
   "pool_bonus": {},
   "never_pick": [],
+  "roles": {
+    "_info": "Categoria de cada campeon en cada rol segun su reparto en Master+: principal (su rol con mas partidas), flex (>= flex_pct % de sus partidas o >= flex_games), ocasional (>= occasional_pct % o >= occasional_games) y fuera de rol (el resto). Fuera de su rol principal, su WR en el rol se encoge (shrink_games) hacia su fuerza en el principal menos hasta offrole_penalty puntos (con el 0 % de sus partidas ahi; nada desde flex_pct).",
+    "flex_pct": 10.0,
+    "flex_games": 3000,
+    "occasional_pct": 2.0,
+    "occasional_games": 300,
+    "shrink_games": 1500,
+    "offrole_penalty": 4.0,
+    "other_role_weight": 0.5,
+    "assign_floor_pct": 1.0,
+    "confidence_games": {
+      "high": 5000,
+      "medium": 1000,
+      "low": 50
+    }
+  },
   "_ban_info": "Opcional: bans que quieres priorizar por rol. El resto se calcula con datos Master+.",
   "ban_priority": {
     "jungle": [],

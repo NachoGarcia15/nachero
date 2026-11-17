@@ -264,9 +264,15 @@ def open_window(url: str, state_file: Path, storage: Path) -> None:
         raise RuntimeError("pywebview no ha creado la ventana")
 
     def before_show(window):  # hilo de la ventana, antes de mostrarla
-        if saved:
-            with contextlib.suppress(Exception):
-                set_placement(native_hwnd(window), saved)
+        if not saved:
+            return
+        with contextlib.suppress(Exception):
+            set_placement(native_hwnd(window), saved)
+            if saved["maximized"]:
+                # SetWindowPlacement deja a WinForms en Normal: se vuelve a pedir maximizada
+                from System.Windows.Forms import FormWindowState
+
+                window.native.WindowState = FormWindowState.Maximized
 
     def closing(window):  # hilo de la ventana, antes de cerrarla
         with contextlib.suppress(Exception):

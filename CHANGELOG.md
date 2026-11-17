@@ -3,6 +3,26 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.11.0] - 2026-11-17
+
+### Añadido
+- **Nachero es una app de escritorio**: `nachero.exe` abre su propia ventana con el panel, sin
+  consola ni navegador. Cerrar la ventana cierra Nachero. Usa WebView2, el motor de Edge que ya
+  trae Windows 10 y 11. La ventana y la barra de tareas llevan el icono de Nachero.
+- La ventana recuerda su tamaño, su posición y si estaba maximizada.
+- Una sola instancia: abrir Nachero otra vez trae al frente la ventana que ya está abierta.
+- Si algo falla al arrancar, un cuadro de diálogo lo dice con la ruta del registro (antes salía
+  en la consola).
+- Sin WebView2, Nachero lo avisa y abre el panel en el navegador; cerrar el aviso lo cierra.
+- `--browser` abre el panel en el navegador, como antes (para desarrollo).
+
+### Cambiado
+- `--no-browser` ya no abre ni ventana ni navegador: solo el servidor del panel.
+- Si el puerto del panel lo usa otro programa, Nachero lo dice en vez de abrir ese puerto en el
+  navegador.
+- La ventana guarda su propia pestaña y simulador pro: la primera vez sale la pestaña por
+  defecto, aunque en el navegador tuvieras otra.
+
 ## [0.10.0] - 2026-11-17
 
 ### Añadido

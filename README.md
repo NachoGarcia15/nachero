@@ -14,19 +14,26 @@ Asistente de cola y selección de campeón para League of Legends, con panel loc
 - Tu parte sale de tu **historial** (soloq, flex, normal draft y partida rápida) y tus **puntos de maestría**.
 
 ## Requisitos
-Windows con el cliente de LoL abierto. Con el ejecutable no hace falta nada más; desde el código,
-Python 3.10 o superior (sin librerías extra).
+Windows 10 u 11 con el cliente de LoL abierto. Con el ejecutable no hace falta nada más; desde el
+código, Python 3.10 o superior y `pip install -e .` (instala pywebview, para la ventana).
 
 ## Ejecutable (lo más fácil para compartir)
 Descarga `nachero.exe` de *Releases* en GitHub (o pídeselo a quien te lo pase), abre el cliente
-de LoL y haz doble clic. Se abre el panel en el navegador; cerrar la ventana negra cierra Nachero.
+de LoL y haz doble clic. Nachero se abre en **su propia ventana**, sin consola ni navegador, y
+recuerda su tamaño y posición. Cerrar la ventana cierra Nachero. Si ya está abierto, volver a
+abrirlo trae su ventana al frente.
+
+- La ventana usa WebView2, el motor de Edge que ya trae Windows 10 y 11. Si faltara, Nachero lo
+  avisa y abre el panel en el navegador; el aviso queda abierto y, al cerrarlo, se cierra Nachero.
+- Si algo falla al arrancar, un cuadro de diálogo lo dice con la ruta del registro (`logs`).
 
 - Windows avisa de que es una app desconocida (no está firmada): *Más información → Ejecutar de
   todas formas*. Algún antivirus puede marcarlo por error; es un falso positivo habitual de PyInstaller.
 - Tus ajustes y datos van a `%APPDATA%\nachero`, así que puedes sustituir el `.exe` por una
   versión nueva sin perder nada.
 
-Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/nachero.exe`.
+Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/nachero.exe`
+(`--onedir` hace una carpeta, `dist/nachero/`, que arranca un segundo antes).
 El icono y el logo salen de `assets/icon.svg` con `python scripts/make_icons.py` (solo hace falta
 si cambia el diseño; lo generado ya está en el repositorio).
 Publicar una versión: sube la etiqueta (`git tag v0.6.0 && git push origin v0.6.0`) y GitHub
@@ -36,10 +43,11 @@ Actions construye el `.exe` y lo publica en *Releases* con las notas del CHANGEL
 Desde esta carpeta:
 
 ```
-python run.py              # abre el panel en http://127.0.0.1:8765
+python run.py              # abre la ventana de Nachero (panel en http://127.0.0.1:8765)
+python run.py --browser    # el panel en el navegador, sin ventana (desarrollo)
 python run.py --observe    # arranca en modo Observar
 python run.py --demo       # draft simulado con tus datos reales
-python run.py --no-browser # no abre el navegador
+python run.py --no-browser # ni ventana ni navegador: solo el servidor del panel
 python run.py --profile    # tu pool en consola
 python run.py --port 8766  # otro puerto para el panel
 python run.py --version
@@ -47,7 +55,9 @@ python run.py --version
 
 Si lo instalas (`pip install -e .`), el comando es `nachero` con las mismas opciones.
 
-Si Nachero ya está abierto, volver a ejecutarlo abre el panel existente.
+Si Nachero ya está abierto en ese puerto, volver a ejecutarlo trae su ventana al frente (o abre
+su panel en el navegador si va sin ventana). En otro puerto (`--port`) se abre una copia aparte.
+Desde un terminal, la consola muestra la actividad; `Ctrl+C` cierra Nachero.
 
 ## Modos
 - **Pausado**: no analiza ni actúa: ni recomienda ni toca el cliente.

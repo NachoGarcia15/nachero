@@ -1,8 +1,13 @@
-"""Construye dist/nachero.exe (Windows) con PyInstaller: un solo archivo con Python dentro.
+"""Construye dist/nachero.exe (Windows) con PyInstaller: la app con su ventana, sin consola.
 
-Uso:  python scripts/build_exe.py      (requiere: pip install -e ".[build]")
+Uso:  python scripts/build_exe.py            un solo archivo: dist/nachero.exe
+      python scripts/build_exe.py --onedir   una carpeta: dist/nachero/nachero.exe (arranca
+                                             ~1 s antes: no se descomprime en cada arranque)
+Requiere: pip install -e ".[build]"
 """
 
+import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -34,7 +39,10 @@ VERSION_FILE = """VSVersionInfo(
 """
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description="Construye nachero.exe con PyInstaller.")
+    p.add_argument("--onedir", action="store_true", help="una carpeta en vez de un solo archivo")
+    args = p.parse_args(argv)
     if sys.platform != "win32":
         print("El ejecutable solo se construye en Windows.")
         return 1
@@ -43,6 +51,7 @@ def main() -> int:
     version_file = BUILD / "version_info.txt"
     version_file.write_text(VERSION_FILE.format(t=tuple(parts + [0]), v=__version__), encoding="utf-8")
     (DIST / "nachero.exe").unlink(missing_ok=True)
+    shutil.rmtree(DIST / "nachero", ignore_errors=True)
     sep = ";"  # separador de --add-data en Windows
     cmd = [
         sys.executable,
@@ -50,8 +59,8 @@ def main() -> int:
         "PyInstaller",
         "--noconfirm",
         "--clean",
-        "--onefile",
-        "--console",  # la ventana muestra la actividad; cerrarla cierra Nachero
+        "--onedir" if args.onedir else "--onefile",
+        "--windowed",  # sin consola: la app es su ventana (pywebview); cerrarla cierra Nachero
         "--name",
         "nachero",
         "--paths",
@@ -73,8 +82,10 @@ def main() -> int:
     if ICON.is_file():
         cmd[-1:-1] = ["--icon", str(ICON)]
     subprocess.run(cmd, check=True)
-    exe = DIST / "nachero.exe"
-    print(f"\nListo: {exe} ({exe.stat().st_size / 1e6:.1f} MB) · versión {__version__}")
+    exe = DIST / "nachero" / "nachero.exe" if args.onedir else DIST / "nachero.exe"
+    files = [f for f in exe.parent.rglob("*") if f.is_file()] if args.onedir else [exe]
+    size = sum(f.stat().st_size for f in files)
+    print(f"\nListo: {exe} ({size / 1e6:.1f} MB) · versión {__version__}")
     return 0
 
 

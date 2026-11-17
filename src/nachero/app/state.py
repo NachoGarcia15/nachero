@@ -42,7 +42,7 @@ TIMER_ES = {
 }
 
 LOCK = threading.RLock()
-OPTS = {"demo": False}
+OPTS = {"demo": False, "window": False}  # window: el panel está en la ventana de la app
 APP: dict = {
     "mode": "observe",
     "connected": False,

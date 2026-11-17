@@ -158,7 +158,7 @@ def run(argv=None):
         return  # el bucle principal es un hilo daemon: termina con el proceso
     if ui == "browser":
         webbrowser.open(panel)
-    serve(srv, keep_open_text(url, notice))
+    serve(srv, keep_open_text(url, notice), "warn" if notice else "info")
 
 
 def bind(port: int, handler) -> ThreadingHTTPServer | None:
@@ -203,11 +203,11 @@ def no_window_notice(problem: str) -> str:
 
 
 def keep_open_text(url: str, notice: str | None = None) -> str:
-    head = notice or f"Nachero está abierto en el navegador: {url}"
+    head = notice or f"Nachero está abierto sin ventana. El panel está en {url}"
     return f"{head}\n\nNachero sigue abierto mientras este aviso esté abierto: pulsa Aceptar para cerrarlo."
 
 
-def serve(srv: ThreadingHTTPServer, text: str) -> None:
+def serve(srv: ThreadingHTTPServer, text: str, kind: str = "info") -> None:
     """Sirve el panel hasta que se cierra Nachero: en un terminal, con Ctrl+C. Sin consola (el
     ejecutable con --browser o sin WebView2) no habría nada que cerrar, así que un aviso hace de
     ventana y cerrarlo cierra Nachero."""
@@ -219,7 +219,7 @@ def serve(srv: ThreadingHTTPServer, text: str) -> None:
         return
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
-        desktop.message_box(text, "info")
+        desktop.message_box(text, kind)
     finally:
         stop(srv)
     log("Aviso cerrado: Nachero se cierra.")

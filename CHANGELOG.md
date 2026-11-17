@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.10.0] - 2026-11-17
+
+### Añadido
+- Icono propio de Nachero: una «N» con las dos columnas del draft (azul y rojo) cuya pata derecha
+  acaba en flecha. Lo llevan `nachero.exe` (en el Explorador y los accesos directos), la cabecera
+  del panel y la pestaña del navegador (favicon). La ventana propia y la barra de tareas lo usan
+  con la app de escritorio (#44).
+- Logo horizontal (icono + «Nachero») en el README, con versión para tema claro y oscuro.
+- `scripts/make_icons.py` genera el `.ico` (16 a 256 px), el PNG de la bandeja y los logos a
+  partir del original `assets/icon.svg`.
+
 ## [0.9.0] - 2026-11-17
 
 ### Añadido

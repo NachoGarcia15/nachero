@@ -26,8 +26,8 @@ BACKGROUND = "#0c0c0e"  # el fondo del panel (--bg): sin destello blanco al abri
 WEBVIEW2_URL = "https://developer.microsoft.com/microsoft-edge/webview2/"
 # Opciones que escriben en el terminal: el ejecutable con ventana no tiene consola propia
 CLI_FLAGS = ("-h", "--help", "--version", "--profile")
-# Icono de la ventana y de la barra de tareas (#45). En el ejecutable pywebview usa el suyo
-# (--icon en scripts/build_exe.py); este, al ejecutar desde el código. Solo si existe.
+# Icono de la ventana y de la barra de tareas (#45), también al ejecutar desde el código. El del
+# .exe en el Explorador lo pone --icon en scripts/build_exe.py.
 ICON = paths.UI_DIR / "icon.ico"
 
 WIN = sys.platform == "win32"
@@ -96,7 +96,7 @@ def attach_parent_console() -> bool:
 
 def probe_instance(url: str, timeout: float = 3.0) -> dict | None:
     """Quién usa el puerto del panel: la respuesta del otro Nachero, o None si es otro programa
-    (o un Nachero anterior a la 0.9, que no tiene /api/instance)."""
+    (o un Nachero anterior a la 0.11, que no tiene /api/instance)."""
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # sin proxy del sistema
     try:
         with opener.open(f"{url}/api/instance", timeout=timeout) as r:

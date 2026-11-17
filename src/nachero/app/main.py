@@ -178,7 +178,7 @@ def another_instance(url: str, port: int, ui: str) -> None:
     info = desktop.probe_instance(url)
     if info is None:
         msg = (
-            f"El puerto {port} lo está usando otro programa (o un Nachero anterior a la 0.9). "
+            f"El puerto {port} lo está usando otro programa (o un Nachero anterior a la 0.11). "
             "Ciérralo y vuelve a abrir Nachero."
         )
         log(msg, "warn")

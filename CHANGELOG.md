@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.13.0] - 2026-11-17
+
+### Añadido
+- **Identidad e icono en Windows**: registro de `AppUserModelID` (`Nachero.Desktop.App`) antes
+  de crear la ventana y asignación de icono vía `WM_SETICON` (`LoadImageW`) sobre el `HWND` nativo.
+  La ventana, la barra de tareas, el Menú Inicio y `Alt + Tab` muestran el icono personalizado y se
+  agrupan como **`Nachero`** en lugar del ejecutable genérico de Python.
+- Subcomando `--install-shortcut` para crear el acceso directo `Nachero.lnk` en el Menú Inicio de
+  Windows con su icono, descripción y `AppUserModelID` asignado vía `IPropertyStore`.
+- Entrypoint configurado en `[project.gui-scripts]` para arrancar como aplicación gráfica nativa sin
+  abrir ventana de consola negra.
+- Metadatos de versión de Windows en `scripts/build_exe.py` con `FileDescription = "Nachero"`,
+  `ProductName = "Nachero"`, `InternalName = "Nachero"` y ejecutable nombrado `Nachero.exe`.
+
 ## [0.12.0] - 2026-11-17
 
 ### Añadido

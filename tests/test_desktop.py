@@ -248,3 +248,177 @@ def test_con_webview2_abre_la_ventana(home, calls, monkeypatch):
     assert OPTS["window"] is True
     assert opened == [(f"http://127.0.0.1:{port}/?v={M.__version__}", paths.window_file(), paths.webview_dir())]
     assert calls["browser"] == [] and calls["box"] == []
+
+
+# ------------------------------------------------------------------ Win32 identity e icono
+
+
+def test_set_app_model_id_invoca_shell32_en_win32(monkeypatch):
+    called = []
+
+    class FakeShell32:
+        def SetCurrentProcessExplicitAppUserModelID(self, app_id):
+            called.append(app_id)
+
+    class FakeWinDLL:
+        shell32 = FakeShell32()
+
+    monkeypatch.setattr(desktop, "WIN", True)
+    monkeypatch.setattr(desktop.ctypes, "windll", FakeWinDLL())
+    desktop.set_app_model_id()
+    assert called == [desktop.APP_MODEL_ID]
+
+
+def test_set_app_model_id_no_falla_fuera_de_win32(monkeypatch):
+    monkeypatch.setattr(desktop, "WIN", False)
+    # Fuera de Windows no debe tocar nada ni fallar
+    desktop.set_app_model_id()
+
+
+def test_set_window_icon_invoca_loadimagew_y_sendmessage(tmp_path, monkeypatch):
+    loaded = []
+    sent = []
+
+    class FakeFunc:
+        def __init__(self, fn):
+            self.fn = fn
+            self.restype = None
+            self.argtypes = None
+
+        def __call__(self, *args, **kwargs):
+            return self.fn(*args, **kwargs)
+
+    class FakeUser32:
+        def __init__(self):
+            self.LoadImageW = FakeFunc(lambda inst, path, kind, w, h, flags: loaded.append((path, w, h)) or (w * 100))
+            self.SendMessageW = FakeFunc(lambda hwnd, msg, wp, lp: sent.append((hwnd, msg, wp, lp)))
+
+    monkeypatch.setattr(desktop, "WIN", True)
+    monkeypatch.setattr(desktop.ctypes, "WinDLL", lambda name, use_last_error=False: FakeUser32())
+    ico = tmp_path / "test.ico"
+    ico.write_bytes(b"\x00\x00\x01\x00")
+    desktop.set_window_icon(5555, ico)
+    assert (str(ico), 16, 16) in loaded
+    assert (str(ico), 32, 32) in loaded
+    assert (5555, desktop.WM_SETICON, desktop.ICON_SMALL, 1600) in sent
+    assert (5555, desktop.WM_SETICON, desktop.ICON_BIG, 3200) in sent
+
+
+def test_set_window_icon_ignora_archivo_inexistente_o_sin_win32(tmp_path, monkeypatch):
+    sent = []
+
+    class FakeUser32:
+        def SendMessageW(self, *a):
+            sent.append(a)
+
+    monkeypatch.setattr(desktop.ctypes, "WinDLL", lambda name, use_last_error=False: FakeUser32())
+    monkeypatch.setattr(desktop, "WIN", False)
+    desktop.set_window_icon(1234, tmp_path / "no_existe.ico")
+    assert sent == []
+
+
+def test_native_hwnd_con_form_o_fallback_findwindoww(monkeypatch):
+    # Con window.native.Handle
+    class FakeHandle:
+        def ToInt64(self):
+            return 9999
+
+    class FakeNative:
+        Handle = FakeHandle()
+
+    class FakeWin:
+        native = FakeNative()
+
+    assert desktop.native_hwnd(FakeWin()) == 9999
+
+    # Sin window.native: fallback a FindWindowW
+    class EmptyWin:
+        pass
+
+    class FakeUser32:
+        def FindWindowW(self, cls, title):
+            return 8888
+
+    monkeypatch.setattr(desktop, "WIN", True)
+    monkeypatch.setattr(desktop, "_user32", lambda: FakeUser32())
+    assert desktop.native_hwnd(EmptyWin()) == 8888
+
+
+def test_open_window_registra_app_model_id_y_asigna_icono(tmp_path, monkeypatch):
+    app_id_registered = []
+    icons_passed = []
+    window_icons_set = []
+
+    monkeypatch.setattr(desktop, "set_app_model_id", lambda: app_id_registered.append(True))
+    monkeypatch.setattr(desktop, "set_window_icon", lambda hwnd, p: window_icons_set.append((hwnd, p)))
+    monkeypatch.setattr(desktop, "native_hwnd", lambda w: 7777)
+
+    class FakeEvents:
+        def __init__(self):
+            self.before_show = []
+            self.closing = []
+
+    class FakeEventList:
+        def __init__(self):
+            self.callbacks = []
+
+        def __iadd__(self, cb):
+            self.callbacks.append(cb)
+            return self
+
+    class FakeWindow:
+        def __init__(self):
+            self.events = FakeEvents()
+            self.events.before_show = FakeEventList()
+            self.events.closing = FakeEventList()
+
+    fake_win = FakeWindow()
+
+    class FakeWebview:
+        def create_window(self, *a, **kw):
+            return fake_win
+
+        def start(self, **kw):
+            icons_passed.append(kw.get("icon"))
+            # Disparar before_show
+            for cb in fake_win.events.before_show.callbacks:
+                cb(fake_win)
+
+    import sys
+
+    monkeypatch.setitem(sys.modules, "webview", FakeWebview())
+    desktop.open_window("http://127.0.0.1:8765", tmp_path / "state.json", tmp_path / "storage")
+
+    assert app_id_registered == [True]
+    assert len(icons_passed) == 1
+    assert len(window_icons_set) == 1
+    assert window_icons_set[0][0] == 7777
+
+
+def test_install_shortcut_fuera_de_win32(monkeypatch):
+    monkeypatch.setattr(desktop, "WIN", False)
+    assert "solo funcionan en Windows" in desktop.install_shortcut()
+
+
+def test_install_shortcut_en_win32(tmp_path, monkeypatch):
+    created = []
+    monkeypatch.setattr(desktop, "WIN", True)
+    monkeypatch.setattr(desktop, "_start_menu_dir", lambda: tmp_path / "StartMenu")
+    monkeypatch.setattr(desktop, "_find_shortcut_target", lambda: tmp_path / "Nachero.exe")
+    monkeypatch.setattr(
+        desktop,
+        "_create_lnk",
+        lambda lnk, target, icon, app_id=desktop.APP_MODEL_ID: created.append((lnk, target, icon, app_id)),
+    )
+
+    res = desktop.install_shortcut()
+    assert "Nachero.lnk" in res
+    assert len(created) == 1
+    assert created[0][1] == str(tmp_path / "Nachero.exe")
+
+
+def test_main_install_shortcut(capsys, monkeypatch):
+    monkeypatch.setattr(desktop, "install_shortcut", lambda: r"C:\Start Menu\Nachero.lnk")
+    M.main(["--install-shortcut"])
+    out = capsys.readouterr().out
+    assert "Acceso directo: C:\\Start Menu\\Nachero.lnk" in out

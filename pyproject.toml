@@ -12,7 +12,11 @@ dependencies = []          # solo biblioteca estandar
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
-build = ["pyinstaller>=6.10"]   # para scripts/build_exe.py (nachero.exe)
+build = [
+  "pyinstaller>=6.10",          # scripts/build_exe.py (nachero.exe)
+  "resvg-py>=0.5",              # scripts/make_icons.py (SVG -> PNG/ICO)
+  "fonttools>=4.50",            # scripts/make_icons.py (texto del logo en trazos)
+]
 
 [project.scripts]
 nachero = "nachero.app.main:main"

@@ -43,7 +43,9 @@ button { font: inherit; color: inherit; }
 }
 .bar-left, .bar-right { display: flex; align-items: center; gap: 14px; }
 .bar-right { justify-content: flex-end; }
-.brand { font-weight: 650; letter-spacing: -0.01em; font-size: 15px; }
+.brand { font-weight: 650; letter-spacing: -0.01em; font-size: 15px;
+  display: inline-flex; align-items: center; gap: 9px; }
+.brand img { display: block; }
 .conn { display: inline-flex; align-items: center; gap: 7px; color: var(--text-3); font-size: 13px; white-space: nowrap; }
 .conn i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
 .conn.ok i { background: var(--pos); }

@@ -1,4 +1,9 @@
-# Nachero
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img src="assets/logo-light.svg" alt="Nachero" height="48">
+  </picture>
+</h1>
 
 Asistente de cola y selección de campeón para League of Legends, con panel local.
 
@@ -22,6 +27,8 @@ de LoL y haz doble clic. Se abre el panel en el navegador; cerrar la ventana neg
   versión nueva sin perder nada.
 
 Construirlo: `pip install -e ".[build]"` y `python scripts/build_exe.py` → `dist/nachero.exe`.
+El icono y el logo salen de `assets/icon.svg` con `python scripts/make_icons.py` (solo hace falta
+si cambia el diseño; lo generado ya está en el repositorio).
 Publicar una versión: sube la etiqueta (`git tag v0.6.0 && git push origin v0.6.0`) y GitHub
 Actions construye el `.exe` y lo publica en *Releases* con las notas del CHANGELOG.
 

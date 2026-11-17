@@ -86,6 +86,16 @@ def cache_dir() -> Path:
     return d
 
 
+def window_file() -> Path:
+    """Tamaño y posición de la ventana de la app."""
+    return user_dir() / "window.json"
+
+
+def webview_dir() -> Path:
+    """Datos del navegador de la ventana (WebView2): localStorage del panel y caché."""
+    return user_dir() / "webview"
+
+
 def log_dir() -> Path:
     d = user_dir() / "logs"
     d.mkdir(exist_ok=True)

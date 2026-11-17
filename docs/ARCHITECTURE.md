@@ -33,6 +33,7 @@ src/nachero/
              demo.py     draft simulado
              worker.py   bucle principal y sesión con el cliente
              server.py   API HTTP del panel y archivos estáticos
+             desktop.py  ventana de la app (pywebview), diálogos, instancia única
              main.py     argumentos y arranque
   ui/        Panel (HTML/CSS/JS sin dependencias)
   defaults/  Ajustes por defecto
@@ -66,8 +67,9 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
 
 | Decisión | Motivo |
 |---|---|
-| Solo biblioteca estándar en tiempo de ejecución | Instalar y empaquetar sin fricción. |
-| Panel web local en vez de ventana nativa | Funciona en cualquier navegador; empaquetar como exe es independiente. |
+| Solo biblioteca estándar en tiempo de ejecución (salvo pywebview) | Instalar y empaquetar sin fricción. |
+| Panel web local, mostrado en una ventana propia (pywebview con WebView2) | La misma interfaz HTML/JS en la app y, para desarrollo, en el navegador (`--browser`). WebView2 viene con Windows 10 y 11; Electron o Tauri obligarían a reescribir el backend. |
+| Instancia única por puerto | Abrir Nachero otra vez trae al frente la ventana del que ya usa el puerto (`/api/instance`); en otro puerto se puede probar una segunda copia. |
 | Todo en puntos de winrate | Las partes se pueden sumar, comparar y explicar al usuario. |
 | *Delta 2* para matchups | Mide solo la interacción; no cuenta dos veces la fuerza del campeón. |
 | Encogimiento por muestra (`shrink`) | Pocas partidas dicen poco: evita recomendaciones por suerte. |

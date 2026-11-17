@@ -4,6 +4,7 @@ import contextlib
 import getpass
 import json
 import mimetypes
+import os
 import platform
 import re
 import threading
@@ -13,7 +14,7 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from nachero import __version__, config, paths
-from nachero.app.state import APP, CTX, LOCK, PHASE_ES, log
+from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
 from nachero.app.status import diagnostics, empty_states
 from nachero.app.worker import evaluate, gol
 from nachero.config import CFG, TOGGLES
@@ -93,6 +94,9 @@ class Handler(BaseHTTPRequestHandler):
         if static:
             ctype = mimetypes.guess_type(static.name)[0] or "text/plain"
             return self.send(200, static.read_bytes(), ctype + "; charset=utf-8")
+        if path == "/api/instance":  # para que un segundo Nachero en este puerto traiga al frente a este
+            info = {"app": "nachero", "version": __version__, "pid": os.getpid(), "window": OPTS["window"]}
+            return self.send(200, info)
         if path == "/api/diagnostics":
             text = diagnostics(snapshot(), __version__, platform.platform(), paths.FROZEN, private_words())
             return self.send(200, text, "text/plain; charset=utf-8")

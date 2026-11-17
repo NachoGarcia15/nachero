@@ -14,9 +14,14 @@ const PRO_PARTS = {
 const SIDE_ES = { blue: "Azul", red: "Rojo" };
 const ROLE_FILTERS = [["all", "Todos"], ["top", "Top"], ["jungle", "Jungla"], ["middle", "Mid"], ["bottom", "ADC"], ["utility", "Support"]];
 
-let PRO = { tournament: "", blue: { bans: [], picks: [] }, red: { bans: [], picks: [] }, fearless: [], history: [] };
-let PRO_UI = { tournaments: null, champs: [], res: null, filter: "all", q: "", fearlessMode: false, inited: false, timer: null };
+const PRO_ROLE_SHORT = { top: "TOP", jungle: "JG", middle: "MID", bottom: "ADC", utility: "SUP" };
+const PRO_ROLE_CAT = { flex: "flex", occasional: "ocasional", off: "fuera de rol" };
+
+// roles: {blue: {cid: rol}, red: {...}} elegidos a mano cuando la asignación automática falla
+let PRO = { tournament: "", blue: { bans: [], picks: [] }, red: { bans: [], picks: [] }, fearless: [], history: [], roles: { blue: {}, red: {} } };
+let PRO_UI = { tournaments: null, champs: [], res: null, filter: "all", q: "", fearlessMode: false, inited: false, timer: null, roleMenu: null };
 try { const s = JSON.parse(localStorage.getItem("nachero.pro") || localStorage.getItem("draftbot.pro") || "null"); if (s && s.blue) PRO = { ...PRO, ...s }; } catch (_) {}
+if (!PRO.roles || !PRO.roles.blue || !PRO.roles.red) PRO.roles = { blue: {}, red: {} };
 
 function proSave() { try { localStorage.setItem("nachero.pro", JSON.stringify(PRO)); } catch (_) {} }
 const proName = (id) => (PRO_UI.champs.find((c) => c.id === id) || {}).name || "";
@@ -55,17 +60,22 @@ async function proLoadChamps() {
 
 async function proSuggest() {
   proSave();
+  // solo vale la respuesta de la última petición (el refresco automático puede cruzarse con un clic)
+  const seq = PRO_UI.seq = (PRO_UI.seq || 0) + 1;
+  let res;
   try {
     const r = await fetch("/api/pro/suggest", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tournament: PRO.tournament, blue: PRO.blue, red: PRO.red, fearless: PRO.fearless }) });
-    PRO_UI.res = await r.json();
+      body: JSON.stringify({ tournament: PRO.tournament, blue: PRO.blue, red: PRO.red, fearless: PRO.fearless, roles: PRO.roles }) });
+    res = await r.json();
   } catch (e) {
-    PRO_UI.res = { error: "Nachero no responde" };
+    res = { error: "Nachero no responde" };
   }
+  if (seq !== PRO_UI.seq) return;
+  PRO_UI.res = res;
   renderPro();
   // mientras se descargan datos (gol.gg o matchups), vuelve a pedir en unos segundos
   clearTimeout(PRO_UI.timer);
-  const res = PRO_UI.res || {};
+  res = res || {};
   const waiting = (res.data && !res.data.loaded && PRO.tournament) || (res.suggestions || []).some((s) => s.loaded === false);
   if (waiting) PRO_UI.timer = setTimeout(async () => { if (res.data && !res.data.loaded) await proLoadChamps(); proSuggest(); }, 3500);
 }
@@ -102,15 +112,29 @@ function proUndo() {
   const h = PRO.history.pop();
   if (!h) return;
   if (h.fearless) PRO.fearless = PRO.fearless.filter((x) => x !== h.fearless);
-  else PRO[h.side][h.key] = PRO[h.side][h.key].filter((x, i, a) => !(x === h.id && i === a.lastIndexOf(h.id)));
+  else {
+    PRO[h.side][h.key] = PRO[h.side][h.key].filter((x, i, a) => !(x === h.id && i === a.lastIndexOf(h.id)));
+    if (h.key === "picks") delete PRO.roles[h.side][h.id];
+  }
+  PRO_UI.roleMenu = null;
   proSuggest();
 }
 
 function proReset(keepFearless) {
   PRO.blue = { bans: [], picks: [] };
   PRO.red = { bans: [], picks: [] };
+  PRO.roles = { blue: {}, red: {} };
   if (!keepFearless) PRO.fearless = [];
   PRO.history = [];
+  PRO_UI.roleMenu = null;
+  proSuggest();
+}
+
+/* Rol de un pick a mano (clic en su etiqueta); "auto" vuelve a la asignación automática */
+function proSetRole(side, id, role) {
+  if (role === "auto") delete PRO.roles[side][id];
+  else PRO.roles[side][id] = role;
+  PRO_UI.roleMenu = null;
   proSuggest();
 }
 
@@ -132,9 +156,10 @@ function proTeam(side, res) {
   const picks = Array.from({ length: 5 }, (_, i) => {
     const p = t.picks[i];
     const now = cur && res.kind === "pick" && i === PRO[side].picks.length;
-    return p
-      ? `<div class="ppick"><img src="${img("tile", p.id)}" alt=""><span class="nm">${esc(p.name)}</span><span class="role">${esc(p.role_short)}</span></div>`
-      : `<div class="ppick empty ${now ? "now" : ""}"><span class="tile"></span><span class="nm">${now ? "Eligiendo…" : "—"}</span></div>`;
+    if (!p) return `<div class="ppick empty ${now ? "now" : ""}"><span class="tile"></span><span class="nm">${now ? "Eligiendo…" : "—"}</span></div>`;
+    const open = PRO_UI.roleMenu && PRO_UI.roleMenu.side === side && PRO_UI.roleMenu.id === p.id;
+    const menu = open ? `<div class="rolemenu" role="menu">${["auto", ...Object.keys(PRO_ROLE_SHORT)].map((r) => `<button data-side="${side}" data-id="${p.id}" data-setrole="${r}" class="${(r === "auto" && !p.fixed) || (p.fixed && p.role === r) ? "on" : ""}" role="menuitem">${r === "auto" ? "Automático" : ROLE_FILTERS.find(([k]) => k === r)[1]}</button>`).join("")}</div>` : "";
+    return `<div class="ppick"><img src="${img("tile", p.id)}" alt=""><span class="nm">${esc(p.name)}</span><button class="role rolebtn ${p.fixed ? "fixed" : ""}" data-side="${side}" data-id="${p.id}" title="${p.fixed ? "Rol elegido a mano" : "Rol estimado"}: clic para cambiarlo">${esc(p.role_short)}</button>${menu}</div>`;
   }).join("");
   return `<div class="pteam ${side}">
     <div class="pteam-head"><h2>${SIDE_ES[side]}</h2><span>${esc(t.identity_es || "")}</span></div>
@@ -159,7 +184,7 @@ function proSuggestions(res) {
     <button class="psug ${i === 0 ? "top" : ""}" data-id="${s.id}">
       <img src="${img("tile", s.id)}" alt="">
       <div class="body">
-        <div class="l1"><b>${esc(s.name)}</b><span class="role">${esc(s.role_short)}</span>${s.pro ? `<span class="muted">${f1(s.pro.prio)}% prio · ${s.pro.picks}P ${s.pro.bans}B</span>` : `<span class="muted">sin datos pro</span>`}</div>
+        <div class="l1"><b>${esc(s.name)}</b><span class="role">${esc(s.role_short)}</span>${PRO_ROLE_CAT[s.role_cat] ? `<span class="rcat" title="En Master+ no es su rol principal">${PRO_ROLE_CAT[s.role_cat]}</span>` : ""}${s.pro ? `<span class="muted">${f1(s.pro.prio)}% prio · ${s.pro.picks}P ${s.pro.bans}B</span>` : `<span class="muted">sin datos pro</span>`}</div>
         <div class="l2">${Object.entries(s.parts).filter(([, v]) => Math.abs(v) >= 0.05).map(([k, v]) => `<span>${PRO_PARTS[k] || k} <i class="${tone(v, 0.05)}">${signed(v)}</i></span>`).join("")}</div>
         ${s.why && s.why.length ? `<div class="l3">${s.why.map((w) => `<span class="${w.sign === "+" ? "pos" : "neg"}">${w.sign === "+" ? "+" : "−"} ${esc(w.text)}</span>`).join("")}</div>` : ""}
       </div>
@@ -221,6 +246,17 @@ function renderPro() {
   </div>`;
 
   // eventos
+  el.querySelectorAll(".rolebtn").forEach((b) => (b.onclick = (ev) => {
+    ev.stopPropagation();
+    const id = Number(b.dataset.id), side = b.dataset.side;
+    const open = PRO_UI.roleMenu && PRO_UI.roleMenu.side === side && PRO_UI.roleMenu.id === id;
+    PRO_UI.roleMenu = open ? null : { side, id };
+    renderPro();
+  }));
+  el.querySelectorAll("[data-setrole]").forEach((b) => (b.onclick = (ev) => {
+    ev.stopPropagation();
+    proSetRole(b.dataset.side, Number(b.dataset.id), b.dataset.setrole);
+  }));
   el.querySelectorAll(".psug").forEach((b) => (b.onclick = () => proApply(Number(b.dataset.id))));
   el.querySelectorAll(".gch").forEach((b) => (b.onclick = () => proApply(Number(b.dataset.id))));
   const tour = $("#pro-tour");

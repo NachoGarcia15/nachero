@@ -15,8 +15,9 @@ from pathlib import Path
 from nachero import __version__, config, paths
 from nachero.app.state import APP, CTX, LOCK, PHASE_ES, log
 from nachero.app.status import diagnostics, empty_states
-from nachero.app.worker import gol
+from nachero.app.worker import evaluate, gol
 from nachero.config import CFG, TOGGLES
+from nachero.domain.common import ROLES
 from nachero.domain.policy import GAME_DECISIONS, mode_help
 
 
@@ -27,6 +28,29 @@ def snapshot() -> dict:
     st["phase_es"] = PHASE_ES.get(st["phase"], st["phase"])
     st["empty"] = empty_states(st)
     return st
+
+
+def evaluate_request(query: str) -> tuple[int, dict]:
+    """`/api/evaluate?id=17&role=jungle&view=draft|pool`: cualquier campeón en cualquier rol."""
+    q = urllib.parse.parse_qs(query)
+    engine, champs = CTX.get("engine"), CTX.get("champs")
+    if not engine or not champs:
+        return 503, {"error": "cargando"}
+    try:
+        cid = int((q.get("id") or [""])[0])
+    except ValueError:
+        return 400, {"error": "campeón no válido"}
+    role, view = (q.get("role") or [""])[0], (q.get("view") or ["draft"])[0]
+    if cid not in champs.by_id or role not in ROLES:
+        return 400, {"error": "campeón o rol no válido"}
+    with LOCK:
+        d = APP.get("draft") or {}
+    in_select = bool(d) and not d.get("unsupported")
+    draft = CTX.get("draft")
+    ctx = draft.context if in_select and draft is not None else None
+    row = evaluate(engine, champs, cid, role, "pool" if view == "pool" else "draft", ctx)
+    row["in_draft"] = bool(ctx) and view != "pool"
+    return 200, row
 
 
 def private_words() -> tuple[str, ...]:
@@ -98,21 +122,24 @@ class Handler(BaseHTTPRequestHandler):
             out = []
             for cid in sorted(champs.by_id, key=champs.name):
                 p = pe.pro(ds, cid) if pe else None
-                shares = (
-                    {r: round(pe.role_share(ds, cid, r), 2) for r in ("top", "jungle", "middle", "bottom", "utility")}
-                    if pe
-                    else {}
-                )
                 out.append(
                     {
                         "id": cid,
                         "name": champs.name(cid),
                         "prio": p["prio"] if p else 0,
                         "presence": round(100 * (p["picks"] + p["bans"]) / max(1, ds["games"])) if p else 0,
-                        "roles": [r for r, v in shares.items() if v >= 0.12],
+                        "roles": pe.roles_of(ds, cid) if pe else [],
                     }
                 )
             return self.send(200, out)
+        if path == "/api/champions":
+            champs = CTX.get("champs")
+            if not champs:
+                return self.send(503, {"error": "cargando"})
+            return self.send(200, [{"id": c, "name": champs.name(c)} for c in sorted(champs.by_id, key=champs.name)])
+        if path == "/api/evaluate":
+            code, body = evaluate_request(self.path.split("?", 1)[1] if "?" in self.path else "")
+            return self.send(code, body)
         m = re.match(r"^/api/img/(tile|splash|icon)/(\d+)$", path)
         if m:
             kind, cid = m.group(1), int(m.group(2))

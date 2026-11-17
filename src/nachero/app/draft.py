@@ -22,6 +22,7 @@ class Draft:
         self.done_ban = self.spells_set = self.coachless_opened = self.runes_done = False
         self.runes_state = "pending"
         self.seen, self.last_best = set(), None
+        self.context = None  # rol, aliados y rivales del último tick (para «Evaluar cualquier campeón»)
 
     def note(self, msg, kind="action"):
         if msg not in self.seen:
@@ -97,6 +98,7 @@ class Draft:
                         if a["type"] == "pick" and not a.get("isAllyAction") and not a["completed"]
                     )
                 )
+        self.context = {"role": role, "allies": allies, "enemy_ids": enemy_ids, "enemy_left_after": enemy_left_after}
         picks, ctx = eng.picks(
             role, unavailable, pickable, allies, enemy_ids, enemy_left_after=enemy_left_after, include=[locked]
         )

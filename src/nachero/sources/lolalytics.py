@@ -55,11 +55,16 @@ class Lolalytics:
             write_json(self.path, self.cache)
 
     # -- tier list por linea
-    def refresh_tiers(self, patch, force=False):
+    def refresh_tiers(self, patch, force=False, progress=None):
+        """Descarga la tier list de cada línea (las que no estén frescas en caché). `progress(n, total)`
+        se llama tras cada línea. Devuelve cuántas líneas tienen datos de este parche."""
         self.patch = patch
-        for role, lane in LOLA_LANE.items():
+        total = len(LOLA_LANE)
+        for i, (role, lane) in enumerate(LOLA_LANE.items()):
             t = self.cache["tiers"].get(role)
             if not force and t and t.get("patch") == patch and time.time() - t["t"] < self.TIER_TTL:
+                if progress:
+                    progress(i + 1, total)
                 continue
             url = (
                 f"https://a1.lolalytics.com/mega/?ep=list&p=d&v=1&patch={patch}&lane={lane}"
@@ -88,7 +93,15 @@ class Lolalytics:
                     }
             except Exception as e:
                 self.log(f"Lolalytics: no pude leer la tier list de {role} ({e.__class__.__name__})", "warn")
+            if progress:
+                progress(i + 1, total)
         self._save()
+        return self.roles_ready(patch)
+
+    def roles_ready(self, patch):
+        """Líneas con tier list de este parche."""
+        with self.lock:
+            return sum(1 for t in self.cache["tiers"].values() if t.get("patch") == patch)
 
     def tier(self, role):
         with self.lock:

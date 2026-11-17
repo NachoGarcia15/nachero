@@ -8,6 +8,7 @@ from collections import deque
 from logging.handlers import RotatingFileHandler
 
 from nachero import paths
+from nachero.domain.tasks import Tasks
 
 SPELL_IDS = {
     "Cleanse": 1,
@@ -42,6 +43,7 @@ TIMER_ES = {
 }
 
 LOCK = threading.RLock()
+TASKS = Tasks()  # qué está haciendo la app (pantalla de carga e indicador de la barra)
 OPTS = {"demo": False, "window": False}  # window: el panel está en la ventana de la app
 APP: dict = {
     "mode": "observe",
@@ -61,6 +63,7 @@ APP: dict = {
     "issue": None,  # problema que impide cargar (p. ej. "no_champions")
     "games": 0,  # partidas del historial analizadas
     "patch": None,
+    "tasks": TASKS,  # en /api/state sale como lista (server.snapshot)
 }
 CTX: dict = {}  # objetos de la sesion actual (cliente, motor, fuentes de datos)
 

@@ -52,10 +52,31 @@ async function proInit() {
 }
 
 async function proLoadChamps() {
+  PRO_UI.champsLoading = true;
   try {
     const r = await fetch("/api/pro/champions?t=" + encodeURIComponent(PRO.tournament || ""));
     if (r.ok) PRO_UI.champs = await r.json();
   } catch (_) {}
+  PRO_UI.champsLoading = false;
+}
+
+// Desde el bucle del panel: si Nachero aún cargaba los campeones al abrir el simulador, reintenta.
+async function proTick() {
+  if (!PRO_UI.inited || PRO_UI.champs.length || PRO_UI.champsLoading || !STATE || STATE.loading) return;
+  await proLoadChamps();
+  if (PRO_UI.champs.length) proSuggest();
+}
+
+// Siluetas del simulador mientras llegan los datos.
+const proSkelSugs = () => `<div class="psugs" aria-busy="true">${Array.from({ length: 4 }, (_, i) => `
+  <div class="psug sk-card"><i class="sk sq"></i><div class="body"><i class="sk" style="width:${110 + i * 23}px"></i><i class="sk" style="width:${180 - i * 17}px"></i></div><i class="sk" style="width:34px"></i></div>`).join("")}</div>`;
+const proSkelGrid = () => Array.from({ length: 36 }, () => `<div class="gch sk-tile"><span class="sk sq"></span><span class="sk" style="width:46px"></span></div>`).join("");
+
+// «Descargando LEC de gol.gg · 3/6 páginas», del registro de tareas.
+function proLoadLine() {
+  const t = typeof taskOf === "function" ? taskOf(STATE, "golgg") : null;
+  const n = t && t.state === "running" && t.total ? ` · ${t.done}/${t.total} páginas` : "";
+  return `<span class="loading-dot">Descargando ${esc(PRO.tournament)} de gol.gg${n}…</span>`;
 }
 
 async function proSuggest() {
@@ -216,7 +237,7 @@ function renderPro() {
   const data = res.data || {};
   const dataLine = !PRO.tournament ? "" : data.loaded
     ? `${nf0.format(data.games)} partidas de ${esc(PRO.tournament)} (gol.gg) · matchups Master+ (Lolalytics)`
-    : `Descargando ${esc(PRO.tournament)} de gol.gg…`;
+    : proLoadLine();
   const progress = PRO_ORDER.map(([s, k], i) => `<i class="${s} ${k} ${i < (res.step || 0) ? "done" : ""} ${i === res.step ? "cur" : ""}"></i>`).join("");
   el.innerHTML = `<div class="pro">
     <div class="pro-head">
@@ -232,7 +253,7 @@ function renderPro() {
       ${proTeam("blue", res)}
       <div class="pro-center">
         <div class="pstep"><b>${esc(info.label)}</b><span class="muted">${res.done ? "" : `Paso ${(res.step || 0) + 1} de 20 · ${res.kind === "ban" ? "toca un campeón para banearlo" : "toca un campeón para elegirlo"}`}</span></div>
-        ${res.error ? `<p class="neg">${esc(res.error)}</p>` : proSuggestions(res)}
+        ${res.error && res.error !== "cargando" ? `<p class="neg">${esc(res.error)}</p>` : PRO_UI.res && !res.error ? proSuggestions(res) : proSkelSugs()}
       </div>
       ${proTeam("red", res)}
     </div>
@@ -242,7 +263,7 @@ function renderPro() {
       <label class="fearless"><input type="checkbox" id="pro-fear" ${PRO_UI.fearlessMode ? "checked" : ""}> Marcar como usados (fearless)</label>
       ${PRO.fearless.length ? `<span class="muted">${PRO.fearless.length} bloqueados</span><button class="btn" id="pro-clearfear">Quitar bloqueos</button>` : ""}
     </div>
-    <div class="pro-grid">${proGrid(res)}</div>
+    <div class="pro-grid">${PRO_UI.champs.length ? proGrid(res) : proSkelGrid()}</div>
   </div>`;
 
   // eventos

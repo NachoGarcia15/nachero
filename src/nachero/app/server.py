@@ -14,18 +14,21 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from nachero import __version__, config, paths
-from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
+from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log
 from nachero.app.status import diagnostics, empty_states
-from nachero.app.worker import evaluate, gol
+from nachero.app.worker import evaluate, gol, load_tournament, refresh_tiers
 from nachero.config import CFG, TOGGLES
 from nachero.domain.common import ROLES
 from nachero.domain.policy import GAME_DECISIONS, mode_help
+from nachero.domain.tasks import summary as task_summary
 
 
 def snapshot() -> dict:
     """Copia del estado de la app para el panel (las colas pasan a listas)."""
     with LOCK:
         st: dict = {k: (list(v) if isinstance(v, deque) else v) for k, v in APP.items()}
+    st["tasks"] = TASKS.items()
+    st["progress"] = task_summary(st["tasks"])
     st["phase_es"] = PHASE_ES.get(st["phase"], st["phase"])
     st["empty"] = empty_states(st)
     return st
@@ -190,7 +193,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(503, {"error": "cargando"})
             tour = body.get("tournament")
             if tour and not gol().dataset(tour) and tour not in gol().loading:
-                threading.Thread(target=gol().load, args=(tour,), daemon=True).start()
+                threading.Thread(target=load_tournament, args=(tour,), daemon=True).start()
             try:
                 return self.send(200, pe.suggest(body))
             except Exception as e:
@@ -199,12 +202,6 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/refresh":
             lola, patch = CTX.get("lola"), CTX.get("patch")
             if lola and patch:
-                threading.Thread(
-                    target=lambda: (
-                        lola.refresh_tiers(patch, force=True),
-                        log("Estadísticas Master+ actualizadas", "ok"),
-                    ),
-                    daemon=True,
-                ).start()
+                threading.Thread(target=refresh_tiers, args=(lola, patch, True), daemon=True).start()
             return self.send(200, {"ok": True})
         self.send(404, {"error": "not found"})

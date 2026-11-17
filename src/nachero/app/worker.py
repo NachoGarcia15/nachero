@@ -2,13 +2,14 @@
 
 import random
 import re
+import threading
 import time
 
 from nachero import paths
 from nachero.app.demo import Demo
 from nachero.app.draft import Draft
 from nachero.app.runes import RuneImporter
-from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, log
+from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log
 from nachero.clients.cdragon import CDragon, latest_patch
 from nachero.clients.lcu import LCU
 from nachero.config import CFG
@@ -173,32 +174,67 @@ def client_ready(lcu):
     return lcu.connect() and isinstance(lcu.get("/lol-gameflow/v1/gameflow-phase"), str)
 
 
-def run_session():
-    lcu = LCU()
-    online = False
-    for _ in range(3):
+def find_client(lcu, tries=3):
+    """Busca el cliente varias veces (tarda en responder al abrirse); lo cuenta en la tarea `client`."""
+    TASKS.start("client", detail="Buscando…")
+    for i in range(tries):
+        if i:
+            TASKS.step("client", 0, detail=f"Buscando… (intento {i + 1} de {tries})")
         try:
-            online = client_ready(lcu)
+            if client_ready(lcu):
+                return True
         except Exception:
-            online = False
-        if online:
-            break
-        time.sleep(2)
-    src = lcu if online else CDragon()
-    champs = Champs(src)
-    if not champs.by_id:
-        with LOCK:
-            APP["issue"] = "no_champions"
-        time.sleep(10)
-        raise Restart("Sin datos de campeones (ni cliente ni CommunityDragon); reintento…")
-    with LOCK:
-        APP["issue"] = None
+            pass
+        if i < tries - 1:
+            time.sleep(2)
+    return False
+
+
+def refresh_tiers(lola, patch, force=False):
+    """Tier lists de Lolalytics (n/5 roles) con su tarea; si falta alguna, se reintenta sola."""
+    TASKS.start("tiers", total=5, detail=f"Parche {patch}")
+    ready = lola.refresh_tiers(patch, force=force, progress=lambda n, total: TASKS.step("tiers", n, total))
+    if ready >= 5:
+        TASKS.finish("tiers", f"Parche {patch} · 5 roles")
+        if force:
+            log("Estadísticas Master+ actualizadas", "ok")
+    else:
+        TASKS.fail("tiers", f"Lolalytics no responde: {ready} de 5 roles. Reintento en 2 min", retry_in=TIERS_RETRY)
+    return ready
+
+
+TIERS_RETRY = 120
+
+
+def load_tournament(name):
+    """Torneo de gol.gg para el simulador pro (n/6 páginas), con su tarea."""
+    TASKS.start("golgg", f"Torneo pro · {name}", total=6)
+    gol().load(name, progress=lambda n, total: TASKS.step("golgg", n, total))
+    if gol().dataset(name):
+        TASKS.finish("golgg", f"{gol().dataset(name).get('games', 0)} partidas")
+    else:
+        TASKS.fail("golgg", f"gol.gg no responde ({name}): pruébalo otra vez en un rato")
+
+
+def run_session():
+    TASKS.plan()
+    lcu = LCU()
+    online = find_client(lcu)
+    with LOCK:  # el panel deja de decir «Abre el cliente» en cuanto lo encuentra
+        APP["connected"], APP["offline"] = online, not online
+    if online:
+        TASKS.finish("client", "Conectado")
+    else:
+        TASKS.skip("client", "Cerrado: sigo sin él")
     try:
         pcache = read_json(paths.player_file(), {})
     except Exception:
         pcache = {}
     if online:
+        TASKS.start("history", detail="Leyendo tus últimas 200 partidas…")
         games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
+        TASKS.finish("history", f"{len(games)} partidas de la Grieta")
+        TASKS.start("mastery", detail="Leyendo…")
         mastery = lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20) or pcache.get(
             "mastery", []
         )
@@ -214,15 +250,33 @@ def run_session():
                 "l": rk.get("losses", 0),
             }
         write_json(paths.player_file(), {"mastery": mastery, "rank": rank, "t": time.time()})
-        patch = current_patch(lcu, games)
-        log("Conectado al cliente de LoL" + (" · modo demo" if OPTS["demo"] else ""), "ok")
+        TASKS.finish("mastery", f"{len(mastery)} campeones" + (f" · {rank['tier']}" if rank else ""))
+        with LOCK:
+            APP["rank"] = rank
     else:
         try:
             games = read_json(paths.history_file(), [])
         except Exception:
             games = []
         mastery, rank = pcache.get("mastery", []), pcache.get("rank")
-        patch = offline_patch(games)
+        TASKS.finish("history", f"{len(games)} partidas guardadas" if games else "Sin partidas guardadas")
+        TASKS.finish("mastery", "Guardada" if mastery else "Sin datos guardados")
+    src = lcu if online else CDragon()
+    TASKS.start("champions", detail="Del cliente" if online else "De CommunityDragon")
+    champs = Champs(src)
+    if not champs.by_id:
+        with LOCK:
+            APP["issue"] = "no_champions"
+        TASKS.fail("champions", "Sin cliente ni CommunityDragon. Reintento en 10 s", retry_in=10)
+        time.sleep(10)
+        raise Restart("Sin datos de campeones (ni cliente ni CommunityDragon); reintento…")
+    with LOCK:
+        APP["issue"] = None
+    patch = current_patch(lcu, games) if online else offline_patch(games)
+    TASKS.finish("champions", f"{len(champs.by_id)} campeones" + (f" · parche {patch}" if patch else ""))
+    if online:
+        log("Conectado al cliente de LoL" + (" · modo demo" if OPTS["demo"] else ""), "ok")
+    else:
         log(
             "Cliente de LoL cerrado: uso datos guardados y CommunityDragon" + (" · modo demo" if OPTS["demo"] else ""),
             "warn",
@@ -232,8 +286,9 @@ def run_session():
     lola.slug_fallback = champs.slug
     if patch:
         log(f"Leyendo estadísticas Master+ del parche {patch}…")
-        lola.refresh_tiers(patch)
+        refresh_tiers(lola, patch)
     else:
+        TASKS.fail("tiers", "No sé cuál es el parche actual (sin cliente ni internet)")
         log("No sé cuál es el parche actual (sin cliente ni internet): sin estadísticas Master+", "warn")
     engine = Engine(champs, lola, player, CFG)
     CTX.update(
@@ -245,9 +300,11 @@ def run_session():
         patch=patch,
         pro=ProEngine(champs, lola, engine, gol()),
     )
+    TASKS.start("picks", detail="Calculando tu pool y tus mejores picks…")
     main = engine.main_role()
     for r in engine.picks(main, set(), set(), [], [])[0][:10]:
         lola.request(r["id"], main, champs.slug(r["id"]))
+    TASKS.finish("picks", f"Rol principal {ROLE_ES[main]}")
     with LOCK:
         APP["connected"], APP["offline"], APP["rank"], APP["loading"] = online, not online, rank, False
         APP["pool"], APP["refresh_idle"] = [], True
@@ -291,7 +348,9 @@ def run_session():
                 draft.reset()
                 queue, queue_tries = None, 0
             if phase in ("EndOfGame", "PreEndOfGame"):
+                TASKS.start("history", detail="Partida nueva: actualizando…")
                 games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
+                TASKS.finish("history", f"{len(games)} partidas de la Grieta")
                 engine.player = player = Player(
                     games, lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20) or []
                 )
@@ -305,6 +364,9 @@ def run_session():
         with LOCK:
             APP["phase"] = phase
             APP["data"] = data_status(lola, patch)
+        TASKS.queue("matchups", "Matchups y runas", len(lola.pending))
+        if patch and TASKS.retry_due("tiers"):
+            threading.Thread(target=refresh_tiers, args=(lola, patch), daemon=True).start()
 
         if (time.time() - last_idle > 20 or APP.get("refresh_idle")) and phase != "ChampSelect":
             last_idle = time.time()

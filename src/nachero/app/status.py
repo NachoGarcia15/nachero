@@ -104,6 +104,15 @@ def diagnostics(app: dict, version: str, system: str, frozen: bool, secrets: tup
     ]
     if empty:
         rows.append("Falta: " + ", ".join(f"{k}={v}" for k, v in empty.items()))
+    tasks = [t for t in app.get("tasks") or [] if isinstance(t, dict) and t.get("state") in ("running", "error")]
+    if tasks:
+        rows.append(
+            "Tareas: "
+            + ", ".join(
+                f"{t['id']}={t['state']}" + (f" {t.get('done', 0)}/{t['total']}" if t.get("total") else "")
+                for t in tasks
+            )
+        )
     rows.append("")
     rows.append(f"Últimas {len(log)} líneas de Actividad:")
     rows += [f"[{e.get('t', '')}] {e.get('kind', 'info')}: {e.get('msg', '')}" for e in reversed(log)]

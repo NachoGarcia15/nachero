@@ -16,6 +16,7 @@ Conceptos aplicados (draft profesional):
 import itertools
 import math
 
+from nachero.domain import roles as R
 from nachero.domain import tags as T
 from nachero.domain.common import ROLE_SHORT, ROLES, norm
 
@@ -44,6 +45,19 @@ DRAFT_ORDER = [
 ]
 
 
+def parse_fixed(raw):
+    """Roles elegidos a mano en el panel ({"cid": "rol"} en JSON) como {cid: rol}; ignora lo invalido."""
+    out = {}
+    for k, v in (raw or {}).items() if isinstance(raw, dict) else ():
+        try:
+            cid = int(k)
+        except (TypeError, ValueError):
+            continue
+        if v in ROLES:
+            out[cid] = v
+    return out
+
+
 # ---------------------------------------------------------------- motor
 class ProEngine:
     def __init__(self, champs, lola, engine, gol):
@@ -53,28 +67,46 @@ class ProEngine:
     def pro(self, ds, cid):
         return ds["all"].get(norm(self.champs.name(cid))) if ds else None
 
-    def role_share(self, ds, cid, role):
-        """Fraccion de partidas pro del campeon en ese rol; si no hay datos pro, % de Master+."""
+    def pro_share(self, ds, cid, role):
+        """Fraccion de partidas pro del campeon en ese rol, o None si no hay datos pro suficientes."""
         key = norm(self.champs.name(cid))
         if ds:
             tot = sum(ds["roles"][r].get(key, 0) for r in ROLES)
             if tot >= 2:
                 return ds["roles"][role].get(key, 0) / tot
-        t = self.lola.tier(role)
-        c = (t or {}).get("champs", {}).get(str(cid))
-        return (c["pct"] / 100) if c and c["games"] >= 1500 else 0.0
+        return None
 
-    def assign(self, ds, picks):
-        """Roles mas probables de un equipo (maximiza el producto de reparto por rol)."""
+    def role_share(self, ds, cid, role):
+        """Fraccion de partidas pro del campeon en ese rol; si no hay datos pro, % de Master+."""
+        p = self.pro_share(ds, cid, role)
+        return p if p is not None else self.engine.roles.split(cid).get(role, {}).get("pct", 0.0) / 100
+
+    def role_weight(self, ds, cid, role):
+        """Peso del rol para asignar roles: lo que dicen el torneo y Master+, con suelo para fuera de rol."""
+        return max(self.pro_share(ds, cid, role) or 0.0, self.engine.roles.weight(cid, role))
+
+    def assign(self, ds, picks, fixed=None):
+        """Roles mas probables de un equipo (maximiza el producto de reparto por rol).
+        `fixed` = {cid: rol} elegidos a mano en el panel: se respetan y el resto se reparte."""
         ids = [c for c in picks if c][:5]
         if not ids:
             return {}
-        best, bs = None, -1e9
-        for perm in itertools.permutations(ROLES, len(ids)):
-            sc = sum(math.log(self.role_share(ds, c, r) + 0.02) for c, r in zip(ids, perm, strict=True))
+        fixed = {c: r for c, r in (fixed or {}).items() if c in ids and r in ROLES}
+        taken = set()
+        for c in ids:  # dos picks fijados al mismo rol: gana el primero
+            if c in fixed and fixed[c] in taken:
+                del fixed[c]
+            elif c in fixed:
+                taken.add(fixed[c])
+        free = [c for c in ids if c not in fixed]
+        roles_left = [r for r in ROLES if r not in taken]
+        best, bs = (), -1e9
+        for perm in itertools.permutations(roles_left, len(free)):
+            sc = sum(math.log(self.role_weight(ds, c, r)) for c, r in zip(free, perm, strict=True))
             if sc > bs:
                 best, bs = perm, sc
-        return dict(zip(ids, best, strict=True))
+        out = dict(zip(free, best, strict=True)) | fixed
+        return {c: out[c] for c in ids}
 
     def priority(self, ds, cid):
         p = self.pro(ds, cid)
@@ -111,7 +143,8 @@ class ProEngine:
         teams, step = self.state(st)
         fearless = set(c for c in st.get("fearless", []) if c)
         used = fearless | {c for s in teams.values() for k in ("bans", "picks") for c in s[k]}
-        roles = {s: self.assign(ds, teams[s]["picks"]) for s in teams}
+        fixed = {s: parse_fixed((st.get("roles") or {}).get(s)) for s in teams}
+        roles = {s: self.assign(ds, teams[s]["picks"], fixed[s]) for s in teams}
         open_roles = {s: [r for r in ROLES if r not in roles[s].values()] for s in teams}
         done = step >= len(DRAFT_ORDER)
         side, kind = DRAFT_ORDER[step] if not done else (None, None)
@@ -128,6 +161,8 @@ class ProEngine:
         for s in ("blue", "red"):
             other = "red" if s == "blue" else "blue"
             res["teams"][s] = self.team_summary(teams[s]["picks"], teams[other]["picks"], roles[s], roles[other])
+            for p in res["teams"][s]["picks"]:
+                p["fixed"] = p["id"] in fixed[s]
         if done:
             res["verdict"] = self.verdict(res["teams"])
             return res
@@ -145,6 +180,8 @@ class ProEngine:
         return {"tournament": tour, "loaded": True, "games": ds["games"], "updated": ds["t"]}
 
     def candidates(self, ds, used):
+        """Lo jugado o baneado en el torneo y, por rol, los 12 mas jugados en Master+ entre los que lo
+        tienen de rol principal o flex. Cada uno se sugiere en cualquiera de sus roles viables."""
         ids = set()
         if ds:
             for key, p in ds["all"].items():
@@ -155,8 +192,9 @@ class ProEngine:
         for r in ROLES:
             t = self.lola.tier(r)
             if t:
-                ranked = sorted(t["champs"].items(), key=lambda kv: -kv[1]["pr"])[:12]
-                ids |= {int(c) for c, v in ranked if v["games"] >= 3000}
+                ranked = sorted(t["champs"].items(), key=lambda kv: -kv[1]["pr"])
+                viable = [int(c) for c, _ in ranked if R.at_least(self.engine.roles.category(int(c), r), "flex")]
+                ids |= set(viable[:12])
         return [c for c in ids if c not in used and c in self.champs.by_id]
 
     def _by_norm(self, key):
@@ -171,8 +209,19 @@ class ProEngine:
             )
         return self._norm_map.get(key)
 
-    def _feasible(self, ds, cid, open_r, thr=0.12):
-        return [(r, self.role_share(ds, cid, r)) for r in open_r if self.role_share(ds, cid, r) >= thr]
+    def feasible(self, ds, cid, open_r, thr=0.12):
+        """Roles libres que el campeon puede jugar, con su peso: los que juega en el torneo (>= `thr`
+        de sus partidas pro) y sus roles principal y flex en Master+."""
+        out = []
+        for r in open_r:
+            pro = self.pro_share(ds, cid, r)
+            if (pro is not None and pro >= thr) or R.at_least(self.engine.roles.category(cid, r), "flex"):
+                out.append((r, self.role_weight(ds, cid, r)))
+        return out
+
+    def roles_of(self, ds, cid):
+        """Roles viables del campeon (filtro por rol de la cuadricula del simulador)."""
+        return [r for r, _ in self.feasible(ds, cid, ROLES)]
 
     def enemy_left_in_role(self, step, other):
         """Picks que le quedan al rival despues de este paso."""
@@ -186,7 +235,7 @@ class ProEngine:
         left_after = self.enemy_left_in_role(step, other)
         out = []
         for cid in cands:
-            feas = self._feasible(ds, cid, open_roles[side])
+            feas = self.feasible(ds, cid, open_roles[side])
             if not feas:
                 continue
             role, share = max(feas, key=lambda x: x[1])
@@ -195,7 +244,7 @@ class ProEngine:
             why = []
             if p and p["prio"] >= 50:
                 why.append(("+", f"prioridad alta ({p['prio']:.0f}%)"))
-            nflex = len(self._feasible(ds, cid, ROLES, 0.15))
+            nflex = len(self.feasible(ds, cid, ROLES, 0.15))
             parts["flex"] = 0.6 if (first_rotation and nflex >= 2 and len(open_roles[side]) >= 3) else 0.0
             if parts["flex"]:
                 why.append(("+", "flex: esconde a qué rol va"))
@@ -214,7 +263,7 @@ class ProEngine:
                 risk *= 0.8
             parts["risk"] = risk
             deny = 0.0
-            if any(self.role_share(ds, cid, r) >= 0.15 for r in open_roles[other]) and p:
+            if p and self.feasible(ds, cid, open_roles[other], 0.15):
                 deny = 0.3 * 4.0 * p["prio"] / 100
             parts["deny"] = deny if step < 12 else deny * 0.5
             if parts["deny"] >= 0.5:
@@ -228,6 +277,7 @@ class ProEngine:
                     "name": self.champs.name(cid),
                     "role": role,
                     "role_short": ROLE_SHORT[role],
+                    "role_cat": self.engine.roles.category(cid, role),
                     "score": round(total, 2),
                     "parts": {k: round(v, 2) for k, v in parts.items()},
                     "why": [{"sign": a, "text": b} for a, b in why][:5],
@@ -256,7 +306,7 @@ class ProEngine:
         for cid in cands:
             if cid in my_plan:
                 continue
-            feas = self._feasible(ds, cid, open_roles[other])
+            feas = self.feasible(ds, cid, open_roles[other])
             if not feas:
                 continue
             role, share = max(feas, key=lambda x: x[1])
@@ -289,6 +339,7 @@ class ProEngine:
                     "name": self.champs.name(cid),
                     "role": role,
                     "role_short": ROLE_SHORT[role],
+                    "role_cat": self.engine.roles.category(cid, role),
                     "score": round(total, 2),
                     "parts": {k: round(v, 2) for k, v in parts.items()},
                     "why": [{"sign": a, "text": b} for a, b in why][:4],

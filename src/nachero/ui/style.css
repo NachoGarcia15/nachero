@@ -457,6 +457,72 @@ input[type=range] { width: 100%; accent-color: var(--text); }
   .pro-controls select { max-width: 100%; }
 }
 
+/* ------------------------------------------------------------------ roles y confianza */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.hero .chips { margin: -8px 0 14px; }
+.hero .chips:empty { display: none; }
+.chip {
+  display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-2);
+  font: 500 11.5px/1.5 var(--sans); color: var(--text-2); white-space: nowrap;
+}
+.chip.cat { color: var(--accent); border-color: rgba(227,178,90,.3); }
+.chip.conf-high { color: var(--pos); border-color: rgba(92,195,148,.32); }
+.chip.conf-medium { color: var(--text-2); }
+.chip.conf-low { color: #f3c37a; border-color: rgba(243,195,122,.32); }
+.chip.conf-none { color: var(--neg); border-color: rgba(240,117,122,.32); }
+td .chip { font-size: 11px; }
+td.rl .chip { margin-left: 4px; }
+td.ch span small { display: block; color: var(--text-3); font-size: 11.5px; font-weight: 400; }
+.filters button small { color: var(--text-3); font: 11px var(--mono); margin-left: 2px; }
+.filters button:disabled { opacity: .35; cursor: default; }
+.mus span.other { color: var(--text-3); }
+.mus .other-note { font-size: 12px; }
+
+.eval { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--line); }
+#view-draft .eval { max-width: 760px; margin-left: auto; margin-right: auto; }
+.eval-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.eval-form input {
+  width: 240px; max-width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--line-2);
+  border-radius: 7px; padding: 6px 10px; font: 13px var(--sans);
+}
+.eval-out > p { margin: 0; font-size: 13px; }
+.eval-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; margin-bottom: 14px; }
+.eval-head img { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: var(--surface-2); }
+.eval-head b { font-size: 16px; font-weight: 600; }
+.eval-head .chips { margin-top: 4px; }
+.eval-head .est { margin: 0; }
+.eval-head .est .num { font-size: 30px; }
+.eval .parts { max-width: 440px; }
+.esub { margin: 10px 0 0; font-size: 12.5px; }
+.esplit { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.esplit button {
+  border: 1px solid var(--line); background: none; color: var(--text-2); padding: 3px 10px; border-radius: 7px;
+  cursor: pointer; font-size: 12.5px;
+}
+.esplit button:hover { border-color: var(--line-2); }
+.esplit button.on { background: var(--surface-3); color: var(--text); border-color: var(--line-2); }
+.esplit b { font-weight: 500; font-size: 12px; }
+.esplit small { color: var(--text-3); font-size: 11px; }
+
+/* simulador: rol de un pick elegido a mano */
+.ppick .rolebtn { border: 1px solid transparent; background: none; padding: 1px 5px; border-radius: 5px; cursor: pointer; }
+.ppick .rolebtn:hover { border-color: var(--line-2); color: var(--text-2); }
+.ppick .rolebtn.fixed { color: var(--accent); border-color: rgba(227,178,90,.35); }
+.ppick { position: relative; }
+.rolemenu {
+  position: absolute; right: 6px; top: 44px; z-index: 5; display: grid; gap: 2px; padding: 4px; min-width: 110px;
+  background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.rolemenu button { border: 0; background: none; text-align: left; padding: 4px 8px; border-radius: 5px; cursor: pointer; font-size: 12.5px; color: var(--text-2); }
+.rolemenu button:hover, .rolemenu button.on { background: var(--surface-3); color: var(--text); }
+.psug .l1 .rcat { font-size: 11.5px; color: var(--accent); }
+
+@media (max-width: 760px) {
+  .eval-head { grid-template-columns: 44px minmax(0, 1fr); }
+  .eval-head .est { grid-column: 1 / -1; }
+  .filters { flex-wrap: wrap; }
+}
+
 /* ------------------------------------------------------------------ runas */
 .runes { margin-top: 14px; padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,.03); border: 1px solid var(--line); font-size: 13px; max-width: 400px; }
 .runes .lbl { display: block; font-size: 11.5px; color: var(--text-3); margin-bottom: 2px; }

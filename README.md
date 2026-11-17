@@ -61,6 +61,28 @@ En la selección de campeón recomienda para el rol que te asigna el cliente, se
 Fuera de ella (y en colas sin roles, como Practice Tool) usa tu rol principal: por defecto el que
 más juegas, o el que elijas en la pantalla de espera del panel.
 
+### Roles de cada campeón
+Cualquier campeón se puede evaluar en cualquier rol. Con el reparto por línea de Master+
+(partidas y % de las partidas del campeón en cada línea), cada pareja campeón-rol tiene una categoría:
+
+| Categoría | Criterio (ajustable en `roles` de la config) | Ejemplo |
+|---|---|---|
+| **Principal** | su rol con más partidas | Katarina mid |
+| **Flex** | ≥ 10 % de sus partidas o ≥ 3.000 partidas | Katarina ADC, Jayce jungla, Cassiopeia top |
+| **Ocasional** | ≥ 2 % o ≥ 300 partidas | Teemo jungla, Taliyah ADC |
+| **Fuera de rol** | el resto | Katarina jungla |
+
+- **Draft**: candidatos = principal y flex del rol entre los fuertes del parche, lo que has jugado
+  en el rol (desde 1 partida) y tus campeones con maestría si el rol es al menos ocasional.
+- **Tu pool**: con maestría alta, el campeón sale en sus roles principal y flex; cada fila dice sus
+  roles («Mid · ADC flex») y se filtra por rol.
+- **Confianza** en cada tarjeta, según las partidas en ese rol en Master+: Alta (≥ 5.000),
+  Media (≥ 1.000), Baja (≥ 50) o Sin datos.
+- **Evaluar cualquier campeón** (Draft y Tu pool): eliges campeón y rol y sale su estimación con su
+  confianza, aunque sea Teemo jungla. En la selección de campeón usa el draft actual.
+- Si no hay matchups del campeón en ese rol, se usan los de su rol principal con la mitad de peso,
+  marcados con «*» como datos de otro rol.
+
 ## Cómo recomienda
 Hay dos modos (selector en el panel y en ajustes):
 
@@ -73,7 +95,7 @@ Cada candidato recibe un **WR estimado = 50 + suma de partes**, todas en puntos 
 | Parte | Qué mide |
 |---|---|
 | **Tú con él** *(solo con tu pool)* | Experiencia (partidas + maestría/700): unas −6 pp la primera vez, sube hasta ~100-150 partidas. Tu WR y rendimiento (oro, daño, CS frente a tu media del rol), muy encogidos. **Forma**: partidas en los últimos 30 días. |
-| **Fuerza en el parche** | WR del campeón en tu rol en Master+ menos la media, encogido por número de partidas. Penaliza campeones fuera de rol. |
+| **Fuerza en el parche** | WR del campeón en tu rol en Master+ menos la media, encogido por número de partidas. Fuera de su rol principal, se encoge hacia su fuerza allí menos una penalización que crece cuanto menos se juega en tu rol (hasta −4 con el 0 % de sus partidas, nada desde el 10 %). |
 | **Rival de línea** | *Delta 2* de Lolalytics contra el enemigo que juega tu línea. |
 | **Resto del rival** | *Delta 2* contra los otros enemigos, ponderado por cuánto interactúa tu rol con su línea (p. ej. jungla: mid 0,5, support 0,4, top/ADC 0,35). |
 | **Encaje con tu equipo** | Lo que le falta a tu equipo: daño mágico o físico (ponderado por cuánto daño hace cada uno), frontline, control, daño. Y lo que sobra (demasiados carries, más de lo mismo). Los aliados que solo marcan cuentan a la mitad. |
@@ -84,7 +106,8 @@ Cada candidato recibe un **WR estimado = 50 + suma de partes**, todas en puntos 
 interacción, por eso se suma a la fuerza del parche sin contarla dos veces.
 
 El **rol de cada enemigo** se estima con la asignación más probable según el % de partidas que cada
-campeón juega en cada línea en Master+.
+campeón juega en cada línea en Master+, con un suelo del 1 % para que un pick fuera de rol (un Teemo
+jungla) no descoloque al resto.
 
 **Sinergias entre aliados**: Lolalytics solo las sirve a través de su API interna ofuscada, y Nachero
 no la usa. El encaje con tu equipo sale de lo que aporta cada campeón, no de estadísticas de parejas.
@@ -125,7 +148,10 @@ Bans: en la primera ronda pesa la prioridad y **no se banea lo que vas a coger t
 rival. En la segunda ronda se apunta a los **roles que le faltan al rival** y a los campeones que
 **counterean tus picks**.
 
-Los roles de cada equipo se deducen del reparto por rol de cada campeón en el torneo. Al terminar
+Los roles de cada equipo se deducen del reparto por rol de cada campeón en el torneo y en Master+.
+Un campeón se sugiere en cualquier rol libre que juegue en el torneo (≥ 12 % de sus partidas) o que
+sea su rol principal o flex en Master+ (Katarina ADC, Jayce jungla). Si la asignación falla, haz clic
+en la etiqueta de rol de un pick para elegirlo a mano («Automático» lo devuelve). Al terminar
 el draft da una valoración de ambas composiciones. **Siguiente partida (fearless)** bloquea los
 campeones elegidos para la siguiente partida de la serie, y también puedes marcar bloqueos a mano.
 
@@ -147,6 +173,7 @@ Los valores por defecto están en `src/nachero/defaults/config.json`; los tuyos,
 - `weights`: multiplicadores de cada parte (también desde el panel).
 - `pool_bonus`: puntos extra para campeones concretos, p. ej. `{"Zaahen": 1.0}`.
 - `never_pick`: campeones que nunca debe recomendar.
+- `roles`: umbrales de principal/flex/ocasional, penalización fuera de rol y confianza.
 - `ban_priority`: bans que quieres priorizar por rol (el resto se calcula).
 - `spells_by_role`, `style`, `start_mode`, `lock_when_seconds_left`.
 

@@ -99,12 +99,13 @@ class Lolalytics:
         return min(ts) if ts else None
 
     # -- matchups por campeon contra las 5 lineas (pagina de build)
-    def matchups(self, cid, role):
-        """{rol_enemigo: {vs_cid: {wr, d1, d2, pr, n}}} si esta en cache; si no, lo pide en segundo plano."""
+    def matchups(self, cid, role, fetch=True):
+        """{rol_enemigo: {vs_cid: {wr, d1, d2, pr, n}}} si esta en cache; si no, lo pide en segundo plano
+        (con `fetch=False`, solo mira la cache)."""
         key = f"{cid}:{role}"
         with self.lock:
             c = self.cache["builds"].get(key)
-        if not self._fresh(c):
+        if fetch and not self._fresh(c):
             self.request(cid, role)
         return c["lanes"] if c else None
 

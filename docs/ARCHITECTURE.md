@@ -20,6 +20,8 @@ src/nachero/
              common.py   roles, tiers, shrink, normalización de nombres
              player.py   modelo personal (experiencia, forma, residuo de WR)
              tags.py     papel de cada campeón en una composición e identidad de equipo
+             roles.py    roles de cada campeón (principal, flex, ocasional, fuera de rol),
+                         estimación fuera de rol y confianza
              engine.py   recomendación de picks y bans de soloq
              pro.py      motor del simulador de draft pro
              runes.py    validar una página de runas y pasarla al formato del cliente

@@ -25,40 +25,64 @@ from nachero.sources.history import load_history
 from nachero.sources.lolalytics import Lolalytics
 
 
+def pool_row(engine, champs, cid, role):
+    """Fila de Tu pool: tú con el campeón + su fuerza en el rol, a ciegas, con su rol y confianza."""
+    you = engine.player.components(cid, role)
+    meta, tr = engine.meta(cid, role)
+    est = engine.roles.estimate(cid, role)
+    return {
+        "id": cid,
+        "name": champs.name(cid),
+        "role": ROLE_ES.get(role, role),
+        "role_key": role,
+        "games": you["games"],
+        "wr": round(100 * you["wins"] / you["games"]) if you["games"] else None,
+        "exp": round(you["exp_games"]),
+        "mastery": you["mastery"],
+        "you": round(you["total"], 1),
+        "meta": round(meta, 1),
+        "tier": TIER(tr) if est["games"] else None,
+        "meta_wr": tr["wr"] if tr and est["games"] else None,
+        "meta_games": est["games"],
+        "role_pct": round(est["pct"], 1),
+        "role_cat": est["category"],
+        "role_cat_es": est["category_es"],
+        "confidence": est["confidence"],
+        "confidence_es": est["confidence_es"],
+        "roles_label": engine.roles.label(cid),
+        "est": round(50 + you["total"] * engine.w("pool") + meta * engine.w("meta"), 1),
+    }
+
+
 def pool_rows(engine, champs):
+    """Tus campeones por rol: lo jugado (2+ partidas, o 1 en tu rol principal) y, con maestría alta,
+    los roles principal y flex del campeón aunque no sean el tuyo."""
     p, main = engine.player, engine.main_role()
     keys = {(c, r) for (c, r), gs in p.by_cr.items() if len(gs) >= 2 or r == main}
-    t_main = engine.lola.tier(main)
     for cid, m in p.mastery.items():
-        if (
-            m.get("championPoints", 0) >= 80000
-            and t_main
-            and str(cid) in t_main["champs"]
-            and t_main["champs"][str(cid)]["games"] >= 1500
-        ):
-            keys.add((cid, main))
-    rows = []
-    for cid, role in keys:
-        you = p.components(cid, role)
-        meta, tr = engine.meta(cid, role)
-        rows.append(
-            {
-                "id": cid,
-                "name": champs.name(cid),
-                "role": ROLE_ES.get(role, role),
-                "role_key": role,
-                "games": you["games"],
-                "wr": round(100 * you["wins"] / you["games"]) if you["games"] else None,
-                "exp": round(you["exp_games"]),
-                "mastery": you["mastery"],
-                "you": round(you["total"], 1),
-                "meta": round(meta, 1),
-                "tier": TIER(tr),
-                "meta_wr": tr["wr"] if tr else None,
-                "est": round(50 + you["total"] * engine.w("pool") + meta * engine.w("meta"), 1),
-            }
-        )
+        if m.get("championPoints", 0) >= 80000:
+            keys |= {(cid, r) for r in engine.roles.roles(cid, "flex")}
+    rows = [pool_row(engine, champs, cid, role) for cid, role in keys]
     return sorted(rows, key=lambda r: -r["est"])
+
+
+def evaluate(engine, champs, cid, role, view="draft", draft_ctx=None):
+    """Buscador «Evaluar cualquier campeón»: su estimación en ese rol, con su confianza.
+
+    En Tu pool, como una fila más (a ciegas). En Draft, con el draft actual si estás en la champ
+    select (`draft_ctx` de `Draft.context`) o a ciegas si no."""
+    if view == "pool":
+        row = pool_row(engine, champs, cid, role)
+        row["split"] = engine.roles.describe(cid)
+        return row
+    ctx = draft_ctx or {}
+    return engine.evaluate(
+        cid,
+        role,
+        allies=ctx.get("allies", ()),
+        enemy_ids=ctx.get("enemy_ids", ()),
+        enemy_left_after=ctx.get("enemy_left_after", 5),
+    )
 
 
 def data_status(lola, patch):
@@ -233,6 +257,7 @@ def run_session():
     log(f"Listo · rol principal {ROLE_ES[main]} · {len(player.games)} partidas analizadas ({roles or 'ninguna'})", "ok")
 
     draft = Draft(lcu, champs, engine, RuneImporter(src))
+    CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
     demo = Demo(champs) if OPTS["demo"] else None
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s

@@ -60,12 +60,137 @@ function emptyState(code, s) {
   return `<div class="empty-state"><h2>${title}</h2><p>${text}</p></div>`;
 }
 
+/* ------------------------------------------------------------------ tareas (#46) */
+// Lo que está haciendo la app, del registro de tareas del servidor (`domain/tasks.py`).
+const taskOf = (s, id) => ((s && s.tasks) || []).find((t) => t.id === id);
+const searching = (s) => !s.connected && !s.offline;
+const TASK_GLYPH = {
+  done: `<svg viewBox="0 0 16 16" width="14" height="14"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  error: `<svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 4.2v4.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="11.6" r="1.1" fill="currentColor"/></svg>`,
+  skipped: `<svg viewBox="0 0 16 16" width="14" height="14"><path d="M4.5 8h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  running: `<i></i>`,
+  pending: `<i></i>`,
+};
+const secs = (n) => (n >= 60 ? `${Math.floor(n / 60)} min ${String(Math.round(n % 60)).padStart(2, "0")} s` : `${Math.round(n)} s`);
+
+// Lo que se ve a la derecha de cada paso: n/m, el resultado o el error con su reintento.
+function taskDetail(t) {
+  if (t.state === "error") return esc(t.error) + (t.retry_in ? ` · reintento en ${secs(t.retry_in)}` : "");
+  if (t.state === "running" && t.total) return `${t.detail ? esc(t.detail) + " · " : ""}<span class="num">${t.done}/${t.total}</span>`;
+  if (t.state === "running" && t.elapsed >= 3) return `${esc(t.detail || "")} <span class="num">${Math.round(t.elapsed)} s</span>`;
+  return esc(t.detail || "");
+}
+
+// Lista de pasos con su estado. Se actualiza por id (sin repintar) para que las barras y los
+// cambios de estado se animen en vez de saltar.
+function updateSteps(ol, tasks) {
+  const seen = new Set();
+  tasks.forEach((t, i) => {
+    seen.add(t.id);
+    let li = ol.querySelector(`[data-id="${t.id}"]`);
+    if (!li) {
+      li = document.createElement("li");
+      li.dataset.id = t.id;
+      li.innerHTML = `<span class="glyph" aria-hidden="true"></span><span class="name"></span><span class="det"></span><span class="track"><i></i></span>`;
+    }
+    if (ol.children[i] !== li) ol.insertBefore(li, ol.children[i] || null);
+    if (li.dataset.state !== t.state) {
+      li.dataset.state = t.state;
+      li.className = "step " + t.state;
+      li.querySelector(".glyph").innerHTML = TASK_GLYPH[t.state] || "";
+    }
+    li.querySelector(".name").textContent = t.text;
+    const det = taskDetail(t);
+    if (li.querySelector(".det").innerHTML !== det) li.querySelector(".det").innerHTML = det;
+    const track = li.querySelector(".track");
+    const known = t.state === "running" && t.total;
+    track.classList.toggle("indet", t.state === "running" && !t.total);
+    track.firstChild.style.width = known ? `${Math.round((100 * t.done) / t.total)}%` : t.state === "done" ? "100%" : "0%";
+  });
+  [...ol.children].forEach((li) => { if (!seen.has(li.dataset.id)) li.remove(); });
+}
+
+// Consejos de draft durante la carga (textos de Nachero), como en la pantalla de carga de LoL.
+const TIPS = [
+  "Banea lo que te counterea, no lo que está roto.",
+  "Si eliges pronto, elige algo difícil de counterear.",
+  "Un pick flex esconde tu rol hasta el final del draft.",
+  "Antes de elegir, mira qué le falta a tu equipo: daño mágico, frontline o control.",
+  "Tu mejor campeón suele rendir más que el más fuerte del parche.",
+  "Un buen matchup de línea vale poco si tu equipo se queda sin daño.",
+  "Con el último pick del equipo puedes ir a por el counter sin miedo.",
+  "Si tu rival de línea aún no ha elegido, cuenta con que puede counterearte.",
+  "Contra mucho control, valora un campeón con escudos o con Limpiar.",
+  "Pocas partidas con un campeón pesan menos que muchas: la confianza importa.",
+  "En jungla, piensa qué líneas pueden ganar y empieza por ese lado.",
+  "Marcar tu pick pronto ayuda a tu equipo a completar la composición.",
+];
+let TIP_I = Math.floor(Math.random() * TIPS.length);
+let TIP_TIMER = null;
+function rotateTips(on) {
+  if (!on) { clearInterval(TIP_TIMER); TIP_TIMER = null; return; }
+  if (TIP_TIMER) return;
+  TIP_TIMER = setInterval(() => {
+    const p = $(".boot .tip-text");
+    if (!p) return rotateTips(false);
+    p.classList.add("out");
+    setTimeout(() => { TIP_I = (TIP_I + 1) % TIPS.length; p.textContent = TIPS[TIP_I]; p.classList.remove("out"); }, 260);
+  }, 7000);
+}
+
+const MARK = `<svg class="mark" viewBox="0 0 32 32" width="44" height="44" aria-hidden="true">
+  <rect width="32" height="32" rx="7" fill="#18181c"/>
+  <path class="n1" d="M8 23.5V10.5l13 13" fill="none" stroke="#6ea8ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+  <path class="n2" d="M21 23.5V13" fill="none" stroke="#ff7a7f" stroke-width="5" stroke-linecap="round" pathLength="1"/>
+  <path class="n3" d="M21 6l5 7H16z" fill="#ff7a7f" stroke="#ff7a7f" stroke-width="1" stroke-linejoin="round"/></svg>`;
+
+// Pantalla de arranque: qué está haciendo la app, paso a paso, con un consejo mientras tanto.
+function renderBoot(el, s) {
+  let boot = el.querySelector(".boot");
+  if (!boot) {
+    el.innerHTML = `<div class="boot">
+      ${MARK}
+      <h1 class="boot-title"></h1>
+      <p class="boot-sub" aria-live="polite"></p>
+      <ol class="steps"></ol>
+      <p class="tip"><span>Consejo</span><span class="tip-text">${esc(TIPS[TIP_I])}</span></p>
+    </div>`;
+    boot = el.querySelector(".boot");
+    rotateTips(true);
+  }
+  const tasks = (s.tasks || []).filter((t) => t.boot);
+  const pg = s.progress || {};
+  const cur = tasks.find((t) => t.id === pg.current);
+  boot.querySelector(".boot-title").textContent = searching(s) ? "Buscando el cliente de LoL"
+    : s.offline ? "Preparando tu draft sin el cliente" : "Preparando tu draft";
+  boot.querySelector(".boot-sub").textContent = searching(s)
+    ? "Si no está abierto, sigo con tus datos guardados en unos segundos."
+    : cur ? `Paso ${pg.step} de ${pg.steps} · ${cur.text}` : "Casi listo";
+  updateSteps(boot.querySelector(".steps"), tasks);
+}
+
+// Barra superior: estado del cliente y, aparte, el trabajo en segundo plano con su detalle.
+function renderWork(s) {
+  const w = $("#work");
+  const pg = s.progress || {};
+  const errs = (s.tasks || []).filter((t) => t.state === "error");
+  const show = pg.busy || errs.length;
+  w.hidden = !show;
+  if (!show) return;
+  w.classList.toggle("err", !pg.busy);
+  w.querySelector("span").textContent = pg.busy ? `Actualizando · ${pg.label}` : `${errs[0].text}: falló, reintento solo`;
+  const mark = { done: "✓", running: "…", error: "!", skipped: "–", pending: "·" };
+  w.title = (s.tasks || []).map((t) => `${mark[t.state] || ""} ${t.text}${t.total && t.state === "running" ? ` ${t.done}/${t.total}` : ""}${t.state === "error" ? `: ${t.error}` : t.detail ? `: ${t.detail}` : ""}`).join("\n");
+}
+
 function renderHeader(s) {
   const conn = $("#conn");
   const noWin = s.platform && !s.platform.supported;
   conn.classList.toggle("ok", !!s.connected);
   conn.classList.toggle("off", !!s.offline);
-  conn.querySelector("span").textContent = noWin && !s.connected ? "Necesita Windows" : s.loading ? "Cargando datos" : s.offline ? "Cliente cerrado" : !s.connected ? "Esperando al cliente" : s.phase_es || "Conectado";
+  conn.classList.toggle("seek", searching(s) && !noWin);
+  conn.querySelector("span").textContent = noWin && !s.connected ? "Necesita Windows" : s.offline ? "Cliente cerrado" : searching(s) ? "Buscando el cliente" : s.loading ? "Conectado" : s.phase_es || "Conectado";
+  renderWork(s);
   $("#platform").hidden = !noWin;
   if (noWin) $("#platform").textContent = `Nachero necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga nachero.exe y ábrelo en Windows.`;
   $("#rank").innerHTML = s.rank ? `<b>${esc(s.rank.tier)}</b> · ${s.rank.lp} LP · ${s.rank.w}V ${s.rank.l}D` : "";
@@ -77,8 +202,9 @@ function renderHeader(s) {
     const m = modes[b.dataset.mode];
     if (m) b.title = b.dataset.mode === "active" ? `${m.text} ${m.summary}` : m.text;
   });
+  // qué hace el modo actual: al pasar el ratón por el selector (antes, una línea fija bajo la barra)
   const cur = modes[s.mode];
-  $("#mode-hint").innerHTML = cur ? `<b>${esc(cur.label)}</b> · ${esc(s.mode === "active" && !s.demo ? cur.text + " " + cur.summary : cur.text)}` : "";
+  $("#modes").title = cur ? `${cur.label}: ${s.mode === "active" && !s.demo ? cur.text + " " + cur.summary : cur.text}` : "";
   once("modes", modes, () => renderModes(modes));
 }
 
@@ -151,7 +277,11 @@ function roleChips(p) {
 }
 
 function matchupLine(p) {
-  if (!p.matchups_loaded) return `<div class="mus"><span class="loading-dot">Cargando matchups…</span></div>`;
+  if (!p.matchups_loaded) {
+    const t = taskOf(STATE, "matchups");
+    const n = t && t.state === "running" && t.total ? ` (${t.done}/${t.total})` : "";
+    return `<div class="mus"><span class="loading-dot">Calculando matchups${n}…</span></div>`;
+  }
   if (p.matchups.length) {
     const other = p.matchups_other_role ? `<span class="muted other-note" title="Sin matchups de este rol: se usan los de su rol principal, con la mitad de peso.">* datos de otro rol</span>` : "";
     return `<div class="mus">${p.matchups.slice(0, 5).map((m) => `<span class="${m.lane ? "lane" : ""}${m.other_role ? " other" : ""}">${esc(m.name)} <i>${ROLE_TAG[m.role] || ""}</i> <span class="num ${tone(m.d2, 0.9)}">${signed(m.d2)}</span>${m.other_role ? "*" : ""}</span>`).join("")}${other}</div>`;
@@ -218,13 +348,21 @@ function subline(p) {
   return bits.join(" · ");
 }
 
+// Fundido suave al pasar de la carga (o de los skeletons) al contenido.
+function appear(el) {
+  el.classList.remove("appear");
+  void el.offsetWidth;
+  el.classList.add("appear");
+}
+
 function renderDraft([d, idle, s]) {
   const el = $("#draft-main");
-  if (s.empty && s.empty !== "loading") { el.innerHTML = emptyState(s.empty, s); return; }
-  if (!s.connected || s.loading) {
-    el.innerHTML = `<div class="loading">${s.connected ? "Cargando tu historial y las estadísticas Master+…" : "Abre el cliente de League of Legends."}</div>`;
-    return;
-  }
+  if (s.empty && s.empty !== "loading") { rotateTips(false); el.innerHTML = emptyState(s.empty, s); return; }
+  // Cuatro estados: buscando el cliente, conectado y cargando (los dos con la pantalla de carga),
+  // cliente cerrado (datos guardados, o el aviso de `no_client` si no hay) y listo.
+  if (s.loading) return renderBoot(el, s);
+  rotateTips(false);
+  if (el.querySelector(".boot")) appear(el);
   if (!d) return renderIdle(el, idle, s);
   if (d.unsupported) return renderUnsupported(el, d);
 
@@ -320,7 +458,8 @@ function renderIdle(el, idle, s) {
   const paused = s.mode === "paused";
   const picks = (idle && idle.picks) || [];
   el.innerHTML = `<div class="idle">
-    <h1>${paused ? "Nachero está en pausa" : "Esperando a la selección de campeón"}</h1>
+    <h1>${paused ? "Nachero está en pausa" : "Esperando a la selección de campeón"}${s.booting ? `<span class="stale" title="Se ven tus datos guardados mientras se cargan los nuevos">Actualizando…</span>` : ""}</h1>
+    ${s.offline ? `<p class="note-off">Abre League of Legends y me conecto solo. Mientras, ${s.games ? `uso tus ${nf0.format(s.games)} partidas guardadas` : "no tengo tus partidas y recomiendo solo por el meta"}.</p>` : ""}
     <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · modo Activo. " + esc(s.active_summary || "Actuará según tus ajustes.") : " · modo Observar: solo recomienda, no acepta la partida ni toca el cliente"}</p>
     ${idle ? `<div class="idle-role"><span>Tu rol</span>${roleSwitch(idle, s.main_role)}
       <small>${idle.auto ? "Automático: el que más juegas." : "Fijado por ti."} En la selección de campeón manda el rol que te asigne el cliente.</small></div>` : ""}
@@ -368,9 +507,10 @@ function renderPool(rows) {
   const el = $("#pool-main");
   if (!rows || !rows.length) {
     const why = STATE && STATE.empty && STATE.empty.pool;
-    el.innerHTML = why ? emptyState(why, STATE) : `<div class="loading">Calculando tu pool…</div>`;
+    el.innerHTML = why && why !== "loading" ? emptyState(why, STATE) : poolSkeleton(STATE || {});
     return;
   }
+  if (el.querySelector(".skel")) appear(el);
   const count = (k) => rows.filter((r) => r.role_key === k).length;
   if (POOL_ROLE !== "all" && !ROLE_NAME[POOL_ROLE]) POOL_ROLE = "all";  // filtro guardado de una versión anterior
   const list = rows.filter((r) => POOL_ROLE === "all" || r.role_key === POOL_ROLE).slice();
@@ -404,6 +544,18 @@ function renderPool(rows) {
     POOL_SORT = { key, dir: POOL_SORT.key === key ? -POOL_SORT.dir : (key === "name" || key === "role" ? 1 : -1) };
     renderPool(STATE.pool);
   }));
+}
+
+// Silueta de la tabla de Tu pool mientras llegan los datos, con el paso real en curso.
+function poolSkeleton(s) {
+  const pg = s.progress || {};
+  const cur = taskOf(s, pg.current);
+  const line = cur ? `${cur.text}${cur.total && cur.state === "running" ? ` ${cur.done}/${cur.total}` : ""}…` : "Calculando tu pool…";
+  const row = (i) => `<tr>${POOL_COLS.map(([k]) => `<td>${k === "name" ? `<div><i class="sk sq"></i><i class="sk" style="width:${70 + ((i * 37) % 50)}px"></i></div>` : `<i class="sk" style="width:${k === "est" ? 44 : 28}px"></i>`}</td>`).join("")}</tr>`;
+  return `<div class="skel" aria-busy="true">
+    <div class="pool-head"><div><h1>Tu pool</h1><p class="loading-dot">${esc(line)}</p></div></div>
+    <div class="tablewrap"><table><thead><tr>${POOL_COLS.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead>
+    <tbody>${Array.from({ length: 8 }, (_, i) => row(i)).join("")}</tbody></table></div></div>`;
 }
 
 /* ------------------------------------------------------------------ evaluar cualquier campeón */
@@ -641,18 +793,22 @@ async function poll() {
     STATE = s;
     renderHeader(s);
     const empty = s.empty || {};
-    once("draft", [s.draft, s.idle, { connected: s.connected || s.offline, offline: s.offline, loading: s.loading, mode: s.mode, active_summary: ((s.modes || {}).active || {}).summary, main_role: (s.settings || {}).main_role,
-      phase_es: s.offline ? "Cliente cerrado · datos guardados" : s.phase_es, pick_mode: s.settings.pick_mode,
+    const pg = s.progress || {};
+    once("draft", [s.draft, s.idle, { connected: s.connected, offline: s.offline, loading: s.loading, mode: s.mode,
+      tasks: s.loading ? s.tasks : null, progress: s.loading ? pg : null, booting: pg.booting, active_summary: ((s.modes || {}).active || {}).summary, main_role: (s.settings || {}).main_role,
+      games: s.games, phase_es: s.offline ? "Cliente cerrado" : s.phase_es, pick_mode: s.settings.pick_mode,
       empty: empty.draft, platform: s.platform }], renderDraft);
-    once("pool", [s.pool, empty.pool], () => renderPool(s.pool));
+    once("pool", [s.pool, empty.pool, s.pool && s.pool.length ? null : [pg.current, taskOf(s, pg.current)]], () => renderPool(s.pool));
     once("log", s.log, renderLog);
     once("settings", s.settings, renderSettings);
     once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
     evalTick();
+    if (VIEW === "pro" && typeof proTick === "function") proTick();
   } catch (_) {
     const conn = $("#conn");
-    conn.classList.remove("ok");
+    conn.classList.remove("ok", "seek");
     conn.querySelector("span").textContent = "Nachero no responde";
+    $("#work").hidden = true;
   }
 }
 poll();

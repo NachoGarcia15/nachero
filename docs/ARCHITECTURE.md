@@ -26,8 +26,9 @@ src/nachero/
              pro.py      motor del simulador de draft pro
              runes.py    validar una página de runas y pasarla al formato del cliente
              queues.py   tipo de cola: draft, a ciegas o fuera de la Grieta
+             tasks.py    registro de tareas: qué hace la app y su progreso (n de m)
   app/       Orquestación
-             state.py    estado compartido, log
+             state.py    estado compartido (APP, TASKS), log
              draft.py    champ select de soloq (lee sesión, recomienda, actúa)
              runes.py    importar la página de runas al cliente
              demo.py     draft simulado
@@ -55,6 +56,16 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    y resto, con roles estimados) + encaje con tu equipo + respuesta a su comp + riesgo de counter.
 5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto counterea tus picks).
 6. El panel consulta `/api/state` cada segundo y pinta.
+
+## Arranque y carga visible
+
+`worker.run_session` va marcando en `state.TASKS` (`domain/tasks.py`) cada paso real: buscar el
+cliente, historial, maestría y rango, campeones y parche, tier lists de Lolalytics (n/5 roles) y
+las recomendaciones. En segundo plano, la cola de matchups (`TASKS.queue`) y los torneos de
+gol.gg (n/6 páginas). `/api/state` publica la lista (`tasks`) y un resumen (`progress`): el panel
+pinta la pantalla de arranque mientras `loading`, la tarea en curso en la barra superior y los
+skeletons de Tu pool y el simulador. Si un paso falla, la tarea guarda el error y, si se puede,
+cuándo se reintenta (`retry_in`); las tier lists que fallan se vuelven a pedir solas.
 
 ## Datos y privacidad
 

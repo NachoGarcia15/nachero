@@ -3,6 +3,32 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.12.0] - 2026-11-17
+
+### Añadido
+- **Pantalla de arranque**: mientras Nachero carga se ve qué está haciendo, paso a paso y con
+  datos reales: cliente de LoL, tu historial, maestría y rango, campeones y parche, estadísticas
+  Master+ (n/5 roles) y tus recomendaciones. Con barra cuando se sabe cuánto falta y animación
+  cuando no, y consejos de draft que van cambiando.
+- En la barra superior, el trabajo en segundo plano («Actualizando · Matchups y runas 12/40»),
+  con el detalle de cada tarea al pasar el ratón.
+- Siluetas (skeletons) de Tu pool y del simulador pro mientras llegan los datos. En la champ
+  select, «Calculando matchups (n/m)».
+- Si un paso falla, se dice cuál y cuándo se reintenta. Las estadísticas Master+ que fallan se
+  vuelven a pedir solas cada 2 minutos.
+- Si el cliente está cerrado, Draft dice que lo abras y si se usan tus partidas guardadas.
+
+### Cambiado
+- La explicación del modo (Pausado, Observar, Activo) pasa al pasar el ratón por el selector, en
+  vez de una línea fija debajo de la barra.
+- El aviso legal de Riot sigue entero, pero más pequeño y abajo del todo de la ventana.
+- Respeta «reducir movimiento» del sistema (`prefers-reduced-motion`).
+
+### Corregido
+- Mientras conectaba o cargaba, Draft decía «Abre el cliente de League of Legends» aunque el
+  cliente estuviera abierto. Ahora distingue buscando el cliente, cargando, cliente cerrado y
+  listo.
+
 ## [0.11.0] - 2026-11-17
 
 ### Añadido

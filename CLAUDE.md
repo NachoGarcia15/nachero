@@ -72,6 +72,10 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 - `run.py` abre la ventana de la app (pywebview). Para probar el panel con la vista previa del
   navegador: arrancar con `--no-browser` en Bash en segundo plano y abrir
   `http://localhost:<puerto>/?v=<versión>` (la versión evita la caché del panel antiguo).
+  Sin consola (Bash en segundo plano), `serve()` abre un cuadro de aviso de Windows en el
+  escritorio del usuario y cerrarlo cierra Nachero: lanza `main()` desde un script que ponga
+  `desktop.has_console = lambda: True`. Para simular el cliente cerrado sin cerrarlo,
+  `worker.client_ready = lambda lcu: False`.
 - No abrir ventanas de prueba si el usuario está en partida (`League of Legends.exe`).
 - La API local tarda a veces más de 5 s (historial): usa timeouts largos y no bloquees el bucle.
 - Tipo de cola (`domain/queues.py`): fuera de la Grieta (ARAM, Arena, URF…) no se recomienda ni

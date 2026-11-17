@@ -77,8 +77,9 @@ class GolGG:
             return d
         return None
 
-    def load(self, tournament):
-        """Descarga (bloqueante) la tabla general y las 5 por rol de un torneo."""
+    def load(self, tournament, progress=None):
+        """Descarga (bloqueante) la tabla general y las 5 por rol de un torneo. `progress(n, 6)` se
+        llama tras cada página."""
         if tournament in self.loading:
             return
         self.loading.add(tournament)
@@ -86,11 +87,16 @@ class GolGG:
             season = (self.tournaments() or {}).get("season", "S16")
             url = f"https://gol.gg/champion/list/season-{season}/split-ALL/tournament-{urllib.parse.quote(tournament)}/"
             op = self._opener()
+            pages = 1 + len(GOL_ROLE)
             allrows = parse_gol(self._get(op, url))
+            if progress:
+                progress(1, pages)
             roles = {}
-            for r, gr in GOL_ROLE.items():
+            for i, (r, gr) in enumerate(GOL_ROLE.items()):
                 rows = parse_gol(self._get(op, url, {"role": gr, "leaguePost": "true"}))
                 roles[r] = {k: v["picks"] for k, v in rows.items() if v["picks"] > 0}
+                if progress:
+                    progress(i + 2, pages)
             games = round(sum(v["picks"] for v in allrows.values()) / 10)
             with self.lock:
                 self.cache["data"][tournament] = {"t": time.time(), "games": games, "all": allrows, "roles": roles}

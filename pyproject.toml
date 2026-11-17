@@ -20,7 +20,7 @@ build = [
   "fonttools>=4.50",            # scripts/make_icons.py (texto del logo en trazos)
 ]
 
-[project.scripts]
+[project.gui-scripts]
 nachero = "nachero.app.main:main"
 
 [tool.setuptools.dynamic]
@@ -30,7 +30,7 @@ version = { attr = "nachero.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-nachero = ["ui/*", "defaults/*.json"]
+nachero = ["ui/*", "ui/*.ico", "defaults/*.json"]
 
 # ------------------------------------------------------------------ calidad
 [tool.ruff]

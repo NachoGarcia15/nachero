@@ -39,6 +39,7 @@ def parse_args(argv=None):
     p.add_argument("--browser", action="store_true", help="abre el panel en el navegador, sin ventana (desarrollo)")
     p.add_argument("--no-browser", action="store_true", help="no abre ventana ni navegador: solo el servidor del panel")
     p.add_argument("--profile", action="store_true", help="muestra tu pool en consola y sale")
+    p.add_argument("--install-shortcut", action="store_true", help="crea acceso directo en el Menú Inicio")
     p.add_argument("--port", type=int, default=None, help="puerto del panel (por defecto, el de los ajustes)")
     p.add_argument("--version", action="version", version=f"Nachero {__version__}")
     return p.parse_args(argv)
@@ -126,6 +127,11 @@ def run(argv=None):
 
     if args.profile:
         print_profile()
+        return
+
+    if args.install_shortcut:
+        res = desktop.install_shortcut()
+        print(f"Acceso directo: {res}")
         return
 
     from nachero.app.server import Handler

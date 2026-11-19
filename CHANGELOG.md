@@ -3,6 +3,18 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.26.0] - 2026-11-19
+
+### Añadido
+- **Datos propios publicados**: `python -m nachero_collector publicar` escribe `index.json` (con
+  `sha256`) para subir la carpeta a un sitio estático (GitHub Pages de un repo de datos, R2…).
+  La app (`stats_url`) descarga el archivo del parche y el del anterior al arrancar y cada hora,
+  con `ETag`/`If-None-Match`, los guarda en `cache/stats/` y comprueba su `sha256`. Sin red, usa
+  los guardados.
+- **Fuente de estadísticas** en Ajustes → Datos: automática (propios si hay del parche y la liga;
+  si no, Lolalytics, y el panel lo dice), propia o Lolalytics. Cambiarla recarga los datos sin
+  reiniciar Nachero.
+
 ## [0.25.0] - 2026-11-19
 
 ### Añadido

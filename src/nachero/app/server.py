@@ -168,6 +168,8 @@ class Handler(BaseHTTPRequestHandler):
                 "pool_bonus": CFG.get("pool_bonus", {}),
                 "never_pick": CFG.get("never_pick", []),
                 "practice_bonus": config.PRACTICE_BONUS,
+                "stats_mode": CFG.get("stats_mode", "auto"),
+                "stats_url": bool(CFG.get("stats_url")),
                 "start_mode": CFG.get("start_mode", "observe"),
                 "spells_by_role": CFG.get("spells_by_role", {}),
                 "style": {k: CFG.get("style", {}).get(k, config.STYLE_DEFAULTS[k]) for k in config.STYLE_KEYS},
@@ -258,9 +260,13 @@ class Handler(BaseHTTPRequestHandler):
             problem = autostart_change(body)
             if problem:
                 return self.send(409, {"error": problem})
+            old_mode = CFG.get("stats_mode", "auto")
             changed = config.apply_settings(CFG, body)
             if changed:
                 config.save(CFG)
+                if CFG.get("stats_mode", "auto") != old_mode:
+                    with LOCK:
+                        APP["restart_session"] = True  # el bucle vuelve a cargar con la nueva fuente
                 with LOCK:
                     APP["pool"] = []
                     APP["refresh_idle"] = True

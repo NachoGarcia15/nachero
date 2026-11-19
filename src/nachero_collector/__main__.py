@@ -5,7 +5,7 @@ import os
 import sys
 
 from nachero_collector import __version__
-from nachero_collector.collect import collect
+from nachero_collector.collect import collect, publish_index
 from nachero_collector.history import import_history, season_start
 from nachero_collector.riot import Riot, RiotError
 
@@ -21,6 +21,8 @@ def parse_args(argv=None):
     c.add_argument("--league", default="master_plus")
     c.add_argument("--players", type=int, default=500, help="jugadores por pasada (rotan)")
     c.add_argument("--matches", type=int, default=2000, help="partidas nuevas como mucho por pasada")
+    pu = sub.add_parser("publicar", help="escribe index.json para publicar la carpeta en un sitio estático")
+    pu.add_argument("--out", default="data")
     h = sub.add_parser("historial", help="tu historial completo de la temporada para «Tu pool»")
     h.add_argument("riot_id", help="tu Riot ID, p. ej. Nacho#EUW")
     h.add_argument("--out", default="history_import.json")
@@ -30,6 +32,10 @@ def parse_args(argv=None):
 
 def main(argv=None) -> int:
     args = parse_args(argv)
+    if args.cmd == "publicar":  # no necesita la clave
+        index = publish_index(args.out)
+        print(f"index.json con {len(index['files'])} archivos en {args.out}: súbelo con la carpeta")
+        return 0
     key = os.environ.get("RIOT_API_KEY", "")
     if not key:
         print("Falta la clave: export RIOT_API_KEY=RGAPI-… (nunca la guardes en el repositorio)", file=sys.stderr)

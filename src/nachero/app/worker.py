@@ -29,6 +29,7 @@ from nachero.sources.golgg import GolGG
 from nachero.sources.history import load_history
 from nachero.sources.local_stats import LocalStats
 from nachero.sources.lolalytics import Lolalytics
+from nachero.sources.remote_stats import RemoteStats
 
 
 def pool_row(engine, champs, cid, role):
@@ -141,10 +142,38 @@ def data_status(lola, patch, gol_src=None, now=None):
         "stale": stale,
         "warnings": source_warnings(lola, gol_src),
         "pro": gol_src.updated() if gol_src is not None else None,
+        "fallback": fallback_note(lola, patch),
     }
 
 
-SOURCES = ("lolalytics", "local")
+def fallback_note(lola, patch) -> str | None:
+    """Si hay datos propios configurados pero no del parche, qué se usa en su lugar (para el panel)."""
+    providers = getattr(lola, "providers", None)
+    if not providers or not patch:
+        return None
+    own = providers[0]
+    if own.name == "Lolalytics" or own.roles_ready(patch) >= 5:
+        return None
+    return f"Sin datos propios del parche {patch}: uso {source_of(lola)}"
+
+
+SOURCES = ("lolalytics", "local", "remote")
+DEFAULT_SOURCES = ["lolalytics"]
+
+
+def source_names() -> list[str]:
+    """Fuentes en orden según `stats_mode` (automática, propia o Lolalytics). Si `stats_sources`
+    se ha cambiado a mano (avanzado), manda eso."""
+    custom = [s for s in CFG.get("stats_sources") or [] if s in SOURCES]
+    if custom and custom != DEFAULT_SOURCES:
+        return custom
+    mode = CFG.get("stats_mode", "auto")
+    own = ["remote"] if CFG.get("stats_url") else (["local"] if stats_file().exists() else [])
+    if mode == "lolalytics":
+        return ["lolalytics"]
+    if mode == "own":
+        return own or ["local"]
+    return own + ["lolalytics"]
 
 
 def stats_file() -> Path:
@@ -155,15 +184,18 @@ def stats_file() -> Path:
 def build_stats(champs):
     """Fuentes de estadísticas según `stats_sources` (ver domain/stats.py). Sin ninguna válida,
     Lolalytics, como siempre."""
-    names = [s for s in CFG.get("stats_sources") or [] if s in SOURCES] or ["lolalytics"]
+    names = source_names()
     providers = []
+    region, league = CFG.get("stats_region", "euw1"), CFG.get("stats_league", "master_plus")
     for name in dict.fromkeys(names):
         if name == "lolalytics":
             lola = Lolalytics(str(paths.cache_dir()), log)
             lola.slug_fallback = champs.slug
             providers.append(lola)
+        elif name == "remote":
+            providers.append(RemoteStats(CFG.get("stats_url", ""), paths.cache_dir() / "stats", log, region, league))
         else:
-            providers.append(LocalStats(stats_file(), log))
+            providers.append(LocalStats(stats_file(), log, region, league))
     if len(providers) == 1:
         return providers[0]
     log("Estadísticas: " + " → ".join(p.name for p in providers), "info")
@@ -419,6 +451,7 @@ def run_session():
     CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
     demo = None  # se crea al abrir la demo (por --demo o desde el panel)
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
+    last_tiers = time.time()
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
     queue, queue_tries = None, 0  # tipo de cola de la champ select actual
     while True:
@@ -476,8 +509,11 @@ def run_session():
             APP["phase"] = phase
             APP["data"] = data_status(lola, patch, gol())
         TASKS.queue("matchups", "Matchups y runas", len(lola.pending))
-        if patch and TASKS.retry_due("tiers"):
+        if patch and (TASKS.retry_due("tiers") or time.time() - last_tiers > 3600):
+            last_tiers = time.time()  # cada hora: datos propios nuevos (ETag) o tier lists caducadas
             threading.Thread(target=refresh_tiers, args=(lola, patch), daemon=True).start()
+        if APP.pop("restart_session", False):
+            raise Restart("Fuente de estadísticas cambiada: vuelvo a cargar los datos")
 
         if (time.time() - last_idle > 20 or APP.get("refresh_idle")) and phase != "ChampSelect":
             last_idle = time.time()

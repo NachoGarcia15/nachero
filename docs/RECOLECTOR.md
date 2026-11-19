@@ -40,8 +40,26 @@ Cada hora en un PC o VPS (cron), mejor que GitHub Actions con el repositorio pri
 7 * * * * cd /ruta/nachero && RIOT_API_KEY=… .venv/bin/python -m nachero_collector recoger >> collector.log 2>&1
 ```
 
-Para que la app los use: `stats_sources: ["local", "lolalytics"]` y `stats_file` apuntando a la
-carpeta `data` (o, más adelante, la descarga de #20).
+## Publicar
+
+```
+python -m nachero_collector publicar --out data
+```
+
+escribe `data/index.json` con cada archivo, su parche, región, liga, partidas y `sha256`. Sube la
+carpeta `data` tal cual a un sitio estático (solo son agregados, así que puede ser público):
+
+- **GitHub Pages** de un repositorio de datos (`<usuario>.github.io/nachero-data`): `git push` de la
+  carpeta tras cada pasada. Gratis; GitHub sirve `ETag`.
+- **Cloudflare R2** u otro almacenamiento S3 con dominio público: `rclone sync data r2:nachero-data`.
+- **Releases** de un repositorio público (un recurso por archivo; menos cómodo para cada hora).
+
+Con el repositorio de la app privado, sus Releases y Pages no son públicos: hace falta uno aparte.
+
+En la app: `stats_url` con la dirección de la carpeta (p. ej. `https://usuario.github.io/nachero-data`)
+y, en Ajustes → Datos, la fuente **Automática** (propios si los hay del parche; si no, Lolalytics)
+o **Propia**. Para probar en local sin publicar: `stats_mode: "own"` y `stats_file` apuntando a la
+carpeta `data`.
 
 ## Tu historial completo para «Tu pool»
 

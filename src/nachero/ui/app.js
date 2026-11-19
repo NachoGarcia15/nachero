@@ -1004,7 +1004,12 @@ function renderData(dt, why) {
   if (why && why !== "no_data") { $("#datainfo").innerHTML = emptyState(why, STATE).replace("empty-state", "empty-state small"); return; }
   if (!dt || !dt.patch) { $("#datainfo").textContent = "Cargando…"; return; }
   const pro = dt.pro;
-  $("#datainfo").innerHTML = `${why ? `<p class="warn-line">${EMPTY.no_data(STATE)[1]}</p>` : ""}
+  const st = (STATE && STATE.settings) || {};
+  const sm = st.stats_mode || "auto";
+  const srcSeg = `<div class="seg seg-sm statsmode" role="radiogroup" aria-label="Fuente de estadísticas">${[["auto", "Automática"], ["own", "Propia"], ["lolalytics", "Lolalytics"]].map(([k, n]) => `<button data-sm="${k}" class="${sm === k ? "on" : ""}">${n}</button>`).join("")}</div>
+    <small class="muted">${sm === "auto" ? "Datos propios si los hay del parche y la liga; si no, Lolalytics." : sm === "own" ? "Solo datos propios (recolector)." : "Solo Lolalytics."}${!st.stats_url && sm !== "lolalytics" ? " Sin dirección de datos propios (stats_url) configurada." : ""}</small>`;
+  $("#datainfo").innerHTML = `<div class="srcpick">${srcSeg}</div>${why ? `<p class="warn-line">${EMPTY.no_data(STATE)[1]}</p>` : ""}
+    ${dt.fallback ? `<p class="warn-line">${esc(dt.fallback)}</p>` : ""}
     ${(dt.warnings || []).map((w) => `<p class="warn-line">${esc(warnText(w))}</p>`).join("")}
     ${dt.stale ? `<p class="warn-line">Las estadísticas son de ${ago(dt.updated)} o de otro parche: pulsa «Actualizar ahora».</p>` : ""}
     ${esc(dt.source || "Lolalytics")} · ${esc(dt.tier)} · parche ${esc(dt.patch)}<br>
@@ -1013,6 +1018,7 @@ function renderData(dt, why) {
     Actualizado ${ago(dt.updated)}${pro ? `<br>Competitivo (gol.gg): ${esc(pro.tournament)} · ${ago(pro.t)}` : ""}
     <div><button class="btn" id="refresh">Actualizar ahora</button></div>`;
   $("#refresh").onclick = () => post("/api/refresh");
+  document.querySelectorAll(".statsmode button").forEach((b) => (b.onclick = () => post("/api/settings", { stats_mode: b.dataset.sm })));
 }
 
 function openDrawer(open) {
@@ -1255,7 +1261,7 @@ async function poll() {
     once("profile", [s.settings, s.profile], () => renderProfile(s.settings, s.profile));
     once("more", s.settings, () => renderMore(s.settings));
     once("datawarn", (s.data && s.data.warnings) || [], renderDataWarn);
-    once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
+    once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data, sm: s.settings.stats_mode, su: s.settings.stats_url }, () => renderData(s.data, empty.data));
     evalTick();
     if (VIEW === "pro" && typeof proTick === "function") proTick();
     if (VIEW === "pool") loadCalibration(false);

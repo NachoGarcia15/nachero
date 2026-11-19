@@ -1,0 +1,20 @@
+{
+ "tier": "CHALLENGER",
+ "leagueId": "x",
+ "queue": "RANKED_SOLO_5x5",
+ "name": "Liga",
+ "entries": [
+  {
+   "puuid": "puuid-0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "leaguePoints": 1500,
+   "wins": 300,
+   "losses": 250
+  },
+  {
+   "puuid": "puuid-5xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "leaguePoints": 1200,
+   "wins": 200,
+   "losses": 180
+  }
+ ]
+}

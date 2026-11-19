@@ -8,7 +8,7 @@ Lee primero lo que necesites de: `docs/ARCHITECTURE.md` (capas, flujo, decisione
 `docs/ROADMAP.md` (fases y normas de Riot), `CONTRIBUTING.md`, `README.md` (fórmula y uso).
 Las tareas están en las issues de GitHub, por hitos (Fase 1, 2 y 3); el orden, en la issue
 fijada #28. Estrategia de datos (Lolalytics ahora, API de Riot después): `docs/DATOS.md`; formato propio:
-`docs/FORMATO_DATOS.md`.
+`docs/FORMATO_DATOS.md`; recolector: `docs/RECOLECTOR.md`.
 
 ## Usuario
 - Escribe en español: responde en español; la UI y los comentarios del código también.

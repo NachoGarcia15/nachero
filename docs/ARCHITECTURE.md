@@ -35,6 +35,8 @@ src/nachero/
              worker.py   bucle principal y sesión con el cliente
              server.py   API HTTP del panel y archivos estáticos
              desktop.py  ventana de la app (pywebview), diálogos, instancia única
+             tray.py     icono en la bandeja del sistema (Win32 con ctypes)
+             updates.py  aviso de nueva versión (latest.json público)
              main.py     argumentos y arranque
   ui/        Panel (HTML/CSS/JS sin dependencias)
   defaults/  Ajustes por defecto
@@ -95,6 +97,7 @@ entra en una partida (`state.demo_must_stop`).
 |---|---|
 | Solo biblioteca estándar en tiempo de ejecución (salvo pywebview) | Instalar y empaquetar sin fricción. |
 | Panel web local, mostrado en una ventana propia (pywebview con WebView2) | La misma interfaz HTML/JS en la app y, para desarrollo, en el navegador (`--browser`). WebView2 viene con Windows 10 y 11; Electron o Tauri obligarían a reescribir el backend. |
+| Bandeja con ctypes, sin pystray | Sin dependencias nuevas y sin los choques conocidos de pystray con pywebview: una ventana oculta propia, en su hilo, recibe los mensajes del icono. Cerrar la ventana la esconde (`closing` devuelve False). |
 | Instancia única por puerto | Abrir Nachero otra vez trae al frente la ventana del que ya usa el puerto (`/api/instance`); en otro puerto se puede probar una segunda copia. |
 | Todo en puntos de winrate | Las partes se pueden sumar, comparar y explicar al usuario. |
 | *Delta 2* para matchups | Mide solo la interacción; no cuenta dos veces la fuerza del campeón. |

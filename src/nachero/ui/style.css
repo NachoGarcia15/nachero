@@ -779,3 +779,8 @@ td.ch span small { display: block; color: var(--text-3); font-size: 11.5px; font
 .setup-sug small { color: var(--text-3); font-size: 12.5px; margin-right: 2px; }
 .chip-btn { border: 1px dashed var(--line-2); background: none; color: var(--text-2); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; }
 .chip-btn:hover { color: var(--text); border-color: var(--accent); }
+
+/* aviso de nueva versión */
+.demo-banner.update { color: var(--text); background: rgba(92,195,148,.08); border-bottom-color: rgba(92,195,148,.25); }
+.demo-banner.update b { color: var(--pos); }
+.demo-banner.update a.btn { text-decoration: none; color: var(--text); }

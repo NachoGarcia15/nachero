@@ -13,7 +13,7 @@ import sys
 import urllib.request
 from collections.abc import Sequence
 from ctypes import wintypes
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from nachero import paths
@@ -262,6 +262,52 @@ try {{
             os.unlink(vbs_path)
 
 
+# ------------------------------------------------------------------ abrir al iniciar Windows
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_VALUE = "Nachero"
+
+
+def autostart_command(target: Path) -> str:
+    """Orden que guarda Windows para abrir Nachero al iniciar sesión: en la bandeja (--tray)."""
+    if PureWindowsPath(str(target)).stem.lower() in ("python", "pythonw"):
+        return f'"{target}" -m nachero --tray'
+    return f'"{target}" --tray'
+
+
+def set_autostart(on: bool) -> str | None:
+    """Activa o quita «Abrir al iniciar Windows» (HKCU\\…\\Run). Devuelve el error, o None."""
+    if not WIN:
+        return "solo en Windows"
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            if on:
+                target = _find_shortcut_target()
+                if target is None:
+                    return "no encuentro el ejecutable de Nachero"
+                winreg.SetValueEx(key, RUN_VALUE, 0, winreg.REG_SZ, autostart_command(target))
+            else:
+                with contextlib.suppress(FileNotFoundError):
+                    winreg.DeleteValue(key, RUN_VALUE)
+    except OSError as e:
+        return str(e)
+    return None
+
+
+def autostart_enabled() -> bool:
+    if not WIN:
+        return False
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+            winreg.QueryValueEx(key, RUN_VALUE)
+        return True
+    except OSError:
+        return False
+
+
 # ------------------------------------------------------------------ consola y diálogos
 
 
@@ -331,6 +377,19 @@ def probe_instance(url: str, timeout: float = 3.0) -> dict | None:
     return data if isinstance(data, dict) and data.get("app") == "nachero" else None
 
 
+def request_show(url: str, timeout: float = 3.0) -> bool:
+    """Pide al Nachero de `url` que muestre su ventana (aunque esté en la bandeja)."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    req = urllib.request.Request(
+        f"{url}/api/show", data=b"{}", method="POST", headers={"Content-Type": "application/json"}
+    )
+    try:
+        with opener.open(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8")).get("ok") is True
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 def pick_window(windows: Sequence[tuple[int, int, bool, str]], pid: int, title: str = TITLE) -> int | None:
     """De (hwnd, pid, visible, título), la ventana visible de ese proceso con ese título."""
     for hwnd, owner, visible, text in windows:
@@ -369,6 +428,13 @@ def top_windows() -> list[tuple[int, int, bool, str]]:
 
     u.EnumWindows(visit, 0)
     return found
+
+
+def allow_foreground(pid: int) -> None:
+    """Deja que el proceso `pid` pase su ventana al frente (lo pide el Nachero recién abierto)."""
+    if WIN and pid:
+        with contextlib.suppress(Exception):
+            ctypes.windll.user32.AllowSetForegroundWindow(pid)
 
 
 def bring_to_front(pid: int) -> bool:
@@ -476,14 +542,51 @@ def window_problem() -> str | None:
     return None
 
 
-def open_window(url: str, state_file: Path, storage: Path) -> None:
-    """Abre la ventana con el panel y espera a que se cierre. Va en el hilo principal."""
+def open_window(url: str, state_file: Path, storage: Path, app: dict | None = None) -> None:
+    """Abre la ventana con el panel y espera a que se cierre del todo. Va en el hilo principal.
+
+    `app` conecta la ventana con la bandeja: `cfg` y `save` (ajustes), `get_mode` y `set_mode`,
+    `hidden` (arrancar en la bandeja, --tray) y `register_show` (para que otro Nachero la muestre).
+    Sin bandeja, cerrar la ventana cierra Nachero, como antes."""
     import webview
 
+    from nachero.app.tray import TRAY_HINT, Tray, close_action
+
+    app = app or {}
+    cfg = app.get("cfg", {})
     set_app_model_id()
     icon_path = resolve_icon()
     saved = clean_placement(read_json(state_file))
     corner = 0 if saved else None  # con estado guardado, posición manual: la pone set_placement
+    state = {"quitting": False, "win": None}
+
+    def show():  # desde la bandeja o desde otro Nachero
+        w = state["win"]
+        if w is None:
+            return
+        with contextlib.suppress(Exception):
+            w.show()
+            w.restore()
+        with contextlib.suppress(Exception):
+            hwnd = native_hwnd(w)
+            if hwnd:
+                _user32().SetForegroundWindow(hwnd)
+
+    def quit_():
+        state["quitting"] = True
+        with contextlib.suppress(Exception):
+            state["win"].destroy()
+
+    tray = Tray(
+        icon_path,
+        get_mode=app.get("get_mode", lambda: "observe"),
+        on_open=show,
+        on_mode=app.get("set_mode", lambda m: None),
+        on_quit=quit_,
+    )
+    tray_ok = tray.start() if app else False
+    if "register_show" in app:
+        app["register_show"](show)
     win = webview.create_window(
         TITLE,
         url,
@@ -496,9 +599,12 @@ def open_window(url: str, state_file: Path, storage: Path) -> None:
         zoomable=True,
         x=corner,
         y=corner,
+        hidden=bool(app.get("hidden") and tray_ok),  # --tray: arranca en la bandeja
     )
     if win is None:
+        tray.stop()
         raise RuntimeError("pywebview no ha creado la ventana")
+    state["win"] = win
 
     def before_show(window):  # hilo de la ventana, antes de mostrarla
         with contextlib.suppress(Exception):
@@ -513,13 +619,28 @@ def open_window(url: str, state_file: Path, storage: Path) -> None:
 
                 window.native.WindowState = FormWindowState.Maximized
 
-    def closing(window):  # hilo de la ventana, antes de cerrarla
+    def closing(window):  # hilo de la ventana, antes de cerrarla: a la bandeja o salir
         with contextlib.suppress(Exception):
             placement = get_placement(native_hwnd(window))
             if placement:
                 write_json(state_file, placement)
+        if close_action(cfg, tray_ok, state["quitting"]) == "quit":
+            return True
+        with contextlib.suppress(Exception):
+            window.hide()
+        if not cfg.get("tray_hint_shown"):
+            tray.notify(*TRAY_HINT)
+            cfg["tray_hint_shown"] = True
+            with contextlib.suppress(Exception):
+                app["save"](cfg)
+        return False  # pywebview no la cierra
 
     win.events.before_show += before_show
     win.events.closing += closing
-    # private_mode=False: el panel guarda en localStorage la pestaña y el simulador pro
-    webview.start(private_mode=False, storage_path=str(storage), icon=str(icon_path) if icon_path.is_file() else None)
+    try:
+        # private_mode=False: el panel guarda en localStorage la pestaña y el simulador pro
+        webview.start(
+            private_mode=False, storage_path=str(storage), icon=str(icon_path) if icon_path.is_file() else None
+        )
+    finally:
+        tray.stop()

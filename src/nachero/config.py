@@ -23,7 +23,22 @@ TOGGLES = [
 APP_TOGGLES = ["close_to_tray", "start_with_windows"]
 WEIGHT_KEYS = ("pool", "meta", "matchup", "comp")
 MAX_CHAMP_LIST = 40  # campeones en pool_bonus y never_pick
+MAX_BAN_PRIORITY = 10  # bans prioritarios por rol
+MODES = ("paused", "observe", "active")
+# Hechizos que se pueden poner por rol (los mismos nombres que app.state.SPELL_IDS)
+SPELLS = ("Cleanse", "Exhaust", "Flash", "Ghost", "Heal", "Smite", "Teleport", "Ignite", "Barrier")
+STYLE_KEYS = ("carry_weight", "utility_weight")
+STYLE_DEFAULTS = {"carry_weight": 1.0, "utility_weight": 0.2}
 PRACTICE_BONUS = 1.5  # puntos de WR de «lo estoy practicando» en la configuración guiada
+
+
+def _number(v, lo: float, hi: float) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and lo <= v <= hi
+
+
+def _spell_pair(v) -> bool:
+    """Dos hechizos distintos y conocidos."""
+    return isinstance(v, list) and len(v) == 2 and all(s in SPELLS for s in v) and v[0] != v[1]
 
 
 def _champ_names(v) -> list[str] | None:
@@ -101,6 +116,25 @@ def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
             if ok:
                 cfg[k] = {n.strip(): round(float(b), 2) for n, b in v.items() if b}
                 changed.append("campeones con puntos extra")
+        elif k == "start_mode" and v in MODES:
+            cfg[k] = v
+            changed.append("modo al abrir " + {"paused": "pausado", "observe": "observar", "active": "activo"}[v])
+        elif k == "spells_by_role" and isinstance(v, dict):
+            for role, pair in v.items():
+                if role in ROLES and _spell_pair(pair):
+                    cfg.setdefault(k, {})[role] = list(pair)
+                    changed.append(f"hechizos de {role}")
+        elif k == "style" and isinstance(v, dict):
+            for sk, sv in v.items():
+                if sk in STYLE_KEYS and _number(sv, 0, 2):
+                    cfg.setdefault(k, {})[sk] = round(float(sv), 2)
+                    changed.append(f"estilo {sk}")
+        elif k == "ban_priority" and isinstance(v, dict):
+            for role, names in v.items():
+                clean = _champ_names(names)
+                if role in ROLES and clean is not None and len(clean) <= MAX_BAN_PRIORITY:
+                    cfg.setdefault(k, {})[role] = clean
+                    changed.append(f"bans prioritarios de {role}")
         elif k == "setup_done" and isinstance(v, bool):
             cfg[k] = v
             changed.append("configuración guiada" + (" hecha" if v else " por hacer"))

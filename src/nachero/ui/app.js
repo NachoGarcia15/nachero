@@ -857,6 +857,89 @@ function renderSettings(st) {
   });
 }
 
+/* ------------------------------------------------------------------ más ajustes (#5) */
+let BAN_ROLE = "jungle"; // rol cuyos bans prioritarios se editan
+const MODE_NAMES = [["observe", "Observar"], ["active", "Activo"], ["paused", "Pausado"]];
+
+function chipEditor(key, names, extra = () => "") {
+  return `<div class="picker small">
+    <div class="chips-list">${names.length ? names.map((n) => `<span class="champ-chip">${esc(n)}${extra(n)}<button data-rm="${key}" data-name="${esc(n)}" aria-label="Quitar ${esc(n)}">×</button></span>`).join("") : `<span class="muted">Ninguno</span>`}</div>
+    <input type="search" list="champ-list" placeholder="Añadir campeón…" data-addto="${key}" aria-label="Añadir campeón" autocomplete="off">
+  </div>`;
+}
+
+function renderMore(st) {
+  const spells = st.spells || [];
+  const sbr = st.spells_by_role || {};
+  const bonus = st.pool_bonus || {};
+  const bp = (st.ban_priority || {})[BAN_ROLE] || [];
+  const style = st.style || {};
+  $("#more-settings").innerHTML = `
+    <div class="opt"><div class="tx"><b>Modo al abrir Nachero</b><small>Con el que arranca. Se cambia en cualquier momento arriba.</small>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Modo al abrir">${MODE_NAMES.map(([m, n]) => `<button data-start="${m}" class="${st.start_mode === m ? "on" : ""}">${n}</button>`).join("")}</div></div></div>
+    <div class="opt"><div class="tx"><b>Hechizos por rol</b><small>Los que pone «Hechizos» al entrar en la selección.</small>
+      <div class="spells">${ROLE_BTNS.map(([r, n]) => {
+        const pair = sbr[r] || ["", ""];
+        const sel = (i) => `<select data-spell="${r}" data-i="${i}" aria-label="${n}: hechizo ${i + 1}">${spells.map((x) => `<option ${pair[i] === x ? "selected" : ""}>${x}</option>`).join("")}</select>`;
+        return `<label><span>${n}</span>${sel(0)}${sel(1)}</label>`;
+      }).join("")}</div><small class="err" id="spell-msg" role="status"></small></div></div>
+    <div class="opt"><div class="tx"><b>Tu estilo</b><small>Cuánto premia a los campeones que hacen daño (carry) y a los de utilidad.</small>
+      ${[["carry_weight", "Carry"], ["utility_weight", "Utilidad"]].map(([k, n]) => `
+        <div class="weight mini"><label for="st-${k}">${n}<span class="num" id="stv-${k}">${f1(style[k] ?? 1)}×</span></label>
+        <input type="range" id="st-${k}" data-style="${k}" min="0" max="2" step="0.1" value="${style[k] ?? 1}"></div>`).join("")}</div></div>
+    <div class="opt"><div class="tx"><b>Bans prioritarios</b><small>Se ponen primero en las sugerencias de ban de ese rol (máximo 10).</small>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Rol">${ROLE_BTNS.map(([r, n]) => `<button data-banrole="${r}" class="${BAN_ROLE === r ? "on" : ""}">${n}</button>`).join("")}</div>
+      ${chipEditor("ban_priority", bp)}</div></div>
+    <div class="opt"><div class="tx"><b>Puntos extra por campeón</b><small>Puntos de WR que se suman con tu pool (de −5 a 5): positivos para los que practicas, negativos para los que no te apetecen.</small>
+      ${chipEditor("pool_bonus", Object.keys(bonus), (n) => ` <input type="number" class="bonus" data-bonus="${esc(n)}" min="-5" max="5" step="0.5" value="${bonus[n]}" aria-label="Puntos de ${esc(n)}">`)}</div></div>
+    <div class="opt"><div class="tx"><b>Nunca recomendar</b><small>No salen en ningún rol.</small>
+      ${chipEditor("never_pick", st.never_pick || [])}</div></div>`;
+  bindMore(st);
+}
+
+function bindMore(st) {
+  const box = $("#more-settings");
+  box.querySelectorAll("[data-start]").forEach((b) => (b.onclick = () => post("/api/settings", { start_mode: b.dataset.start })));
+  box.querySelectorAll("[data-banrole]").forEach((b) => (b.onclick = () => { BAN_ROLE = b.dataset.banrole; renderMore(st); }));
+  box.querySelectorAll("select[data-spell]").forEach((s) => (s.onchange = () => {
+    const r = s.dataset.spell;
+    const pair = [...box.querySelectorAll(`select[data-spell="${r}"]`)].map((x) => x.value);
+    if (pair[0] === pair[1]) { $("#spell-msg").textContent = "Elige dos hechizos distintos."; return; }
+    $("#spell-msg").textContent = "";
+    post("/api/settings", { spells_by_role: { [r]: pair } });
+  }));
+  box.querySelectorAll("input[data-style]").forEach((r) => {
+    r.oninput = () => ($("#stv-" + r.dataset.style).textContent = f1(Number(r.value)) + "×");
+    r.onchange = () => post("/api/settings", { style: { [r.dataset.style]: Number(r.value) } });
+  });
+  box.querySelectorAll("input.bonus").forEach((i) => (i.onchange = () => {
+    const v = Math.max(-5, Math.min(5, Number(i.value) || 0));
+    post("/api/settings", { pool_bonus: { ...(st.pool_bonus || {}), [i.dataset.bonus]: v } });
+  }));
+  const save = (key, names) => {
+    if (key === "ban_priority") return post("/api/settings", { ban_priority: { [BAN_ROLE]: names } });
+    if (key === "never_pick") return post("/api/settings", { never_pick: names });
+    const bonus = {};
+    names.forEach((n) => (bonus[n] = (st.pool_bonus || {})[n] ?? st.practice_bonus ?? 1.5));
+    return post("/api/settings", { pool_bonus: bonus });
+  };
+  const current = (key) => key === "ban_priority" ? [...(((st.ban_priority || {})[BAN_ROLE]) || [])]
+    : key === "never_pick" ? [...(st.never_pick || [])] : Object.keys(st.pool_bonus || {});
+  box.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => save(b.dataset.rm, current(b.dataset.rm).filter((n) => n !== b.dataset.name))));
+  box.querySelectorAll("input[data-addto]").forEach((i) => {
+    i.addEventListener("focus", loadChampList);
+    const add = () => {
+      const c = CHAMPS.find((x) => x.name.toLowerCase() === i.value.trim().toLowerCase());
+      if (!c) return;
+      const names = current(i.dataset.addto);
+      if (!names.includes(c.name)) save(i.dataset.addto, [...names, c.name]);
+      i.value = "";
+    };
+    i.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+    i.addEventListener("change", add);
+  });
+}
+
 function ago(ts) {
   if (!ts) return "nunca";
   const m = Math.round((Date.now() / 1000 - ts) / 60);
@@ -1132,6 +1215,7 @@ async function poll() {
     once("log", s.log, renderLog);
     once("settings", s.settings, renderSettings);
     once("profile", [s.settings, s.profile], () => renderProfile(s.settings, s.profile));
+    once("more", s.settings, () => renderMore(s.settings));
     once("datawarn", (s.data && s.data.warnings) || [], renderDataWarn);
     once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
     evalTick();

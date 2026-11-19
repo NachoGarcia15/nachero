@@ -3,6 +3,16 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.22.0] - 2026-11-19
+
+### Añadido
+- **Todos los ajustes desde el panel** (Ajustes → Más ajustes): modo al abrir Nachero
+  (`start_mode`), hechizos por rol (`spells_by_role`), tu estilo (`style`: carry y utilidad),
+  bans prioritarios por rol (`ban_priority`), puntos extra por campeón (`pool_bonus`, de −5 a 5) y
+  campeones que no recomendar nunca (`never_pick`). Ya no hace falta tocar el JSON.
+- Validación de todos ellos en `config.apply_settings`: dos hechizos distintos y conocidos, pesos
+  de 0 a 2, como mucho 10 bans prioritarios por rol, roles válidos.
+
 ## [0.21.0] - 2026-11-19
 
 ### Añadido

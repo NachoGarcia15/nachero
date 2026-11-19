@@ -166,6 +166,11 @@ class Handler(BaseHTTPRequestHandler):
                 "pool_bonus": CFG.get("pool_bonus", {}),
                 "never_pick": CFG.get("never_pick", []),
                 "practice_bonus": config.PRACTICE_BONUS,
+                "start_mode": CFG.get("start_mode", "observe"),
+                "spells_by_role": CFG.get("spells_by_role", {}),
+                "style": {k: CFG.get("style", {}).get(k, config.STYLE_DEFAULTS[k]) for k in config.STYLE_KEYS},
+                "ban_priority": CFG.get("ban_priority", {}),
+                "spells": list(config.SPELLS),
                 "close_to_tray": bool(CFG.get("close_to_tray", True)),
                 "start_with_windows": bool(CFG.get("start_with_windows", False)),
             }

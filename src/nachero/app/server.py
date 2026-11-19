@@ -19,9 +19,11 @@ from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log, set_de
 from nachero.app.status import diagnostics, empty_states
 from nachero.app.worker import evaluate, gol, load_tournament, refresh_tiers
 from nachero.config import CFG, TOGGLES
+from nachero.domain import calibration
 from nachero.domain.common import ROLES
 from nachero.domain.policy import GAME_DECISIONS, mode_help
 from nachero.domain.tasks import summary as task_summary
+from nachero.jsonio import read_json
 
 
 def snapshot() -> dict:
@@ -204,6 +206,9 @@ class Handler(BaseHTTPRequestHandler):
                     }
                 )
             return self.send(200, out)
+        if path == "/api/calibration":  # ¿acierta Nachero? (#9)
+            recs = read_json(paths.predictions_file(), [])
+            return self.send(200, calibration.report(recs if isinstance(recs, list) else []))
         if path == "/api/champions":
             champs = CTX.get("champs")
             if not champs:

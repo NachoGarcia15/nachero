@@ -33,6 +33,7 @@ function setView(v) {
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   ["draft", "pool", "pro", "log"].forEach((k) => ($("#view-" + k).hidden = k !== v));
   if (v === "pro" && typeof proInit === "function") proInit();
+  if (v === "pool") loadCalibration(true);
   try { localStorage.setItem("nachero.view", v); } catch (_) {}
 }
 window.addEventListener("DOMContentLoaded", () => {
@@ -940,6 +941,43 @@ function bindMore(st) {
   });
 }
 
+/* ------------------------------------------------------------------ ¿acierta Nachero? (#9) */
+const PART_NAMES = { you: "Tú con él", meta: "Fuerza en el parche", lane: "Rival de línea", enemies: "Resto del rival",
+  allies: "Encaje con tu equipo", vs_comp: "Contra su composición", risk: "Riesgo de counter", ease: "Fácil de jugar" };
+let CALIB_AT = 0;
+
+async function loadCalibration(force) {
+  if (!force && Date.now() - CALIB_AT < 60000) return;
+  CALIB_AT = Date.now();
+  try {
+    const r = await fetch("/api/calibration");
+    if (r.ok) renderCalibration(await r.json());
+  } catch (_) {}
+}
+
+function renderCalibration(c) {
+  const el = $("#calib");
+  const head = `<div class="block-head"><h3>¿Acierta Nachero?</h3><span>WR estimado del campeón que confirmaste frente al resultado</span></div>`;
+  if (!c.n) {
+    el.innerHTML = `${head}<p class="muted">Aún no hay partidas medidas. Cada vez que confirmes un pick en soloq, flex o normal, Nachero apunta su WR estimado y, al acabar la partida, el resultado.${c.pending ? ` Pendientes: ${c.pending}.` : ""}</p>`;
+    return;
+  }
+  const rows = c.buckets.filter((b) => b.n).map((b) => {
+    const diff = b.wr - b.est;
+    return `<div class="cal-row"><span>${esc(b.label)}</span><span class="num">${b.n}</span>
+      <div class="cal-bar" title="Estimado ${f1(b.est)} % · real ${f1(b.wr)} %"><i class="est" style="left:${Math.max(0, Math.min(100, b.est))}%"></i><i class="real" style="width:${Math.max(0, Math.min(100, b.wr))}%"></i></div>
+      <span class="num">${f1(b.est)} %</span><span class="num ${tone(diff, 3)}">${f1(b.wr)} %</span></div>`;
+  }).join("");
+  const parts = c.parts.filter((p) => PART_NAMES[p.part]).map((p) => `<span class="chip">${PART_NAMES[p.part]} <b class="num ${tone(p.gap, 0.2)}">${signed(p.gap)}</b></span>`).join("");
+  el.innerHTML = `${head}
+    ${c.enough ? "" : `<p class="warn-line">Con ${c.n} partidas dice poco: a partir de ~20 empieza a ser útil.</p>`}
+    <p class="cal-sum">${c.n} partidas · estimado medio <b>${f1(c.est)} %</b> · WR real <b>${f1(c.wr)} %</b>${c.pending ? ` · ${c.pending} por apuntar` : ""}</p>
+    <div class="cal"><div class="cal-row head"><span>WR estimado</span><span>Partidas</span><span></span><span>Estimado</span><span>Real</span></div>${rows}</div>
+    <p class="cal-sum">Siguiendo la recomendación: ${c.followed.n ? `<b>${f1(c.followed.wr)} %</b> en ${c.followed.n}` : "—"} · jugando otro: ${c.other.n ? `<b>${f1(c.other.wr)} %</b> en ${c.other.n}` : "—"}</p>
+    ${parts ? `<p class="cal-sum">Cuánto separa cada parte las victorias de las derrotas (media en victorias − en derrotas):</p><div class="chips">${parts}</div>` : ""}
+    <p class="foot">Si en un tramo ganas mucho menos de lo estimado, Nachero se pasa de optimista ahí. Una parte con diferencia cercana a 0 apenas predice: puedes bajar su peso en Ajustes.</p>`;
+}
+
 function ago(ts) {
   if (!ts) return "nunca";
   const m = Math.round((Date.now() / 1000 - ts) / 60);
@@ -1220,6 +1258,7 @@ async function poll() {
     once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
     evalTick();
     if (VIEW === "pro" && typeof proTick === "function") proTick();
+    if (VIEW === "pool") loadCalibration(false);
   } catch (_) {
     const conn = $("#conn");
     conn.classList.remove("ok", "seek");

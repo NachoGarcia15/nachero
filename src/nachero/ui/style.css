@@ -807,3 +807,16 @@ input.bonus { width: 54px; padding: 1px 4px; font-family: var(--mono); }
 .weight.mini { padding: 6px 0 0; border: 0; }
 small.err { color: var(--neg); }
 .opt .tx > .seg { display: flex; width: fit-content; max-width: 100%; flex-wrap: wrap; }
+
+/* ¿acierta Nachero? */
+.calib { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); }
+.cal { display: grid; gap: 4px; margin: 10px 0 12px; }
+.cal-row { display: grid; grid-template-columns: 90px 60px 1fr 70px 70px; gap: 10px; align-items: center; font-size: 13px; }
+.cal-row.head { color: var(--text-3); font-size: 12px; }
+.cal-row .num { text-align: right; }
+.cal-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
+.cal-bar .real { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ally); opacity: .55; }
+.cal-bar .est { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent); z-index: 1; }
+.cal-sum { margin: 6px 0; color: var(--text-2); font-size: 13px; }
+.cal-sum b { color: var(--text); }
+@media (max-width: 760px) { .cal-row { grid-template-columns: 70px 44px 1fr 56px 56px; gap: 6px; } }

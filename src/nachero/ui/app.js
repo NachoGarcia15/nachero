@@ -872,7 +872,11 @@ function startDemo() {
   post("/api/demo", { on: true });
 }
 
-$("#wl-next").onclick = () => (WELCOME.step >= wlSteps().length - 1 ? closeWelcome() : showStep(WELCOME.step + 1));
+$("#wl-next").onclick = () => {
+  if (WELCOME.step < wlSteps().length - 1) return showStep(WELCOME.step + 1);
+  closeWelcome();
+  openSetup(); // «Empezar» lleva a la configuración guiada
+};
 $("#wl-prev").onclick = () => showStep(WELCOME.step - 1);
 $("#wl-skip").onclick = closeWelcome;
 $("#open-about").onclick = openAbout;
@@ -883,6 +887,8 @@ document.querySelectorAll("[data-demo]").forEach((b) => (b.onclick = startDemo))
 $("#about").addEventListener("click", (e) => { if (e.target.id === "about") closeAbout(); });
 document.addEventListener("keydown", (e) => {
   if (!$("#welcome").hidden) {
+    // la misma tecla no debe llegar a la configuración guiada que abre «Empezar»
+    if (["ArrowRight", "ArrowLeft", "Escape"].includes(e.key)) e.stopImmediatePropagation();
     if (e.key === "ArrowRight") { e.preventDefault(); $("#wl-next").click(); }
     else if (e.key === "ArrowLeft") { e.preventDefault(); showStep(WELCOME.step - 1); }
     else if (e.key === "Escape") closeWelcome();
@@ -898,6 +904,133 @@ const COVER = [
 function cover() {
   return `<div class="cover">${COVER.map(([d, b, s]) => `<div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg><div><b>${b}</b><small>${s}</small></div></div>`).join("")}</div>
     <div class="cover-demo"><button class="btn" data-cover-demo>Probar con una partida de demo</button><span>Una selección de campeón simulada. No toca el cliente.</span></div>`;
+}
+
+/* ------------------------------------------------------------------ configuración guiada (#4) */
+const SETUP_STEPS = [
+  ["roles", "Tus roles", "Para recomendarte fuera de la selección y detectar cuándo vas de autofill."],
+  ["practice", "Lo que practicas", "Suman puntos extra aunque aún los juegues poco."],
+  ["never", "Lo que nunca juegas", "No te los recomendará en ningún rol."],
+];
+const SETUP = { step: 0, main: "auto", secondary: "none", practice: [], never: [], keep: {}, busy: false };
+
+function openSetup() {
+  const st = (STATE && STATE.settings) || {};
+  const bonus = st.pool_bonus || {};
+  SETUP.step = 0;
+  SETUP.main = st.main_role || "auto";
+  SETUP.secondary = st.secondary_role || "none";
+  SETUP.practice = Object.keys(bonus).filter((n) => bonus[n] > 0);
+  SETUP.keep = Object.fromEntries(Object.entries(bonus).filter(([, v]) => v <= 0)); // ajustes a mano: se respetan
+  SETUP.never = [...(st.never_pick || [])];
+  loadChampList();
+  closeAbout();
+  openDrawer(false);
+  $("#setup").hidden = false;
+  renderSetup();
+  $("#setup .setup-card").focus();
+}
+function closeSetup() { $("#setup").hidden = true; }
+
+function champPicker(list, key) {
+  return `<div class="picker">
+    <input type="search" list="champ-list" placeholder="Escribe un campeón y pulsa Intro…" aria-label="Añadir campeón" data-add="${key}" autocomplete="off">
+    <div class="chips-list">${list.length ? list.map((n) => `<span class="champ-chip">${esc(n)}<button data-del="${key}" data-name="${esc(n)}" aria-label="Quitar ${esc(n)}">×</button></span>`).join("") : `<span class="muted">Ninguno</span>`}</div>
+  </div>`;
+}
+
+// Sugerencias para «Lo que practicas»: tus campeones con más partidas.
+function poolSuggestions() {
+  const seen = new Set(SETUP.practice);
+  const rows = [...((STATE && STATE.pool) || [])].filter((r) => r && r.name).sort((a, b) => (b.games || 0) - (a.games || 0));
+  const out = [];
+  for (const r of rows) { if (!seen.has(r.name)) { seen.add(r.name); out.push(r.name); } if (out.length >= 8) break; }
+  return out;
+}
+
+function renderSetup() {
+  const [key, title, sub] = SETUP_STEPS[SETUP.step];
+  const auto = (STATE && STATE.idle && STATE.idle.role_es) || "";
+  const prof = STATE && STATE.profile;
+  let body = "";
+  if (key === "roles") {
+    body = `<div class="setup-field"><b>Rol principal</b>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Rol principal">
+        <button data-main="auto" class="${SETUP.main === "auto" ? "on" : ""}">Auto${auto ? " · " + esc(auto) : ""}</button>
+        ${ROLE_BTNS.map(([r, n]) => `<button data-main="${r}" class="${SETUP.main === r ? "on" : ""}">${n}</button>`).join("")}</div>
+      <small>Auto: el que más juegas.</small></div>
+      <div class="setup-field"><b>Rol secundario</b>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Rol secundario">
+        <button data-sec="none" class="${SETUP.secondary === "none" ? "on" : ""}">Ninguno</button>
+        ${ROLE_BTNS.filter(([r]) => r !== SETUP.main).map(([r, n]) => `<button data-sec="${r}" class="${SETUP.secondary === r ? "on" : ""}">${n}</button>`).join("")}</div></div>
+      ${prof && prof.name ? `<p class="setup-note">Tu historial y tu maestría se guardan aparte para cada cuenta: ahora, <b>${esc(prof.name)}</b>.</p>` : ""}`;
+  } else if (key === "practice") {
+    const sug = poolSuggestions();
+    body = champPicker(SETUP.practice, "practice")
+      + (sug.length ? `<div class="setup-sug"><small>De tu historial:</small>${sug.map((n) => `<button class="chip-btn" data-sug="${esc(n)}">+ ${esc(n)}</button>`).join("")}</div>` : "")
+      + `<p class="setup-note">Cada uno suma ${f1((STATE && STATE.settings.practice_bonus) || 1.5)} puntos a su WR estimado con tu pool.</p>`;
+  } else {
+    body = champPicker(SETUP.never, "never");
+  }
+  $("#setup-body").innerHTML = `<div class="setup-step"><h2 id="setup-title">${title}</h2><p class="setup-sub">${sub}</p>${body}</div>`;
+  $("#setup-dots").innerHTML = SETUP_STEPS.map((s, k) => `<button class="${k === SETUP.step ? "on" : ""}" data-k="${k}" aria-label="Paso ${k + 1}: ${esc(s[1])}"></button>`).join("");
+  $("#setup-dots").querySelectorAll("button").forEach((b) => (b.onclick = () => { SETUP.step = Number(b.dataset.k); renderSetup(); }));
+  $("#setup-prev").disabled = SETUP.step === 0;
+  $("#setup-next").textContent = SETUP.step === SETUP_STEPS.length - 1 ? "Guardar" : "Siguiente";
+  const input = $("#setup-body input[data-add]");
+  if (input) {
+    const add = () => {
+      if (SETUP.busy) return; // al repintar, el campo pierde el foco y vuelve a lanzar «change»
+      const c = CHAMPS.find((x) => x.name.toLowerCase() === input.value.trim().toLowerCase());
+      if (!c) return;
+      const list = SETUP[input.dataset.add];
+      if (!list.includes(c.name)) list.push(c.name);
+      SETUP.busy = true;
+      renderSetup();
+      SETUP.busy = false;
+      $("#setup-body input[data-add]").focus();
+    };
+    input.addEventListener("change", add);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+  }
+}
+
+$("#setup-body").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.main) { SETUP.main = b.dataset.main; if (SETUP.secondary === SETUP.main) SETUP.secondary = "none"; }
+  else if (b.dataset.sec) SETUP.secondary = b.dataset.sec;
+  else if (b.dataset.sug) SETUP.practice.push(b.dataset.sug);
+  else if (b.dataset.del) SETUP[b.dataset.del] = SETUP[b.dataset.del].filter((n) => n !== b.dataset.name);
+  else return;
+  renderSetup();
+});
+$("#setup-prev").onclick = () => { SETUP.step = Math.max(0, SETUP.step - 1); renderSetup(); };
+$("#setup-next").onclick = () => {
+  if (SETUP.step < SETUP_STEPS.length - 1) { SETUP.step += 1; return renderSetup(); }
+  const bonus = { ...SETUP.keep };
+  const old = (STATE && STATE.settings.pool_bonus) || {};
+  SETUP.practice.forEach((n) => (bonus[n] = old[n] > 0 ? old[n] : (STATE.settings.practice_bonus || 1.5)));
+  closeSetup();
+  post("/api/settings", { main_role: SETUP.main, secondary_role: SETUP.secondary, pool_bonus: bonus, never_pick: SETUP.never, setup_done: true });
+};
+$("#setup-skip").onclick = closeSetup;
+document.addEventListener("keydown", (e) => {
+  if ($("#setup").hidden || e.target.matches("input")) return;
+  if (e.key === "Escape") closeSetup();
+  else if (e.key === "ArrowRight") $("#setup-next").click();
+  else if (e.key === "ArrowLeft") $("#setup-prev").click();
+});
+
+function renderProfile(st, prof) {
+  const role = (r) => (ROLE_BTNS.find(([k]) => k === r) || [, "—"])[1];
+  const practice = Object.keys(st.pool_bonus || {}).filter((n) => st.pool_bonus[n] > 0);
+  $("#profile-settings").innerHTML = `<div class="opt"><div class="tx">
+    <b>${prof && prof.name ? esc(prof.name) : prof && prof.saved ? "Última cuenta usada" : "Sin cuenta todavía"}</b>
+    <small>Rol principal: ${st.main_role === "auto" || !st.main_role ? "automático" : role(st.main_role)} · secundario: ${st.secondary_role && st.secondary_role !== "none" ? role(st.secondary_role) : "ninguno"}<br>
+    Practicando: ${practice.length ? practice.map(esc).join(", ") : "nadie"} · Nunca: ${(st.never_pick || []).length ? st.never_pick.map(esc).join(", ") : "nadie"}</small>
+    <div><button class="btn" id="open-setup">${st.setup_done ? "Cambiar tu perfil" : "Configurar tu perfil"}</button></div></div></div>`;
+  $("#open-setup").onclick = openSetup;
 }
 
 /* ------------------------------------------------------------------ bucle */
@@ -916,6 +1049,7 @@ async function poll() {
     once("pool", [s.pool, empty.pool, s.pool && s.pool.length ? null : [pg.current, taskOf(s, pg.current)]], () => renderPool(s.pool));
     once("log", s.log, renderLog);
     once("settings", s.settings, renderSettings);
+    once("profile", [s.settings, s.profile], () => renderProfile(s.settings, s.profile));
     once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
     evalTick();
     if (VIEW === "pro" && typeof proTick === "function") proTick();

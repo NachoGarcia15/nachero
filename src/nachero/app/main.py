@@ -53,7 +53,7 @@ def ui_mode(args) -> str:
 
 
 def print_profile():
-    from nachero.app.worker import current_patch, pool_rows
+    from nachero.app.worker import current_patch, open_profile, pool_rows
     from nachero.clients.lcu import LCU
     from nachero.domain.engine import Engine
     from nachero.domain.player import Player
@@ -66,6 +66,7 @@ def print_profile():
         print("No encuentro el cliente de LoL abierto.")
         return
     champs = Champs(lcu)
+    open_profile(lcu)
     games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
     player = Player(games, lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20))
     lola = Lolalytics(str(paths.cache_dir()), log)

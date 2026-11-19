@@ -75,6 +75,13 @@ Al abrir Nachero por primera vez sale una **bienvenida** de cuatro pantallas (se
 qué hace, cómo decide, qué toca en el cliente y qué más tiene. Se vuelve a ver desde **«?»** en la
 barra superior, donde también está la versión y el aviso de Riot.
 
+Después, **Empezar** abre la configuración guiada de tu perfil (también en Ajustes → Tu perfil):
+rol principal y secundario, campeones que estás practicando (suman 1,5 puntos de WR y entran como
+candidatos aunque aún no los hayas jugado) y campeones que nunca quieres jugar.
+
+Cada cuenta de LoL tiene su perfil: historial, maestría y rango se guardan aparte
+(`profiles/<puuid>` en la carpeta de datos). Sin cliente, Nachero usa los de la última cuenta.
+
 **Probar con una partida de demo** (en la pantalla de espera o en «?») abre una selección de
 campeón simulada con tus datos reales, sin reiniciar y sin tocar el cliente. Se cierra con
 «Salir de la demo» o sola si empieza una partida de verdad. `--demo` hace lo mismo al arrancar.

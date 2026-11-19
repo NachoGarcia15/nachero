@@ -3,6 +3,19 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.16.0] - 2026-11-19
+
+### Añadido
+- **Perfil por cuenta**: el historial, la maestría y el rango de cada cuenta se guardan en
+  `profiles/<puuid>` dentro de la carpeta de datos. Sin cliente se usan los de la última cuenta.
+  La primera cuenta que se conecta se queda con los datos guardados por versiones anteriores.
+- **Configuración guiada** tras «Empezar» en la bienvenida (y desde Ajustes → Tu perfil): rol
+  principal y **secundario**, campeones que **practicas** (+1,5 puntos de WR y entran como
+  candidatos aunque aún no los hayas jugado) y los que **nunca** quieres jugar. Sugiere los
+  campeones de tu historial.
+- Ajustes nuevos: `secondary_role` (lo usará la detección de autofill, #16) y `setup_done`.
+  `pool_bonus` y `never_pick` se pueden cambiar desde el panel.
+
 ## [0.15.0] - 2026-11-19
 
 ### Añadido

@@ -62,6 +62,8 @@
     </button>
   </div>
   <div class="drawer-body">
+    <h3>Tu perfil</h3>
+    <div id="profile-settings"></div>
     <h3>Modos</h3>
     <div id="modes-help"></div>
     <h3>Recomendación</h3>
@@ -154,6 +156,22 @@
     <div class="about-actions">
       <button class="btn" data-demo>Probar con una partida de demo</button>
       <button class="btn primary" id="about-welcome">Ver la bienvenida otra vez</button>
+    </div>
+  </div>
+</div>
+
+<!-- Configuración guiada (#4): roles y campeones. Tras «Empezar» y desde Ajustes -->
+<div class="overlay" id="setup" role="dialog" aria-modal="true" aria-labelledby="setup-title" hidden>
+  <div class="wl-card setup-card" tabindex="-1">
+    <div class="wl-top">
+      <span class="brand"><img src="/icon.svg" alt="" width="20" height="20">Tu perfil</span>
+      <button class="wl-skip" id="setup-skip">Ahora no</button>
+    </div>
+    <div id="setup-body"></div>
+    <div class="wl-nav">
+      <button class="btn" id="setup-prev">Anterior</button>
+      <div class="wl-dots" id="setup-dots"></div>
+      <button class="btn primary" id="setup-next">Siguiente</button>
     </div>
   </div>
 </div>

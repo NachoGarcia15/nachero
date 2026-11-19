@@ -1,5 +1,6 @@
 """Logica de la seleccion de campeon en soloq: lee la sesion del cliente, recomienda y (en modo activo) actua."""
 
+import time
 import webbrowser
 
 from nachero.app.state import SPELL_IDS, TIMER_ES, log
@@ -27,6 +28,9 @@ class Draft:
         self.choice: dict[int, int] = {}
         self.confirmed: set[int] = set()
         self.context = None  # rol, aliados y rivales del último tick (para «Evaluar cualquier campeón»)
+        # ARAM: campeón que tienes, desde cuándo (los rerolls van rápido) y para cuál se importaron
+        self.aram_seen: tuple[int, float] = (0, 0.0)
+        self.aram_done: int = 0
 
     def note(self, msg, kind="action"):
         if msg not in self.seen:
@@ -263,7 +267,7 @@ class Draft:
         Devuelve qué hay marcado y quién lo marcó, para el panel."""
         name = self.champs.name
         aid, cur = action["id"], action.get("championId") or 0
-        secs = CFG["lock_when_seconds_left"]
+        secs = CFG.get("lock_when_seconds_left", 8)
         ban = kind == "ban"
         if cur and cur != self.hovered.get(aid):  # lo ha marcado el jugador (el registro lo dice el estado)
             self.choice[aid] = cur
@@ -332,6 +336,49 @@ class Draft:
             return False, f"El cliente no deja marcar {name}"
         self.note(f"Has elegido {'banear ' if kind == 'ban' else ''}{name} desde el panel")
         return True, name
+
+    ARAM_SETTLE = 1.5  # segundos con el mismo campeón antes de importar (reroll, banquillo)
+
+    def aram_tick(self, s, acting, now=None):
+        """ARAM: importa la página de runas de ARAM del campeón que tengas y la cambia si cambias de
+        campeón (reroll o banquillo). Nada más: ni picks, ni bans, ni hechizos. Resumen para el panel."""
+        now = time.time() if now is None else now
+        me = s.get("localPlayerCellId")
+        cid = next((m.get("championId") or 0 for m in s.get("myTeam", []) if m.get("cellId") == me), 0)
+        if not cid:
+            return {"champ": None, "runes": None}
+        if cid != self.aram_seen[0]:
+            self.aram_seen = (cid, now)
+        name = self.champs.name(cid)
+        out = {"champ": self.champs.brief(cid), "runes": None}
+        if not self.runes or not CFG.get("import_runes", True):
+            return out
+        sets = self.engine.lola.runes(cid, "aram")
+        if sets is None:
+            out["runes"] = {"state": "loading"}
+            return out
+        source = CFG.get("runes_source", "pick")
+        rune_set = sets.get(source) or sets.get("pick") or sets.get("win")
+        if not rune_set:
+            out["runes"] = {"state": "none"}
+            return out
+        info = {**(self.runes.describe(rune_set) or {}), "source": "ARAM"}
+        if self.aram_done == cid:
+            out["runes"] = {**info, "state": self.runes_state}
+            return out
+        if not acting:
+            out["runes"] = {**info, "state": "would"}
+            self.note(f"Observando · Importaría runas de ARAM para {name}", "hint")
+            return out
+        if now - self.aram_seen[1] < self.ARAM_SETTLE:  # espera a que deje de cambiar
+            out["runes"] = {**info, "state": "preview"}
+            return out
+        self.aram_done = cid
+        ok, msg = self.runes.apply(self.lcu, name, "ARAM", rune_set)
+        self.runes_state = "imported" if ok else "failed"
+        self.note(f"Runas de ARAM importadas para {name}" if ok else msg, "action" if ok else "warn")
+        out["runes"] = {**info, "state": self.runes_state}
+        return out
 
     def handle_runes(self, cid, role, locked, acting, status):
         """Importa (o describe) la pagina de runas de Lolalytics para `cid` en `role`.

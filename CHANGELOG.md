@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.18.0] - 2026-11-19
+
+### Añadido
+- **Runas de ARAM** (ARAM por cola, Clash de ARAM y personalizadas de ARAM): con «Importar runas»
+  y en modo Activo, Nachero crea «Nachero · Campeón ARAM» con las runas de la build de ARAM de
+  Lolalytics del campeón que te toque. Si cambias de campeón (reroll o banquillo) reemplaza la
+  página, sin dejar páginas sueltas; espera 1,5 s a que dejes de cambiar. En Observar dice qué
+  importaría. Nada más en ARAM: ni picks, ni bans, ni hechizos. Arena, URF y los demás modos
+  siguen sin tocar nada.
+- En el panel, la champ select de ARAM dice tu campeón y qué runas ha importado.
+
+### Arreglado
+- La confirmación de pick y ban ya no falla si falta `lock_when_seconds_left` en los ajustes.
+
 ## [0.17.0] - 2026-11-19
 
 ### Añadido

@@ -491,7 +491,31 @@ async function choose(kind, id) {
   poll();
 }
 
+const ARAM_RUNES = {
+  loading: "Buscando las runas de ARAM…",
+  none: "Sin runas de ARAM para este campeón: no importo nada.",
+  preview: "Runas de ARAM: las importo en cuanto dejes de cambiar de campeón",
+  would: "Importaría estas runas de ARAM (modo Observar)",
+  imported: "Runas de ARAM importadas",
+  failed: "No se pudieron importar las runas de ARAM",
+};
+
 function renderUnsupported(el, d) {
+  const a = d.aram;
+  if (a) {
+    const r = a.runes;
+    el.innerHTML = `<div class="idle">
+      <h1>${esc(d.queue || "ARAM")}${a.champ ? ` · ${esc(a.champ.name)}` : ""}</h1>
+      <p class="lead">En ARAM Nachero solo prepara las runas de ARAM del campeón que te toque (Lolalytics), y las cambia si cambias de campeón. Ni picks, ni bans, ni hechizos.</p>
+      ${!a.champ ? `<p class="muted">Esperando a que tengas campeón…</p>`
+        : !r ? `<p class="muted">Importar runas está desactivado en Ajustes.</p>`
+        : r.keystone ? `<div class="runes ${esc(r.state)}"><span class="lbl">${ARAM_RUNES[r.state] || "Runas de ARAM"}${r.state === "imported" ? ` para ${esc(a.champ.name)}` : ""}</span>
+            <b>${esc(r.keystone)}</b> <span class="muted">· ${esc(r.primary)} + ${esc(r.secondary)}</span>
+            <small>${esc((r.runes || []).join(" · "))}</small></div>`
+        : `<p class="muted">${ARAM_RUNES[r.state] || ""}</p>`}
+    </div>`;
+    return;
+  }
   el.innerHTML = `<div class="idle">
     <h1>${esc(d.queue || "Este modo")}: sin recomendaciones</h1>
     <p class="lead">Nachero solo recomienda en la Grieta del Invocador (draft, a ciegas, personalizadas y herramienta de práctica). En este modo no toca el cliente: ni bans, ni picks, ni hechizos, ni runas.</p>

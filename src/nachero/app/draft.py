@@ -249,6 +249,7 @@ class Draft:
             "queue": queue.get("name", ""),
             "blind": blind,
             "lane_known": ctx["lane_known"],
+            "role_fit": ctx["role_fit"],
             "enemy_left_after": enemy_left_after,
             "choose": choose,
             "my_pick": (

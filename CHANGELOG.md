@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.19.0] - 2026-11-19
+
+### Añadido
+- **Autofill**: si el cliente te asigna un rol que no es tu principal ni tu secundario y apenas
+  lo juegas (menos de 15 partidas o menos del 10 % de tu historial), el panel lo avisa y la
+  recomendación cambia: suma lo **fácil de jugar** que es cada campeón (dificultad del cliente),
+  pesa más su **fuerza en el parche** y castiga más el **riesgo de counter**. Entran más campeones
+  fuertes del parche como candidatos. Sin historial no se considera autofill.
+- **Rol secundario** (`secondary_role`, de la configuración guiada): cuenta como rol tuyo, sin
+  ajustes de autofill, y el panel lo indica.
+
 ## [0.18.0] - 2026-11-19
 
 ### Añadido

@@ -784,3 +784,8 @@ td.ch span small { display: block; color: var(--text-3); font-size: 11.5px; font
 .demo-banner.update { color: var(--text); background: rgba(92,195,148,.08); border-bottom-color: rgba(92,195,148,.25); }
 .demo-banner.update b { color: var(--pos); }
 .demo-banner.update a.btn { text-decoration: none; color: var(--text); }
+
+/* autofill */
+.rolefit { margin: -4px 0 12px; font-size: 13px; color: var(--text-3); }
+.rolefit.autofill { padding: 8px 12px; border-radius: 8px; color: var(--text-2); background: rgba(110,168,255,.08); border: 1px solid rgba(110,168,255,.22); }
+.rolefit.autofill b { color: var(--ally); }

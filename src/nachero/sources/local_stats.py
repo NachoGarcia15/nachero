@@ -76,7 +76,7 @@ class LocalStats:
         self.path, self.log = str(path), log or (lambda *a, **k: None)
         self.region, self.league = region, league
         self.data: dict = {}
-        self.mtime = None
+        self.mtime: tuple | None = None
         self.pending: set = set()
         self.problem: str | None = None
         self.want_patch: str | None = None

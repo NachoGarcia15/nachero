@@ -558,7 +558,7 @@ def open_window(url: str, state_file: Path, storage: Path, app: dict | None = No
     icon_path = resolve_icon()
     saved = clean_placement(read_json(state_file))
     corner = 0 if saved else None  # con estado guardado, posición manual: la pone set_placement
-    state = {"quitting": False, "win": None}
+    state: dict[str, Any] = {"quitting": False, "win": None}
 
     def show():  # desde la bandeja o desde otro Nachero
         w = state["win"]

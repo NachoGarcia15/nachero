@@ -3,6 +3,21 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.21.0] - 2026-11-19
+
+### Añadido
+- **Frescura de los datos**: junto a la recomendación, de qué fuente salen las estadísticas, el
+  parche y su antigüedad («Datos: Lolalytics Master+ · parche 16.23 · hace 2 h»). Si tienen más de
+  24 h o son de otro parche, se marcan como desfasadas. En Ajustes → Datos, también la del último
+  torneo de gol.gg.
+- **Aviso si una fuente cambia de formato**: si el lector de Lolalytics, gol.gg o el archivo local
+  deja de encontrar datos (cambio de HTML), Nachero sigue con la última caché y lo avisa en
+  Actividad (una vez) y en un banner del panel. Un fallo de red no cuenta como cambio de formato.
+
+### Arreglado
+- Una tier list de Lolalytics que llega sin campeones ya no pisa la buena guardada.
+- Si gol.gg falla al actualizar un torneo, el simulador sigue con los datos guardados de ese torneo.
+
 ## [0.20.0] - 2026-11-19
 
 ### Añadido

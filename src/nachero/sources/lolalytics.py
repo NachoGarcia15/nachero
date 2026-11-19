@@ -13,6 +13,7 @@ import time
 import urllib.request
 
 from nachero.jsonio import read_json, write_json
+from nachero.sources.health import FormatChanged, Health
 
 LOLA_LANE = {"top": "top", "jungle": "jungle", "middle": "middle", "bottom": "bottom", "utility": "support"}
 ARAM = "aram"  # «rol» de las builds de ARAM en la caché (cid:aram): solo runas, sin matchups
@@ -40,6 +41,8 @@ class Lolalytics:
             except Exception:
                 pass
         self.failed, self.pending = {}, set()
+        # tier lists: aviso al segundo rol vacío; builds: al tercer campeón seguido sin datos
+        self.health = Health("Lolalytics", log, {"tiers": 2, "builds": 3})
         self.slug_fallback = None  # funcion cid -> slug, hasta tener el mapa real de Lolalytics
         self.q, self.last_req, self.patch = queue.Queue(), 0.0, None
         threading.Thread(target=self._worker, daemon=True).start()
@@ -76,17 +79,7 @@ class Lolalytics:
             )
             try:
                 d = json.loads(self._fetch(url))
-                champs = {}
-                for cid, v in d.get("cid", {}).items():
-                    champs[cid] = {
-                        "wr": v["wr"],
-                        "pr": v["pr"],
-                        "br": v["br"],
-                        "games": v["games"],
-                        "tier": v.get("tier", 0),
-                        "rank": v.get("rank", 0),
-                        "pct": v.get("pctLane", 0),
-                    }
+                champs = parse_tier(d)  # si ya no trae campeones, no se pisa la caché buena
                 with self.lock:
                     self.cache["tiers"][role] = {
                         "t": time.time(),
@@ -95,7 +88,9 @@ class Lolalytics:
                         "games": sum(c["games"] for c in champs.values()) // 10,
                         "champs": champs,
                     }
+                self.health.ok("tiers")
             except Exception as e:
+                self.health.fail("tiers", e)
                 self.log(f"Lolalytics: no pude leer la tier list de {role} ({e.__class__.__name__})", "warn")
             if progress:
                 progress(i + 1, total)
@@ -186,7 +181,9 @@ class Lolalytics:
                         self.cache["slugs"].update(slugs)
                     self.cache["builds"][key] = {"t": time.time(), "patch": self.patch, "lanes": lanes, "runes": runes}
                 self._save()
+                self.health.ok("builds")
             except Exception as e:
+                self.health.fail("builds", e)
                 self.failed[key] = time.time()
                 self.log(f"Lolalytics: sin matchups para {slug or cid} ({e.__class__.__name__})", "warn")
             finally:
@@ -196,10 +193,30 @@ class Lolalytics:
 ROLE_OF_LANE = {v: k for k, v in LOLA_LANE.items()}
 
 
+def parse_tier(d):
+    """Tier list de la API de Lolalytics: {"<cid>": {wr, pr, br, games, tier, rank, pct}}.
+    FormatChanged si no trae campeones (cambio de formato)."""
+    rows = d.get("cid") if isinstance(d, dict) else None
+    if not isinstance(rows, dict) or not rows:
+        raise FormatChanged("la tier list no trae campeones")
+    champs = {}
+    for cid, v in rows.items():
+        champs[cid] = {
+            "wr": v["wr"],
+            "pr": v["pr"],
+            "br": v["br"],
+            "games": v["games"],
+            "tier": v.get("tier", 0),
+            "rank": v.get("rank", 0),
+            "pct": v.get("pctLane", 0),
+        }
+    return champs
+
+
 def _qwik(html):
     m = re.search(r'<script type="qwik/json">(.*?)</script>', html, re.S)
     if not m:
-        raise ValueError("sin estado qwik")
+        raise FormatChanged("sin estado qwik")
     objs = json.loads(m.group(1))["objs"]
 
     def ref(v, depth=3):

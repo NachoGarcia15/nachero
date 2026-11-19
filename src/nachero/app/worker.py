@@ -89,16 +89,38 @@ def evaluate(engine, champs, cid, role, view="draft", draft_ctx=None):
     )
 
 
-def data_status(lola, patch):
+STALE_HOURS = 24  # tier lists más viejas que esto: el panel avisa
+
+
+def source_warnings(*sources) -> list[dict]:
+    """Avisos de las fuentes cuyo lector ya no encuentra datos (ver sources/health.py)."""
+    out = []
+    for s in sources:
+        for p in getattr(s, "providers", [s]):
+            h = getattr(p, "health", None)
+            if h is not None:
+                out += h.warnings()
+    return out
+
+
+def data_status(lola, patch, gol_src=None, now=None):
+    """Estado de los datos para el panel: fuente, frescura y avisos."""
+    now = time.time() if now is None else now
     st = lola.stats()
+    updated = lola.updated_at()
+    data_patch = getattr(lola, "patch", None)
+    stale = bool(updated and now - updated > STALE_HOURS * 3600) or bool(patch and data_patch and data_patch != patch)
     return {
         "patch": patch,
-        "updated": lola.updated_at(),
+        "updated": updated,
         "games": st.get("games", 0),
         "counters": st.get("builds", 0),
         "pending": len(lola.pending),
         "tier": "Master+",
         "source": source_of(lola),
+        "stale": stale,
+        "warnings": source_warnings(lola, gol_src),
+        "pro": gol_src.updated() if gol_src is not None else None,
     }
 
 
@@ -423,7 +445,7 @@ def run_session():
             last_phase = phase
         with LOCK:
             APP["phase"] = phase
-            APP["data"] = data_status(lola, patch)
+            APP["data"] = data_status(lola, patch, gol())
         TASKS.queue("matchups", "Matchups y runas", len(lola.pending))
         if patch and TASKS.retry_due("tiers"):
             threading.Thread(target=refresh_tiers, args=(lola, patch), daemon=True).start()

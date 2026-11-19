@@ -139,7 +139,7 @@ def merge(doc: dict, prev: dict | None) -> dict:
             pages = {json.dumps([p["pri"], p["sec"], p["mod"]]): p for p in (cr or {}).get("runes", [])}
             for p in (pr or {}).get("runes", []):
                 key = json.dumps([p["pri"], p["sec"], p["mod"]])
-                pages[key] = {**p, **_blend(pages.get(key), p, MERGE_K["rune"])}
+                pages[key] = {**p, **(_blend(pages.get(key), p, MERGE_K["rune"]) or {})}
             r["runes"] = list(pages.values())
             roles[role] = r
         champs[cid] = {"bans": cur_c.get("bans", 0), "roles": roles}

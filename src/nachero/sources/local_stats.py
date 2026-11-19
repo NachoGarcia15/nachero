@@ -72,7 +72,7 @@ class LocalStats:
 
     name = "Archivo local"
 
-    def __init__(self, path, log=None, region="euw1", league="master_plus"):
+    def __init__(self, path, log=None, region="euw1", league="master_plus") -> None:
         self.path, self.log = str(path), log or (lambda *a, **k: None)
         self.region, self.league = region, league
         self.data: dict = {}
@@ -155,7 +155,7 @@ class LocalStats:
             self.data = {}
             self.health.fail("archivo", FormatChanged(self.problem))
             return False
-        self.data = doc
+        self.data = doc if isinstance(doc, dict) else {}
         self.health.ok("archivo")
         return True
 

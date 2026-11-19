@@ -15,6 +15,7 @@ src/nachero/
              history.py    historial del jugador (rol de cada partida)
              lolalytics.py tier list y matchups Master+ (incl. parser del estado qwik)
              local_stats.py estadísticas de un archivo local (datos propios, fase 2)
+             dataset.py  esquema 1 de los datos propios: validar, mezclar parches y calcular
              health.py   salud de una fuente: distingue red de cambio de formato y avisa
              golgg.py      estadísticas de competitivo por torneo
              (lolalytics.py también extrae las páginas de runas recomendadas)

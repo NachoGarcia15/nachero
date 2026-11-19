@@ -45,8 +45,10 @@ El motor solo habla con la interfaz `StatsProvider` (`domain/stats.py`). En los 
 cubren lo que le falte (`ChainStats`). El panel dice de cuál salen los datos.
 
 - `"lolalytics"`: la web de Lolalytics (por defecto).
-- `"local"`: un archivo `nachero-stats.json` (`stats_file`; por defecto en `stats/` dentro de la
-  carpeta de datos). Formato provisional, versión 1 (el definitivo, en #18):
+- `"local"`: datos propios en `stats_file` (por defecto `stats/nachero-stats.json` en la carpeta
+  de datos). Puede ser un archivo o una carpeta con la estructura publicada
+  `<parche>/<región>/<liga>.json.gz` del **esquema 1** (`docs/FORMATO_DATOS.md`). También lee
+  este formato ya calculado, el que usa el motor por dentro:
 
 ```json
 {

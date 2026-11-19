@@ -195,6 +195,7 @@ function renderHeader(s) {
   if (noWin) $("#platform").textContent = `Nachero necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga nachero.exe y ábrelo en Windows.`;
   $("#rank").innerHTML = s.rank ? `<b>${esc(s.rank.tier)}</b> · ${s.rank.lp} LP · ${s.rank.w}V ${s.rank.l}D` : "";
   $("#demo").hidden = !s.demo;
+  $("#demo-exit").hidden = !s.demo_ui;
   const modes = s.modes || {};
   document.querySelectorAll("#modes button").forEach((b) => {
     b.classList.toggle("on", b.dataset.mode === s.mode);
@@ -495,6 +496,7 @@ function renderIdle(el, idle, s) {
     <h1>${paused ? "Nachero está en pausa" : "Esperando a la selección de campeón"}${s.booting ? `<span class="stale" title="Se ven tus datos guardados mientras se cargan los nuevos">Actualizando…</span>` : ""}</h1>
     ${s.offline ? `<p class="note-off">Abre League of Legends y me conecto solo. Mientras, ${s.games ? `uso tus ${nf0.format(s.games)} partidas guardadas` : "no tengo tus partidas y recomiendo solo por el meta"}.</p>` : ""}
     <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · modo Activo. " + esc(s.active_summary || "Actuará según tus ajustes.") : " · modo Observar: solo recomienda, no acepta la partida ni toca el cliente"}</p>
+    ${cover()}
     ${idle ? `<div class="idle-role"><span>Tu rol</span>${roleSwitch(idle, s.main_role)}
       <small>${idle.auto ? "Automático: el que más juegas." : "Fijado por ti."} En la selección de campeón manda el rol que te asigne el cliente.</small></div>` : ""}
     ${picks.length ? `
@@ -509,6 +511,7 @@ function renderIdle(el, idle, s) {
   </div>`;
   bindModeSwitch(el);
   el.querySelectorAll(".roleswitch button").forEach((b) => (b.onclick = () => post("/api/settings", { main_role: b.dataset.role })));
+  el.querySelectorAll("[data-cover-demo]").forEach((b) => (b.onclick = startDemo));
 }
 
 const ROLE_BTNS = [["top", "Top"], ["jungle", "Jungla"], ["middle", "Mid"], ["bottom", "ADC"], ["utility", "Support"]];
@@ -820,12 +823,90 @@ $("#close-settings").onclick = () => openDrawer(false);
 $("#scrim").onclick = () => openDrawer(false);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") openDrawer(false); });
 
+/* ------------------------------------------------------------------ bienvenida y acerca de */
+// Pasos: «Qué hace», «Cómo decide», «Qué toca y qué no» y «Y además» (en index.html).
+const WELCOME = { step: 0, shown: false };
+const wlSteps = () => [...document.querySelectorAll("#welcome .wl-step")];
+
+function showStep(i) {
+  const steps = wlSteps();
+  WELCOME.step = Math.max(0, Math.min(steps.length - 1, i));
+  steps.forEach((s, k) => (s.hidden = k !== WELCOME.step));
+  $("#wl-title") && $("#wl-title").removeAttribute("id");
+  steps[WELCOME.step].querySelector("h2").id = "wl-title";
+  $("#wl-dots").innerHTML = steps.map((s, k) => `<button class="${k === WELCOME.step ? "on" : ""}" data-k="${k}" aria-label="Paso ${k + 1}: ${esc(s.dataset.title)}" aria-current="${k === WELCOME.step ? "step" : "false"}"></button>`).join("");
+  $("#wl-dots").querySelectorAll("button").forEach((b) => (b.onclick = () => showStep(Number(b.dataset.k))));
+  $("#wl-prev").disabled = WELCOME.step === 0;
+  const last = WELCOME.step === steps.length - 1;
+  $("#wl-next").textContent = last ? "Empezar" : "Siguiente";
+}
+
+function openWelcome() {
+  WELCOME.shown = true;
+  closeAbout();
+  openDrawer(false);
+  $("#welcome").hidden = false;
+  showStep(0);
+  $("#welcome .wl-card").focus();
+}
+
+// «Empezar» y «Saltar» la dan por vista. «Empezar» llevará a la configuración guiada (#4).
+function closeWelcome() {
+  if ($("#welcome").hidden) return;
+  $("#welcome").hidden = true;
+  if (STATE && STATE.settings && !STATE.settings.welcome_seen) post("/api/welcome", { seen: true });
+}
+
+function openAbout() {
+  $("#about-version").textContent = (STATE && STATE.version) || "";
+  $("#about-legal").textContent = $("#legal").textContent;
+  $("#about").hidden = false;
+  $("#about .about-card").focus();
+}
+function closeAbout() { $("#about").hidden = true; }
+
+function startDemo() {
+  closeWelcome();
+  closeAbout();
+  setView("draft");
+  post("/api/demo", { on: true });
+}
+
+$("#wl-next").onclick = () => (WELCOME.step >= wlSteps().length - 1 ? closeWelcome() : showStep(WELCOME.step + 1));
+$("#wl-prev").onclick = () => showStep(WELCOME.step - 1);
+$("#wl-skip").onclick = closeWelcome;
+$("#open-about").onclick = openAbout;
+$("#close-about").onclick = closeAbout;
+$("#about-welcome").onclick = openWelcome;
+$("#demo-exit").onclick = () => post("/api/demo", { on: false });
+document.querySelectorAll("[data-demo]").forEach((b) => (b.onclick = startDemo));
+$("#about").addEventListener("click", (e) => { if (e.target.id === "about") closeAbout(); });
+document.addEventListener("keydown", (e) => {
+  if (!$("#welcome").hidden) {
+    if (e.key === "ArrowRight") { e.preventDefault(); $("#wl-next").click(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); showStep(WELCOME.step - 1); }
+    else if (e.key === "Escape") closeWelcome();
+  } else if (!$("#about").hidden && e.key === "Escape") closeAbout();
+});
+
+// Portada de la pantalla de espera: qué hace Nachero, en tres ideas.
+const COVER = [
+  ['<path d="M4 5h16v14H4z"/><path d="M9 5v14M15 5v14"/>', "Lee tu selección", "Tu rol, tu equipo y el rival, en directo."],
+  ['<path d="M5 13l4 4L19 7"/>', "Recomienda picks y bans", "Con datos Master+ y tu historial."],
+  ['<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', "Prepara tus runas", "Las de Master+, al confirmar tu pick."],
+];
+function cover() {
+  return `<div class="cover">${COVER.map(([d, b, s]) => `<div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg><div><b>${b}</b><small>${s}</small></div></div>`).join("")}</div>
+    <div class="cover-demo"><button class="btn" data-cover-demo>Probar con una partida de demo</button><span>Una selección de campeón simulada. No toca el cliente.</span></div>`;
+}
+
 /* ------------------------------------------------------------------ bucle */
 async function poll() {
   try {
     const s = await (await fetch("/api/state")).json();
     STATE = s;
     renderHeader(s);
+    if (s.settings && s.settings.welcome_seen === false && !WELCOME.shown) openWelcome();
     const empty = s.empty || {};
     const pg = s.progress || {};
     once("draft", [s.draft, s.idle, { connected: s.connected, offline: s.offline, loading: s.loading, mode: s.mode,

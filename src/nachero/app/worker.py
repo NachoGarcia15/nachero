@@ -9,7 +9,7 @@ from nachero import paths
 from nachero.app.demo import Demo
 from nachero.app.draft import Draft
 from nachero.app.runes import RuneImporter
-from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log
+from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, demo_must_stop, log, set_demo
 from nachero.clients.cdragon import CDragon, latest_patch
 from nachero.clients.lcu import LCU
 from nachero.config import CFG
@@ -315,7 +315,7 @@ def run_session():
 
     draft = Draft(lcu, champs, engine, RuneImporter(src))
     CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
-    demo = Demo(champs) if OPTS["demo"] else None
+    demo = None  # se crea al abrir la demo (por --demo o desde el panel)
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
     queue, queue_tries = None, 0  # tipo de cola de la champ select actual
@@ -331,7 +331,11 @@ def run_session():
             phase = "ChampSelect" if OPTS["demo"] else None
         else:
             try:
-                phase = "ChampSelect" if OPTS["demo"] else lcu.get("/lol-gameflow/v1/gameflow-phase", timeout=10)
+                real = lcu.get("/lol-gameflow/v1/gameflow-phase", timeout=10)
+                if demo_must_stop(real):
+                    set_demo(False)
+                    log("Demo cerrada: empieza tu partida de verdad", "ok")
+                phase = "ChampSelect" if OPTS["demo"] else real
                 fails = 0
             except Exception as e:
                 fails += 1
@@ -387,7 +391,7 @@ def run_session():
             with LOCK:
                 APP["pool"] = pool_rows(engine, champs)
 
-        if mode != "paused":
+        if mode != "paused" or OPTS["demo"]:  # la demo no toca el cliente: se ve también en pausa
             acting = mode == "active" and not OPTS["demo"]
             try:
                 if phase == "ReadyCheck" and CFG["auto_accept"] and time.time() - accepted_at > 10:
@@ -402,6 +406,9 @@ def run_session():
                         accepted_at = time.time()
                 elif phase == "ChampSelect":
                     if OPTS["demo"]:
+                        if demo is None or demo.t0 < OPTS["demo_since"]:  # demo nueva: desde el principio
+                            demo, last_demo_step = Demo(champs), -1
+                            draft.reset()
                         s, step = demo.session(draft.last_best or champs.id("Taliyah"))
                         if step < last_demo_step:
                             draft.reset()

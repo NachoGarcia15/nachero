@@ -9,7 +9,7 @@ from http.server import ThreadingHTTPServer
 
 from nachero import __version__, config, paths
 from nachero.app import desktop
-from nachero.app.state import APP, OPTS, log, logger, setup_logging
+from nachero.app.state import APP, OPTS, log, logger, set_demo, setup_logging
 from nachero.app.status import platform_info, platform_warning
 from nachero.config import CFG
 
@@ -122,7 +122,7 @@ def run(argv=None):
     warning = platform_warning(APP["platform"])
     if warning:
         log(warning, "warn")
-    OPTS["demo"] = APP["demo"] = args.demo
+    set_demo(args.demo, from_ui=False)
     APP["mode"] = "observe" if (args.observe or args.demo) else CFG.get("start_mode", "observe")
 
     if args.profile:

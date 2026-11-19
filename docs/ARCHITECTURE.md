@@ -71,6 +71,14 @@ pinta la pantalla de arranque mientras `loading`, la tarea en curso en la barra 
 skeletons de Tu pool y el simulador. Si un paso falla, la tarea guarda el error y, si se puede,
 cuándo se reintenta (`retry_in`); las tier lists que fallan se vuelven a pedir solas.
 
+## Bienvenida y demo
+
+La bienvenida (pasos en `ui/index.html`, lógica en `ui/app.js`) sale mientras `welcome_seen` sea
+`false` y se marca con `POST /api/welcome`. La demo se abre y se cierra en caliente con
+`POST /api/demo` (`state.set_demo`): el bucle sustituye la fase real por una champ select
+simulada (`app/demo.py`) y nunca actúa. La abierta desde el panel se cierra sola si el cliente
+entra en una partida (`state.demo_must_stop`).
+
 ## Datos y privacidad
 
 - Los datos del usuario (ajustes, historial, maestría, cachés, logs) viven en

@@ -3,6 +3,18 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.15.0] - 2026-11-19
+
+### Añadido
+- **Bienvenida** en el primer arranque: cuatro pantallas cortas que se pueden saltar («Qué hace»,
+  «Cómo decide», «Qué toca y qué no» y «Y además»), cada una con su animación. Teclado (← → Esc),
+  indicador de pasos y sin animaciones con «reducir movimiento». Se recuerda con `welcome_seen`.
+- Botón **«?»** en la barra: panel *Acerca de Nachero* con la misma explicación, la versión, el
+  aviso de Riot, «Probar con una partida de demo» y «Ver la bienvenida otra vez».
+- **Demo desde el panel**, sin reiniciar y sin tocar el cliente: una champ select simulada que se
+  cierra con «Salir de la demo» o sola al empezar una partida de verdad.
+- La pantalla de espera es una portada: qué hace Nachero en tres ideas y el botón de la demo.
+
 ## [0.14.0] - 2026-11-19
 
 ### Cambiado

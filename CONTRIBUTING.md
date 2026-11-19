@@ -34,4 +34,5 @@ La integración continua ejecuta lo mismo en cada push y pull request.
 - La lógica de recomendación va en `domain/` y no toca red ni disco: así se puede probar.
 - Toda fuente de datos nueva va en `sources/`, con caché y respetando su `robots.txt` y sus condiciones.
 - Nada de datos personales en el repositorio: viven en `%APPDATA%\nachero`.
-- No automatizar decisiones de juego en versiones compartidas (ver `docs/ROADMAP.md`).
+- Decisiones de juego automáticas solo opcionales y sin pisar nunca la elección del jugador
+  (ver `docs/ROADMAP.md`).

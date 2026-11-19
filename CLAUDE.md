@@ -57,8 +57,10 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
   - **Lolalytics**: sin API pública; se lee el estado `qwik/json` incrustado en sus páginas
     (`parse_build`). No usar sus endpoints ofuscados.
   - **gol.gg**: `/champion/` permitido; el filtro de rol va por POST con cookie de sesión.
-- Normas de Riot: no automatizar decisiones de juego en versiones compartidas (auto-ban,
-  auto-marcar, auto-confirmar); no identificar jugadores ocultos. Recomendar e importar runas sí.
+- Normas de Riot: una decisión de juego automática (auto-ban, auto-marcar, auto-confirmar) solo
+  se permite si sigue la lógica de la app, es opcional (desactivada por defecto) y nunca pisa la
+  selección del jugador: Nachero marca, el jugador puede cambiarlo, y se confirma lo marcado.
+  No identificar jugadores ocultos. Recomendar e importar runas sí.
 
 ## Pruebas con el cliente
 - El usuario puede tener su Nachero abierto en 8765: probar en otro puerto (`--port 8766`).

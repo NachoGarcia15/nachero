@@ -10,17 +10,18 @@ RIOT_NOTICE = (
     "all associated properties are trademarks or registered trademarks of Riot Games, Inc."
 )
 
-# Decisiones de juego: desactivadas por defecto (las normas no aceptan apps que decidan por el
-# jugador). Su comportamiento, respetando siempre la elección del jugador, está en la issue #30.
+# Decisiones de juego: opcionales y desactivadas por defecto (las normas no aceptan apps que decidan
+# por el jugador). Siguen la recomendación de Nachero, pero nunca pisan lo que marque el jugador:
+# Nachero marca su recomendación y, al final del turno, confirma lo que esté marcado (issue #30).
 GAME_DECISIONS = ("auto_ban", "auto_hover_pick", "auto_lock_pick")
 
 # Qué hace en el cliente cada interruptor en modo Activo, en el orden de la partida.
 CLIENT_ACTIONS = (
     ("auto_accept", "acepta la partida"),
     ("auto_spells", "pone los hechizos de tu rol"),
-    ("auto_ban", "banea"),
+    ("auto_ban", "marca tu ban y lo confirma"),
     ("auto_hover_pick", "marca tu pick"),
-    ("auto_lock_pick", "confirma tu pick"),
+    ("auto_lock_pick", "confirma el pick marcado"),
     ("import_runes", "crea la página de runas «Nachero»"),
 )
 
@@ -39,7 +40,7 @@ def client_actions(cfg: dict) -> list[str]:
     out = []
     for key, text in CLIENT_ACTIONS:
         if cfg.get(key, False):
-            if key == "auto_lock_pick":
+            if key in ("auto_ban", "auto_lock_pick"):
                 text += f" a falta de {cfg.get('lock_when_seconds_left', 8)} s"
             out.append(text)
     return out

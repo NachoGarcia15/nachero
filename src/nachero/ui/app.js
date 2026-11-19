@@ -381,7 +381,8 @@ function renderDraft([d, idle, s]) {
 
     <div class="center">
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
-      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind === "turn_auto" ? "Nachero lo confirmará al final del turno" : "hazlo tú"}</small></div>` : ""}
+      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind === "turn_auto" ? "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí" : "hazlo tú"}</small></div>` : ""}
+      ${chooser(d.choose)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${best ? `
       <article class="hero">
@@ -445,6 +446,39 @@ function renderDraft([d, idle, s]) {
     </div>
   </div>`;
   bindModeSwitch(el);
+  el.querySelectorAll(".choose button").forEach((b) => (b.onclick = () => choose(d.choose.kind, Number(b.dataset.id))));
+}
+
+/* Mejores opciones de tu turno: un clic las marca en el cliente y cuenta como elección tuya. */
+let CHOOSE_MSG = null; // {text, err, until}
+function chooser(c) {
+  if (!c || !c.options || !c.options.length) return "";
+  const ban = c.kind === "ban";
+  const tip = c.enabled ? (ban ? "Marcar este ban en el cliente" : "Marcar este campeón en el cliente") : "Pasa a modo Activo para marcar desde aquí";
+  const msg = CHOOSE_MSG && CHOOSE_MSG.until > Date.now() ? CHOOSE_MSG : null;
+  const who = msg ? `<span class="who ${msg.err ? "err" : ""}">${esc(msg.text)}</span>`
+    : c.by === "player" ? `<span class="who">Elegido por ti</span>` : c.by === "nachero" ? `<span class="who">Marcado por Nachero</span>` : "";
+  return `<div class="choose" role="group" aria-label="${ban ? "Elegir ban" : "Elegir pick"}">
+    <span class="lbl">${ban ? "Banear" : "Elegir"}</span>
+    ${c.options.map((o) => `<button data-id="${o.id}" class="${o.id === c.marked ? "on" : ""}" ${c.enabled ? "" : "disabled"} title="${esc(tip)}" aria-pressed="${o.id === c.marked}"><img src="${img("tile", o.id)}" alt="">${esc(o.name)}</button>`).join("")}
+    ${who}
+  </div>`;
+}
+
+async function choose(kind, id) {
+  let text = "", err = false;
+  try {
+    const r = await fetch("/api/draft/choose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, id }) });
+    const out = await r.json();
+    err = !r.ok;
+    text = r.ok ? `Has elegido ${out.name}` : out.error || "No se ha podido marcar";
+  } catch (_) {
+    err = true;
+    text = "Nachero no responde";
+  }
+  CHOOSE_MSG = { text, err, until: Date.now() + 4000 };
+  delete memo.draft; // repinta ya con el mensaje
+  poll();
 }
 
 function renderUnsupported(el, d) {
@@ -713,9 +747,9 @@ $("#view-log").addEventListener("click", (e) => { if (e.target.id === "diag") co
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [
   ["auto_accept", "Aceptar partida", "Con 1–3 s de retraso aleatorio."],
-  ["auto_ban", "Banear", "El primer ban sugerido, sin pisar los picks marcados por aliados. <em>Decide por ti.</em>"],
-  ["auto_hover_pick", "Marcar pick", "Deja marcado tu mejor campeón y lo actualiza con el draft. <em>Decide por ti.</em>"],
-  ["auto_lock_pick", "Confirmar pick", "Confirma al final de tu turno. <em>Decide por ti; mejor desactivado en ranked.</em>"],
+  ["auto_ban", "Banear", "Marca el primer ban sugerido (sin pisar los picks marcados por aliados) y confirma lo que esté marcado al final del turno. Si marcas otro, se banea el tuyo."],
+  ["auto_hover_pick", "Marcar pick", "Marca tu mejor campeón y lo actualiza con el draft. Si marcas otro (en el cliente o aquí), deja de cambiarlo."],
+  ["auto_lock_pick", "Confirmar pick", "Confirma lo que esté marcado al final de tu turno: tu elección o, si no tocas nada, la de Nachero."],
   ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],
   ["import_runes", "Importar runas", "Al confirmar, crea la página «Nachero» con las runas de Lolalytics Master+. Nunca toca tus páginas."],
   ["open_coachless_on_lock", "Abrir Coachless", "La build del campeón confirmado, en tu navegador."],
@@ -735,7 +769,7 @@ function renderSettings(st) {
   bindModeSwitch($("#pickmode-settings"));
   $("#toggles").innerHTML = TOGGLES.map(([k, t, d]) => `
     <div class="opt"><div class="tx"><b>${t}</b><small>${d}</small>
-      ${k === "auto_lock_pick" ? `<div class="secs">Cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}"> s</div>` : ""}</div>
+      ${k === "auto_lock_pick" ? `<div class="secs">Pick y ban, cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}"> s</div>` : ""}</div>
       <label class="sw"><input type="checkbox" data-k="${k}" ${st[k] ? "checked" : ""} aria-label="${t}"><span></span></label></div>`).join("");
   $("#toggles").insertAdjacentHTML("beforeend", `
     <div class="opt"><div class="tx"><b>Página de runas</b><small>Cuál importar de Lolalytics Master+.</small>

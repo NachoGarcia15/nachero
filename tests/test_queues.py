@@ -92,6 +92,10 @@ class FakeLCU:
     def req(self, method, path, body=None):
         self.calls.append((method, path))
 
+    def raw(self, method, path, body=None, timeout=5):
+        self.req(method, path, body)
+        return b""
+
 
 @pytest.fixture
 def activo(monkeypatch):

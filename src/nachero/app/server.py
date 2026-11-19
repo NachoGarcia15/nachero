@@ -57,6 +57,24 @@ def evaluate_request(query: str) -> tuple[int, dict]:
     return 200, row
 
 
+def choose_request(body: dict) -> tuple[int, dict]:
+    """`POST /api/draft/choose {"kind": "pick"|"ban", "id": 17}`: marca un campeón en tu turno
+    desde el panel. Cuenta como elección del jugador: Nachero no lo vuelve a cambiar."""
+    kind, cid = body.get("kind"), body.get("id")
+    champs, draft = CTX.get("champs"), CTX.get("draft")
+    valid_id = isinstance(cid, int) and not isinstance(cid, bool) and champs is not None and cid in champs.by_id
+    if kind not in ("pick", "ban") or not valid_id:
+        return 400, {"error": "campeón o turno no válido"}
+    with LOCK:
+        mode, phase = APP.get("mode"), APP.get("phase")
+    if mode != "active" or OPTS["demo"]:
+        return 409, {"error": "Pasa a modo Activo para marcar desde el panel"}
+    if phase != "ChampSelect" or draft is None:
+        return 409, {"error": "No estás en la selección de campeón"}
+    ok, msg = draft.choose(kind, cid)
+    return (200, {"ok": True, "name": msg}) if ok else (409, {"error": msg})
+
+
 def private_words() -> tuple[str, ...]:
     """Textos que no deben salir en un diagnóstico: el usuario del sistema y su carpeta."""
     words = [Path.home().name]
@@ -199,6 +217,9 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 log(f"Simulador: fallo ({e.__class__.__name__}: {e})", "warn")
                 return self.send(500, {"error": str(e)})
+        if self.path == "/api/draft/choose":
+            code, out = choose_request(body)
+            return self.send(code, out)
         if self.path == "/api/refresh":
             lola, patch = CTX.get("lola"), CTX.get("patch")
             if lola and patch:

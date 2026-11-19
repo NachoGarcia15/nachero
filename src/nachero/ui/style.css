@@ -154,6 +154,20 @@ main { flex: 1 0 auto; width: 100%; max-width: 1320px; margin: 0 auto; padding: 
   background: var(--accent-soft); border: 1px solid rgba(227,178,90,.22); color: #f3d9a6; font-weight: 500;
 }
 .turn small { color: var(--text-2); font-weight: 400; }
+/* elegir pick o ban desde el panel (cuenta como elección tuya) */
+.choose { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -4px 0 14px; }
+.choose .lbl { font-size: 12px; color: var(--text-3); margin-right: 2px; }
+.choose button {
+  display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 3px;
+  border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface);
+  color: var(--text-2); font: 500 13px/1.2 var(--sans); cursor: pointer;
+}
+.choose button img { width: 24px; height: 24px; border-radius: 5px; }
+.choose button:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.choose button.on { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.choose button:disabled { cursor: not-allowed; opacity: .55; }
+.choose .who { font-size: 12px; color: var(--text-3); }
+.choose .who.err { color: var(--neg); }
 .info-line { font-size: 13px; color: var(--text-3); margin: -4px 0 12px; }
 
 .hero {

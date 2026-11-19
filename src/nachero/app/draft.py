@@ -1,7 +1,5 @@
 """Logica de la seleccion de campeon en soloq: lee la sesion del cliente, recomienda y (en modo activo) actua."""
 
-import random
-import time
 import webbrowser
 
 from nachero.app.state import SPELL_IDS, TIMER_ES, log
@@ -18,10 +16,16 @@ class Draft:
         self.lcu, self.champs, self.engine, self.runes = lcu, champs, engine, runes
         self.reset()
 
-    def reset(self):
-        self.done_ban = self.spells_set = self.coachless_opened = self.runes_done = False
+    def reset(self) -> None:
+        self.spells_set = self.coachless_opened = self.runes_done = False
         self.runes_state = "pending"
-        self.seen, self.last_best = set(), None
+        self.seen: set[str] = set()
+        self.last_best: int | None = None
+        # por id de acción (ban o pick): lo último que marcó Nachero, lo que eligió el jugador
+        # (en el cliente o en el panel) y las que ya confirmó Nachero
+        self.hovered: dict[int, int] = {}
+        self.choice: dict[int, int] = {}
+        self.confirmed: set[int] = set()
         self.context = None  # rol, aliados y rivales del último tick (para «Evaluar cualquier campeón»)
 
     def note(self, msg, kind="action"):
@@ -132,41 +136,30 @@ class Draft:
             else:
                 status.append(("info", f"Pondría {names}"))
 
-        # ban
-        ban_target = bans[0] if bans else None
-        if my_ban and my_ban["isInProgress"] and ban_target and not self.done_ban:
-            if acting and CFG.get("auto_ban", False):
-                time.sleep(random.uniform(1.5, 3))
-                self.lcu.req(
-                    "PATCH",
-                    f"/lol-champ-select/v1/session/actions/{my_ban['id']}",
-                    {"championId": ban_target["id"], "completed": True},
-                )
-                self.done_ban = True
-                self.note(f"Baneado {ban_target['name']}")
-            else:
-                status.append(("turn", f"Te toca banear: {ban_target['name']}"))
-
-        # pick
+        # ban y pick: Nachero marca su recomendación y confirma lo que esté marcado al final del
+        # turno; si el jugador marca otro campeón (en el cliente o en el panel), manda el jugador
+        taken = banned | set(ally_ids) | set(enemy_ids)
+        choose = None
+        if my_ban and my_ban["isInProgress"]:
+            auto = CFG.get("auto_ban", False)
+            turn = self.turn("ban", my_ban, bans[0] if bans else None, taken, acting, auto, auto, left, status)
+            choose = {"kind": "ban", "options": [ch.brief(b["id"]) for b in bans[:5]], **turn}
         if my_pick and not my_pick["completed"] and best:
-            if CFG.get("auto_hover_pick", False) and acting and my_pick["championId"] != best["id"]:
-                self.lcu.req(
-                    "PATCH", f"/lol-champ-select/v1/session/actions/{my_pick['id']}", {"championId": best["id"]}
-                )
-            if my_pick["isInProgress"]:
-                if acting and CFG.get("auto_lock_pick", False) and left <= CFG["lock_when_seconds_left"]:
-                    self.lcu.req(
-                        "PATCH",
-                        f"/lol-champ-select/v1/session/actions/{my_pick['id']}",
-                        {"championId": best["id"], "completed": True},
-                    )
-                    self.note(f"Confirmado {best['name']}")
-                else:
-                    # turn_auto: Nachero lo confirmara al final del turno; turn: lo haces tu
-                    kind = "turn_auto" if acting and CFG.get("auto_lock_pick", False) else "turn"
-                    status.append((kind, f"Te toca elegir: {best['name']}"))
-            elif not acting and CFG.get("auto_hover_pick", False):
-                status.append(("info", f"Marcaría {best['name']}"))
+            turn = self.turn(
+                "pick",
+                my_pick,
+                best,
+                taken,
+                acting,
+                CFG.get("auto_hover_pick", False),
+                CFG.get("auto_lock_pick", False),
+                left,
+                status,
+            )
+            if choose is None:
+                choose = {"kind": "pick", "options": [ch.brief(p["id"]) for p in picks[:5]], **turn}
+        if choose:
+            choose["enabled"] = acting
         self.last_best = best["id"] if best else None
 
         # runas: la recomendada para el campeon confirmado (o vista previa del recomendado)
@@ -253,12 +246,92 @@ class Draft:
             "blind": blind,
             "lane_known": ctx["lane_known"],
             "enemy_left_after": enemy_left_after,
+            "choose": choose,
             "my_pick": (
                 {**ch.brief(my_pick["championId"]), "completed": my_pick["completed"]}
                 if my_pick and my_pick["championId"]
                 else None
             ),
         }
+
+    def turn(self, kind, action, target, taken, acting, hover, lock, left, status):
+        """Tu ban o tu pick (`kind`) en la acción pendiente `action`.
+
+        Con `hover`, marca la recomendación `target`; con `lock`, confirma lo que esté marcado a
+        falta de `lock_when_seconds_left` s. Si lo marcado no es lo que marcó Nachero, es la
+        elección del jugador: no se vuelve a marcar en ese turno y se confirma eso.
+        Devuelve qué hay marcado y quién lo marcó, para el panel."""
+        name = self.champs.name
+        aid, cur = action["id"], action.get("championId") or 0
+        secs = CFG["lock_when_seconds_left"]
+        ban = kind == "ban"
+        if cur and cur != self.hovered.get(aid):  # lo ha marcado el jugador (el registro lo dice el estado)
+            self.choice[aid] = cur
+        choice = self.choice.get(aid)
+        if choice and choice in taken:  # lo ha elegido o baneado otro: vuelve la recomendación
+            self.choice.pop(aid)
+            if acting:
+                self.note(f"{name(choice)} ya no está disponible: vuelvo a la recomendación", "warn")
+            choice = None
+        marked = choice or (cur if cur not in taken else 0)
+        # el pick se puede marcar antes de tu turno (intención); el ban, solo en tu turno
+        can_hover = not choice and hover and acting and target and (not ban or action["isInProgress"])
+        if can_hover and cur != target["id"] and self.patch(aid, {"championId": target["id"]}):
+            self.hovered[aid] = marked = target["id"]
+        by = "player" if choice else ("nachero" if marked and marked == self.hovered.get(aid) else None)
+        if action["isInProgress"]:
+            final = marked or (target["id"] if target else 0)
+            what = f"{'banear ' if ban else ''}{name(final)}" if final else ""
+            if acting and lock and final and 0 < left <= secs:  # sin reloj (0) no se confirma a ciegas
+                if aid not in self.confirmed and self.patch(aid, {"championId": final, "completed": True}):
+                    self.confirmed.add(aid)
+                    self.note(("Baneado " if ban else "Confirmado ") + name(final))
+            elif acting and lock and final:
+                if by == "player":
+                    msg = f"Has elegido {what}: se confirmará {name(final)}"
+                elif by == "nachero":
+                    msg = f"{'Ban marcado' if ban else 'Marcado'} {name(final)} · se confirmará a falta de {secs} s"
+                else:
+                    msg = f"Te toca {'banear' if ban else 'elegir'}: {name(final)} · se confirmará a falta de {secs} s"
+                status.append(("turn_auto", msg))
+            elif by == "player":
+                status.append(("turn", f"Has elegido {what}: confírmalo tú"))
+            elif by == "nachero":
+                status.append(("turn", f"{'Ban marcado' if ban else 'Marcado'} {name(final)}: confírmalo tú"))
+            elif target:
+                status.append(("turn", f"Te toca {'banear' if ban else 'elegir'}: {target['name']}"))
+        elif not acting and hover and target and not ban:
+            status.append(("info", f"Marcaría {target['name']}"))
+        return {"marked": marked, "by": by}
+
+    def patch(self, aid, body):
+        """Cambia la acción `aid` de la champ select. True si el cliente lo acepta."""
+        return self.lcu.raw("PATCH", f"/lol-champ-select/v1/session/actions/{aid}", body) is not None
+
+    def choose(self, kind, cid):
+        """Marca `cid` en tu ban o tu pick pendiente desde el panel: cuenta como elección del jugador.
+        Devuelve (ok, mensaje)."""
+        s = self.lcu.get("/lol-champ-select/v1/session") if self.lcu else None
+        if not isinstance(s, dict) or "actions" not in s:
+            return False, "No estás en la selección de campeón"
+        me = s.get("localPlayerCellId")
+        acts = [a for grp in s["actions"] for a in grp]
+        action = next((a for a in acts if a["actorCellId"] == me and a["type"] == kind and not a["completed"]), None)
+        if action is None:
+            return False, "Ya no tienes ese turno pendiente"
+        if kind == "ban" and not action.get("isInProgress"):
+            return False, "Aún no te toca banear"
+        name = self.champs.name(cid)
+        prev = self.choice.get(action["id"])
+        self.choice[action["id"]] = cid  # antes del cambio: que el bucle no lo pise mientras tanto
+        if not self.patch(action["id"], {"championId": cid}):
+            if prev is None:
+                self.choice.pop(action["id"], None)
+            else:
+                self.choice[action["id"]] = prev
+            return False, f"El cliente no deja marcar {name}"
+        self.note(f"Has elegido {'banear ' if kind == 'ban' else ''}{name} desde el panel")
+        return True, name
 
     def handle_runes(self, cid, role, locked, acting, status):
         """Importa (o describe) la pagina de runas de Lolalytics para `cid` en `role`.

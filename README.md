@@ -80,9 +80,20 @@ Desde un terminal, la consola muestra la actividad; `Ctrl+C` cierra Nachero.
 El panel explica cada modo bajo la barra superior y en Ajustes, con lo que tocará en el cliente
 según tus interruptores.
 
-**Banear, marcar pick y confirmar pick vienen desactivados**: deciden por ti, y las normas de Riot
-no aceptan apps que tomen decisiones de juego por el jugador. Si ya los tenías activados, Nachero
-respeta tus ajustes guardados.
+**Banear, marcar pick y confirmar pick vienen desactivados**: las normas de Riot no aceptan apps
+que tomen decisiones de juego por el jugador. Si los activas, siguen la recomendación de Nachero,
+pero **la última palabra es tuya**:
+- **Pick**: Nachero marca su recomendación (y la actualiza si cambia el draft). A falta de
+  `lock_when_seconds_left` segundos (8 por defecto) confirma **lo que esté marcado**: lo suyo si
+  no has tocado nada, o el campeón que hayas marcado tú.
+- **Ban**: igual. Marca el ban recomendado al empezar tu turno y lo confirma a falta de esos
+  segundos (nunca enseguida), o el que hayas marcado tú.
+- **Si marcas otro campeón** (en el cliente o en el panel), Nachero deja de cambiarlo en ese turno.
+- **Desde el panel**: en tu turno salen las 5 mejores opciones de pick o de ban; un clic la marca
+  en el cliente y cuenta como elección tuya. Solo en modo Activo.
+- Confirma unos segundos antes del final, no a cero: si no da tiempo, en ranked se esquiva.
+
+Si ya los tenías activados, Nachero respeta tus ajustes guardados.
 
 ## Roles
 En la selección de campeón recomienda para el rol que te asigna el cliente, sea cual sea.

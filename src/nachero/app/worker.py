@@ -4,6 +4,7 @@ import random
 import re
 import threading
 import time
+from pathlib import Path
 
 from nachero import paths
 from nachero.app.demo import Demo
@@ -19,10 +20,12 @@ from nachero.domain.engine import Engine
 from nachero.domain.player import Player
 from nachero.domain.pro import ProEngine
 from nachero.domain.queues import classify
+from nachero.domain.stats import ChainStats, source_of
 from nachero.jsonio import read_json, write_json
 from nachero.sources.champions import Champs
 from nachero.sources.golgg import GolGG
 from nachero.sources.history import load_history
+from nachero.sources.local_stats import LocalStats
 from nachero.sources.lolalytics import Lolalytics
 
 
@@ -87,15 +90,42 @@ def evaluate(engine, champs, cid, role, view="draft", draft_ctx=None):
 
 
 def data_status(lola, patch):
-    t = lola.cache.get("tiers", {})
+    st = lola.stats()
     return {
         "patch": patch,
         "updated": lola.updated_at(),
-        "games": sum(v.get("games", 0) for v in t.values()),
-        "counters": len(lola.cache.get("builds", {})),
+        "games": st.get("games", 0),
+        "counters": st.get("builds", 0),
         "pending": len(lola.pending),
         "tier": "Master+",
+        "source": source_of(lola),
     }
+
+
+SOURCES = ("lolalytics", "local")
+
+
+def stats_file() -> Path:
+    custom = CFG.get("stats_file") or ""
+    return Path(custom) if custom else paths.user_dir() / "stats" / "nachero-stats.json"
+
+
+def build_stats(champs):
+    """Fuentes de estadísticas según `stats_sources` (ver domain/stats.py). Sin ninguna válida,
+    Lolalytics, como siempre."""
+    names = [s for s in CFG.get("stats_sources") or [] if s in SOURCES] or ["lolalytics"]
+    providers = []
+    for name in dict.fromkeys(names):
+        if name == "lolalytics":
+            lola = Lolalytics(str(paths.cache_dir()), log)
+            lola.slug_fallback = champs.slug
+            providers.append(lola)
+        else:
+            providers.append(LocalStats(stats_file(), log))
+    if len(providers) == 1:
+        return providers[0]
+    log("Estadísticas: " + " → ".join(p.name for p in providers), "info")
+    return ChainStats(providers)
 
 
 def fallback_patch():
@@ -195,7 +225,7 @@ def find_client(lcu, tries=3):
 
 
 def refresh_tiers(lola, patch, force=False):
-    """Tier lists de Lolalytics (n/5 roles) con su tarea; si falta alguna, se reintenta sola."""
+    """Tier lists de la fuente de estadísticas (n/5 roles) con su tarea; si falta alguna, se reintenta sola."""
     TASKS.start("tiers", total=5, detail=f"Parche {patch}")
     ready = lola.refresh_tiers(patch, force=force, progress=lambda n, total: TASKS.step("tiers", n, total))
     if ready >= 5:
@@ -203,7 +233,9 @@ def refresh_tiers(lola, patch, force=False):
         if force:
             log("Estadísticas Master+ actualizadas", "ok")
     else:
-        TASKS.fail("tiers", f"Lolalytics no responde: {ready} de 5 roles. Reintento en 2 min", retry_in=TIERS_RETRY)
+        TASKS.fail(
+            "tiers", f"{source_of(lola)} no responde: {ready} de 5 roles. Reintento en 2 min", retry_in=TIERS_RETRY
+        )
     return ready
 
 
@@ -307,8 +339,7 @@ def run_session():
             "warn",
         )
     player = Player(games, mastery)
-    lola = Lolalytics(str(paths.cache_dir()), log)
-    lola.slug_fallback = champs.slug
+    lola = build_stats(champs)
     if patch:
         log(f"Leyendo estadísticas Master+ del parche {patch}…")
         refresh_tiers(lola, patch)

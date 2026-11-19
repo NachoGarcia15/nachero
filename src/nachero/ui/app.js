@@ -866,7 +866,7 @@ function renderData(dt, why) {
   if (why && why !== "no_data") { $("#datainfo").innerHTML = emptyState(why, STATE).replace("empty-state", "empty-state small"); return; }
   if (!dt || !dt.patch) { $("#datainfo").textContent = "Cargando…"; return; }
   $("#datainfo").innerHTML = `${why ? `<p class="warn-line">${EMPTY.no_data(STATE)[1]}</p>` : ""}
-    Lolalytics · ${esc(dt.tier)} · parche ${esc(dt.patch)}<br>
+    ${esc(dt.source || "Lolalytics")} · ${esc(dt.tier)} · parche ${esc(dt.patch)}<br>
     ${nf0.format(dt.games)} partidas analizadas por rol<br>
     Matchups en caché: ${dt.counters}${dt.pending ? ` · descargando ${dt.pending}` : ""}<br>
     Actualizado ${ago(dt.updated)}

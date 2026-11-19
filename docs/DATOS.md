@@ -38,6 +38,29 @@ hoy, de dónde deben salir para una versión pública y por qué.
      regiones.
    - La versión pública deja de leer Lolalytics y gol.gg (#24).
 
+## Fuentes en la app
+
+El motor solo habla con la interfaz `StatsProvider` (`domain/stats.py`). En los ajustes,
+`stats_sources` dice qué fuentes usar y en qué orden: la primera manda (con su caché) y las demás
+cubren lo que le falte (`ChainStats`). El panel dice de cuál salen los datos.
+
+- `"lolalytics"`: la web de Lolalytics (por defecto).
+- `"local"`: un archivo `nachero-stats.json` (`stats_file`; por defecto en `stats/` dentro de la
+  carpeta de datos). Formato provisional, versión 1 (el definitivo, en #18):
+
+```json
+{
+  "format": "nachero-stats", "version": 1,
+  "patch": "16.23", "region": "euw", "tier": "master_plus", "generated": 1763500000,
+  "roles": {"jungle": {"avg": 50.4, "games": 12345,
+            "champs": {"163": {"wr": 53.1, "games": 900, "pr": 4.2, "br": 1.0, "tier": 3, "rank": 12, "pct": 51.0}}}},
+  "matchups": {"163:jungle": {"jungle": {"64": {"wr": 51.0, "d1": 1.2, "d2": 0.8, "pr": 9.0, "n": 300}}}},
+  "runes": {"163:jungle": {"pick": {"pri": [8112, 8139, 8140, 8105], "sec": [8347, 8304], "mod": [5008, 5008, 5007]}}}
+}
+```
+
+Toda fuente nueva pasa los tests de contrato de `tests/test_fuentes.py`.
+
 ## Reglas que no cambian
 - Solo agregados: ningún identificador de jugador en los datos publicados. Las partidas en bruto
   se borran tras agregarse.

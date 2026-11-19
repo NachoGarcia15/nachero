@@ -14,6 +14,7 @@ src/nachero/
              champions.py  metadatos e imágenes de campeones
              history.py    historial del jugador (rol de cada partida)
              lolalytics.py tier list y matchups Master+ (incl. parser del estado qwik)
+             local_stats.py estadísticas de un archivo local (datos propios, fase 2)
              golgg.py      estadísticas de competitivo por torneo
              (lolalytics.py también extrae las páginas de runas recomendadas)
   domain/    Lógica pura: sin red ni disco, testeable con dobles
@@ -27,6 +28,7 @@ src/nachero/
              runes.py    validar una página de runas y pasarla al formato del cliente
              queues.py   tipo de cola: draft, a ciegas o fuera de la Grieta
              tasks.py    registro de tareas: qué hace la app y su progreso (n de m)
+             stats.py    interfaz de las fuentes de estadísticas (StatsProvider) y cadena de respaldo
   app/       Orquestación
              state.py    estado compartido (APP, TASKS), log
              draft.py    champ select de soloq (lee sesión, recomienda, actúa)
@@ -45,6 +47,8 @@ src/nachero/
 
 Regla de dependencias: `app → domain ← sources/clients`. El dominio no importa nada de `app`,
 `sources` ni `clients`; recibe objetos con la interfaz que necesita (`champs`, `lola`, `gol`).
+La de estadísticas está escrita en `domain/stats.py` (`StatsProvider`): Lolalytics, el archivo
+local o una cadena de varias (`ChainStats`, según `stats_sources`) valen igual para el motor.
 Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni internet.
 
 ## Flujo de una recomendación (soloq)

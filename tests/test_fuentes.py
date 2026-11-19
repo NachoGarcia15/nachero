@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from conftest import REAL_AVG, REAL_SPLITS, FakeChamps, REAL_CHAMPS
+from conftest import REAL_AVG, REAL_CHAMPS, REAL_SPLITS, FakeChamps
 from nachero.app import worker
 from nachero.config import CFG
 from nachero.domain.common import ROLES

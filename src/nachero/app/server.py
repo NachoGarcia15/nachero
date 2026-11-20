@@ -221,7 +221,7 @@ class Handler(BaseHTTPRequestHandler):
                 data = None
                 if champs and lcu:
                     try:
-                        p = champs.info(cid)["img"].get(kind)
+                        p = champs.info(cid, wait=True)["img"].get(kind)
                         data = lcu.raw("GET", p, timeout=20) if p else None
                     except Exception:
                         data = None

@@ -793,3 +793,17 @@ td.ch span small { display: block; color: var(--text-3); font-size: 11.5px; font
 /* frescura de los datos */
 .datasrc { margin: -2px 0 8px; font-size: 11.5px; color: var(--text-3); }
 .datasrc.stale { color: #f3c37a; }
+
+/* más ajustes */
+.spells { display: grid; gap: 6px; margin-top: 8px; }
+.spells label { display: grid; grid-template-columns: 70px 1fr 1fr; gap: 6px; align-items: center; font-size: 12.5px; color: var(--text-2); }
+.spells select, .picker.small input, input.bonus {
+  padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px;
+}
+.picker.small { margin-top: 8px; }
+.picker.small input[type=search] { width: 100%; }
+.picker.small .chips-list { margin: 0 0 8px; min-height: 0; }
+input.bonus { width: 54px; padding: 1px 4px; font-family: var(--mono); }
+.weight.mini { padding: 6px 0 0; border: 0; }
+small.err { color: var(--neg); }
+.opt .tx > .seg { display: flex; width: fit-content; max-width: 100%; flex-wrap: wrap; }

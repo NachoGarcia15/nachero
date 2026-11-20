@@ -302,6 +302,8 @@ class Draft:
             "lane_known": ctx["lane_known"],
             "enemy_left_after": enemy_left_after,
             "choose": choose,
+            # en tu turno de ban, el panel pone el ban recomendado en primer plano y el pick debajo
+            "focus": "ban" if my_turn == "ban" and bans else "pick",
             "my_pick": (
                 {**ch.brief(my_pick["championId"]), "completed": my_pick["completed"]}
                 if my_pick and my_pick["championId"]

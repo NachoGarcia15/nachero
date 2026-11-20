@@ -382,7 +382,7 @@ function renderDraft([d, idle, s]) {
 
     <div class="center">
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
-      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? "hazlo tú" : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
+      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? (d.my_turn === "ban" ? "Nachero solo lo recomienda: bánealo tú" : "hazlo tú") : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
       ${chooser(d.choose)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${best ? `
@@ -454,13 +454,12 @@ function renderDraft([d, idle, s]) {
 let CHOOSE_MSG = null; // {text, err, until}
 function chooser(c) {
   if (!c || !c.options || !c.options.length) return "";
-  const ban = c.kind === "ban";
-  const tip = c.enabled ? (ban ? "Marcar este ban en el cliente" : "Marcar este campeón en el cliente") : "Pasa a modo Activo para marcar desde aquí";
+  const tip = c.enabled ? "Marcar este campeón en el cliente" : "Pasa a modo Activo para marcar desde aquí";
   const msg = CHOOSE_MSG && CHOOSE_MSG.until > Date.now() ? CHOOSE_MSG : null;
   const who = msg ? `<span class="who ${msg.err ? "err" : ""}">${esc(msg.text)}</span>`
     : c.by === "player" ? `<span class="who">Elegido por ti</span>` : c.by === "nachero" ? `<span class="who">Marcado por Nachero</span>` : "";
-  return `<div class="choose" role="group" aria-label="${ban ? "Elegir ban" : "Elegir pick"}">
-    <span class="lbl">${ban ? "Banear" : "Elegir"}</span>
+  return `<div class="choose" role="group" aria-label="Elegir pick">
+    <span class="lbl">Elegir</span>
     ${c.options.map((o) => `<button data-id="${o.id}" class="${o.id === c.marked ? "on" : ""}" ${c.enabled ? "" : "disabled"} title="${esc(tip)}" aria-pressed="${o.id === c.marked}"><img src="${img("tile", o.id)}" alt="">${esc(o.name)}</button>`).join("")}
     ${who}
   </div>`;
@@ -750,7 +749,6 @@ $("#view-log").addEventListener("click", (e) => { if (e.target.id === "diag") co
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [
   ["auto_accept", "Aceptar partida", "Con 1–3 s de retraso aleatorio."],
-  ["auto_ban", "Banear", "Marca el primer ban sugerido (sin pisar los picks ni los bans marcados por aliados); no lo confirma: lo banea el cliente al acabar el tiempo. Si marcas otro, se banea el tuyo."],
   ["auto_hover_pick", "Marcar pick", "Marca tu mejor campeón y lo actualiza con el draft. Si marcas otro (en el cliente o aquí), deja de cambiarlo."],
   ["auto_lock_pick", "Confirmar pick", "Confirma lo que esté marcado al final de tu turno: tu elección o, si no tocas nada, la de Nachero."],
   ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],

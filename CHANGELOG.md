@@ -144,6 +144,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   ya da el ban como «en curso» pero ignora lo que se marque sin dar error, y el ban se quedaba
   vacío. Si tras marcar la acción sigue vacía, no cuenta como hecho y se reintenta (también en
   el pick); el registro dice «Ban marcado» solo cuando el cliente ya lo muestra.
+- **El bucle de la champ select ya no espera a la red.** La ficha de cada campeón (daño, aguante,
+  dificultad…) se pedía al cliente de una en una y sin caché en disco: en el primer tick tras
+  arrancar Nachero, con 30 candidatos o más, eso tardaba ~1 min y el ban no daba tiempo. Ahora se
+  piden todas en segundo plano al arrancar y, mientras llegan, se usa una ficha neutra. La caché
+  de Lolalytics (más de 10 MB) se escribe sin bloquear al motor.
+- Antes de marcar o confirmar, Nachero relee la acción en el cliente: si el jugador acaba de
+  marcar otro campeón (también su intención de pick en la planificación), manda el suyo aunque
+  la sesión del tick vaya con retraso.
 - En soloq (los 10 banean a la vez) no repite el ban que ya ha marcado un aliado.
 - Una personalizada con bans dice en el registro «con bans, recomiendo como en un draft» en
   lugar de «sin bans».

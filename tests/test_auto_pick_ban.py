@@ -1,6 +1,9 @@
 """Auto ban y auto pick que respetan la elección del jugador (issue #30)."""
 
+import copy
 import json
+import threading
+import time
 
 import pytest
 
@@ -11,6 +14,8 @@ from nachero.app.state import APP, CTX, OPTS
 from nachero.config import CFG
 from nachero.domain.engine import Engine
 from nachero.domain.player import Player
+from nachero.sources.champions import Champs
+from nachero.sources.lolalytics import Lolalytics
 from test_roles_conexion import _game
 
 ACTIONS = "/lol-champ-select/v1/session/actions/"
@@ -68,11 +73,13 @@ def session(ban=False, left=20):
     }
 
 
+JUNGLE = {7: (54, 9000, 9, 90), 5: (53, 9000, 8, 60), 3: (56, 9000, 12, 50), 2: (55, 9000, 10, 40),
+          1: (54, 9000, 7, 30), 8: (53.5, 9000, 6, 20)}  # fmt: skip
+
+
 def engine(champs):
-    jungle = {7: (54, 9000, 9, 90), 5: (53, 9000, 8, 60), 3: (56, 9000, 12, 50), 2: (55, 9000, 10, 40),
-              1: (54, 9000, 7, 30), 8: (53.5, 9000, 6, 20)}  # fmt: skip
     cfg = {"pick_mode": "meta", "weights": {}, "main_role": "jungle"}
-    return Engine(champs, FakeLola(all_roles(jungle=jungle)), Player([_game("jungle")] * 5, []), cfg)
+    return Engine(champs, FakeLola(all_roles(jungle=JUNGLE)), Player([_game("jungle")] * 5, []), cfg)
 
 
 @pytest.fixture
@@ -455,3 +462,85 @@ def test_sin_reloj_no_confirma(champs, auto):
     lcu = Client(s)
     tick(Draft(lcu, champs, engine(champs)), lcu)
     assert not any(b.get("completed") for _, b in lcu.patches)
+
+
+# ------------------------------------------------------------------ el bucle no espera a la red
+class SlowClient(Client):
+    """Cliente cuyas fichas de campeón tardan; apunta en qué hilo se pide cada una."""
+
+    def __init__(self, session, data, delay=0.3):
+        super().__init__(session)
+        self.data, self.delay, self.calls = data, delay, []
+
+    def get(self, path, timeout=None):
+        if path == "/lol-game-data/assets/v1/champion-summary.json":
+            return [{"id": c, "name": v[0], "roles": v[7]} for c, v in self.data.items()]
+        if path.startswith("/lol-game-data/assets/v1/champions/"):
+            self.calls.append(threading.current_thread())
+            time.sleep(self.delay)
+            cid = int(path.rsplit("/", 1)[1].split(".")[0])
+            n, dmg, damage, dur, cc, mob, util, roles = self.data[cid]
+            return {
+                "tacticalInfo": {"damageType": {"AP": "kMagic", "AD": "kPhysical"}[dmg], "difficulty": 2},
+                "playstyleInfo": {"damage": damage, "durability": dur, "crowdControl": cc, "mobility": mob,
+                                  "utility": util},
+                "roles": roles,
+            }  # fmt: skip
+        return super().get(path, timeout)
+
+
+def slow_lola(tmp_path, delay=0.3):
+    """Lolalytics de verdad (caché en disco) con las tier lists ya guardadas y una red lenta."""
+    lola = Lolalytics(str(tmp_path), lambda *a: None)
+    fake = FakeLola(all_roles(jungle=JUNGLE))
+    lola.patch = "16.23"
+    for role in ("top", "jungle", "middle", "bottom", "utility"):
+        lola.cache["tiers"][role] = {"t": time.time(), "patch": "16.23", **fake.tier(role)}
+    lola.net = []
+
+    def fetch(url):
+        lola.net.append(threading.current_thread())
+        time.sleep(delay)
+        raise OSError("sin red en los tests")
+
+    lola._fetch = fetch
+    return lola
+
+
+def test_tick_no_espera_a_la_red(auto, tmp_path):
+    from conftest import CHAMPS
+
+    lcu = SlowClient(session(ban=True), CHAMPS)
+    champs = Champs(lcu)
+    champs.preload()
+    lola = slow_lola(tmp_path)
+    eng = Engine(champs, lola, Player([_game("jungle")] * 5, []), {"pick_mode": "meta", "weights": {}})
+    d = Draft(lcu, champs, eng)
+    t = time.time()
+    out = tick(d, lcu)
+    assert time.time() - t < 1.0  # sin fichas ni matchups: recomienda con lo que hay
+    main = threading.current_thread()
+    assert main not in lcu.calls and main not in lola.net  # nada de red en el hilo del bucle
+    ban = out["ban_suggestions"][0]["id"]
+    assert (9, {"championId": ban}) in lcu.patches  # el ban se marca ya, sin esperar a los matchups
+
+
+def test_intencion_del_jugador_en_planificacion_es_su_eleccion(champs, auto, monkeypatch):
+    """El jugador marca un campeón en la planificación: sale en su intención, no en la acción."""
+    monkeypatch.setitem(CFG, "auto_lock_pick", False)
+    s = session()
+    s["myTeam"][0]["championPickIntent"] = 8
+    lcu = Client(s)
+    d = Draft(lcu, champs, engine(champs))
+    out = tick(d, lcu)
+    assert lcu.patches == [] and out["choose"]["by"] == "player"
+    assert out["status"][0] == {"kind": "turn", "msg": f"Has elegido {champs.name(8)}: confírmalo tú"}
+
+
+def test_sesion_atrasada_no_pisa_lo_que_acaba_de_marcar_el_jugador(champs, auto):
+    lcu = Client(session())
+    d = Draft(lcu, champs, engine(champs))
+    vieja = copy.deepcopy(lcu.s)  # el tick trabaja con una sesión de hace un rato
+    lcu.player_marks(1, 8)
+    out = d.tick(vieja, True, pickable=set(), bannable=set())
+    assert lcu.patches == [] and out["choose"]["by"] == "player" and out["choose"]["marked"] == 8

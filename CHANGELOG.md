@@ -132,14 +132,18 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 
 ### Cambiado
 - **Auto ban y auto pick respetan tu elección** (normas de Riot): Nachero marca su recomendación
-  y, a falta de `lock_when_seconds_left` s, confirma **lo que esté marcado**: lo suyo si no has
-  tocado nada o el campeón que hayas marcado tú. Si marcas otro (en el cliente o en el panel),
-  deja de cambiarlo durante ese turno.
-- El ban ya no se confirma a los 1,5–3 s: se marca al empezar tu turno y se confirma al final,
-  como el pick. Tampoco bloquea el bucle con una espera.
-- Si el campeón que elegiste se lo lleva otro, vuelve a marcar la recomendación.
-- Mensajes nuevos en el panel y el registro: «Marcado X · se confirmará a falta de N s» y
-  «Has elegido X: se confirmará X».
+  una sola vez por turno y, en el pick, a falta de `lock_when_seconds_left` s confirma **lo que
+  esté marcado**: lo suyo si no has tocado nada o el campeón que hayas marcado tú. Si marcas otro
+  (en el cliente o en el panel), no lo vuelve a cambiar en ese turno, aunque el cliente tarde un
+  tick en reflejar tu cambio.
+- **El ban solo se marca, nunca se confirma**: al empezar tu turno Nachero marca el ban
+  recomendado y lo banea el cliente al acabar el tiempo (antes se confirmaba a los 1,5–3 s y, en
+  soloq, no llegaba a aplicarse). Si marcas otro, se banea el tuyo. Tampoco bloquea el bucle con
+  una espera.
+- En soloq (los 10 banean a la vez) no repite el ban que ya ha marcado un aliado.
+- Si el campeón marcado se lo lleva otro, vuelve a marcar la recomendación.
+- Mensajes nuevos en el panel y el registro: «Marcado X · se confirmará a falta de N s»,
+  «Marcado X · lo banea el cliente al acabar el tiempo» y «Has elegido X: se confirmará X».
 
 ### Añadido
 - **Elegir desde el panel**: en tu turno, botones con las 5 mejores opciones de pick o de ban.

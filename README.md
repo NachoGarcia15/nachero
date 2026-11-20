@@ -94,6 +94,12 @@ Cada cuenta de LoL tiene su perfil: historial, maestría y rango se guardan apar
 campeón simulada con tus datos reales, sin reiniciar y sin tocar el cliente. Se cierra con
 «Salir de la demo» o sola si empieza una partida de verdad. `--demo` hace lo mismo al arrancar.
 
+## ¿Acierta Nachero?
+En **Tu pool**, abajo: cada pick que confirmas en soloq, flex o normal queda apuntado con su WR
+estimado y, al acabar la partida, con el resultado. El informe enseña el WR real en cada tramo de
+WR estimado (si en «52–54 %» ganas el 53 %, está bien calibrado), tu WR siguiendo la
+recomendación o no, y qué partes de la fórmula separan de verdad victorias y derrotas.
+
 ## Ajustes
 Todo se cambia desde el panel (botón de ajustes, arriba a la derecha): modos y qué toca en el
 cliente, pesos de la recomendación, tu perfil y, en **Más ajustes**, el modo al abrir Nachero,

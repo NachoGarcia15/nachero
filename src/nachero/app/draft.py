@@ -5,6 +5,7 @@ import webbrowser
 
 from nachero.app.state import SPELL_IDS, TIMER_ES, log
 from nachero.config import CFG
+from nachero.domain import calibration
 from nachero.domain import runes as R
 from nachero.domain import tags as T
 from nachero.domain.common import ROLE_ES, ROLE_SHORT
@@ -33,6 +34,10 @@ class Draft:
         # ARAM: campeón que tienes, desde cuándo (los rerolls van rápido) y para cuál se importaron
         self.aram_seen: tuple[int, float] = (0, 0.0)
         self.aram_done: int = 0
+        # calibración (#9): la mejor recomendación antes de confirmar y el registro al confirmar
+        self.last_top: dict | None = None
+        self.record: dict | None = None
+        self.recorded = False
 
     def note(self, msg, kind="action"):
         if msg not in self.seen:
@@ -141,6 +146,13 @@ class Draft:
         mine = next((p for p in picks if p["id"] == locked), None)
         picks = [p for p in picks if p["id"] != locked]
         best = picks[0] if picks else None
+        if not locked:
+            self.last_top = best
+        elif mine and not self.recorded and queue.get("id") in CFG.get("history_queues", []):
+            # para medir si acierta: tu campeón, su WR estimado y lo que recomendaba (sin demo)
+            self.recorded = True
+            fit = ctx.get("role_fit") or {}
+            self.record = calibration.make_record(time.time() * 1000, queue, role, mine, self.last_top, fit.get("kind"))
         # en soloq todos banean a la vez: no repetir el ban que ya ha marcado un aliado
         ally_ban_intent = {
             a["championId"]
@@ -467,6 +479,11 @@ class Draft:
             return False, f"El cliente no deja marcar {name}"
         self.note(f"Has elegido {'banear ' if kind == 'ban' else ''}{name} desde el panel")
         return True, name
+
+    def pop_record(self) -> dict | None:
+        """El registro de calibración pendiente de guardar (una vez por champ select)."""
+        rec, self.record = self.record, None
+        return rec
 
     ARAM_SETTLE = 1.5  # segundos con el mismo campeón antes de importar (reroll, banquillo)
 

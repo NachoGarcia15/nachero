@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.23.0] - 2026-11-19
+
+### Añadido
+- **¿Acierta Nachero?** (en Tu pool): al confirmar un pick en soloq, flex o normal se apunta el
+  WR estimado del campeón, sus partes y lo que recomendaba Nachero; al aparecer la partida en tu
+  historial, el resultado. El informe compara WR estimado y real **por tramos**, tu WR **siguiendo
+  la recomendación o no**, y cuánto separa **cada parte** las victorias de las derrotas, para
+  ajustar los pesos con datos. Avisa si aún hay pocas partidas (< 20).
+- Se guarda por cuenta (`predictions.json` en el perfil). Los picks sin partida en un día
+  (esquivas, remakes) se descartan. La demo y Practice Tool no cuentan.
+
 ## [0.22.0] - 2026-11-19
 
 ### Añadido

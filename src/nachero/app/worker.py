@@ -1,5 +1,6 @@
 """Bucle principal: conecta con el cliente (o trabaja sin el), carga datos y sigue cada fase."""
 
+import contextlib
 import random
 import re
 import threading
@@ -14,6 +15,7 @@ from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, demo_must_s
 from nachero.clients.cdragon import CDragon, latest_patch
 from nachero.clients.lcu import LCU
 from nachero.config import CFG
+from nachero.domain import calibration
 from nachero.domain.common import ROLE_ES, ROLES
 from nachero.domain.common import tier_name as TIER
 from nachero.domain.engine import Engine
@@ -101,6 +103,24 @@ def source_warnings(*sources) -> list[dict]:
             if h is not None:
                 out += h.warnings()
     return out
+
+
+def save_record(rec: dict, patch=None) -> None:
+    """Guarda un pick confirmado para la calibración (en el perfil de la cuenta)."""
+    recs = read_json(paths.predictions_file(), [])
+    recs = recs if isinstance(recs, list) else []
+    recs.append({**rec, "patch": rec.get("patch") or patch})
+    write_json(paths.predictions_file(), recs[-2000:])
+
+
+def resolve_records(games) -> int:
+    """Apunta el resultado de los picks guardados que ya están en el historial."""
+    recs = read_json(paths.predictions_file(), [])
+    if not isinstance(recs, list) or not recs:
+        return 0
+    recs, done = calibration.resolve(recs, games, time.time() * 1000)
+    write_json(paths.predictions_file(), recs)
+    return done
 
 
 def data_status(lola, patch, gol_src=None, now=None):
@@ -372,6 +392,8 @@ def run_session():
             "Cliente de LoL cerrado: uso datos guardados y CommunityDragon" + (" · modo demo" if OPTS["demo"] else ""),
             "warn",
         )
+    with contextlib.suppress(Exception):
+        resolve_records(games)
     player = Player(games, mastery)
     lola = build_stats(champs)
     if patch:
@@ -447,6 +469,9 @@ def run_session():
                 TASKS.start("history", detail="Partida nueva: actualizando…")
                 games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
                 TASKS.finish("history", f"{len(games)} partidas de la Grieta")
+                with contextlib.suppress(Exception):
+                    if resolve_records(games):
+                        log("Partida apuntada en «¿Acierta Nachero?»", "ok")
                 engine.player = player = Player(
                     games, lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20) or []
                 )
@@ -526,6 +551,9 @@ def run_session():
                             if slow > SLOW_TICK:  # para localizar esperas en el cliente real
                                 parts = " · ".join(f"{k} {v:.1f} s" for k, v in draft.timings.items() if v >= 0.5)
                                 log(f"Selección lenta: {slow:.1f} s en analizar ({parts or 'sin detalle'})", "warn")
+                            rec = draft.pop_record()
+                            if rec:
+                                save_record(rec, patch)
                     with LOCK:
                         APP["draft"] = d
             except Exception as e:

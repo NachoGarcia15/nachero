@@ -23,7 +23,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   dificultad…) se pedía al cliente de una en una y sin caché en disco: en el primer tick tras
   arrancar Nachero, con 30 candidatos o más, eso tardaba ~1 min y el ban no daba tiempo. Ahora se
   piden todas en segundo plano al arrancar y, mientras llegan, se usa una ficha neutra. La caché
-  de Lolalytics (más de 10 MB) se escribe sin bloquear al motor.
+  de Lolalytics (más de 10 MB) se escribe sin bloquear al motor, y el catálogo de runas
+  también se pide en segundo plano. Si analizar la selección tarda más de 3 s, el registro lo
+  dice con el tiempo de cada parte («Selección lenta: …»).
 - Antes de marcar o confirmar, Nachero relee la acción en el cliente: si el jugador acaba de
   marcar otro campeón (también su intención de pick en la planificación), manda el suyo aunque
   la sesión del tick vaya con retraso.

@@ -67,10 +67,10 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    rivales, bans y orden de picks.
 4. `engine.Engine.picks` puntúa candidatos: fuerza en el parche + tú + matchups (rival de línea
    y resto, con roles estimados) + encaje con tu equipo + respuesta a su comp + riesgo de counter.
-5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto counterea tus picks).
-6. En modo Activo, `Draft.turn` marca la recomendación (ban o pick) una vez por acción. El pick
-   confirma lo que esté marcado a falta de `lock_when_seconds_left` s; el ban no se confirma
-   nunca (lo banea el cliente al acabar el tiempo). Si lo marcado no es lo que marcó Nachero (o
+5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto countea a tu pick y a tus
+   aliados, con los matchups en caché). Solo se recomiendan: Nachero nunca toca el ban.
+6. En modo Activo, `Draft.turn` marca la recomendación de pick una vez por acción y confirma lo
+   que esté marcado a falta de `lock_when_seconds_left` s. Si lo marcado no es lo que marcó Nachero (o
    se eligió en el panel con `POST /api/draft/choose`), es la elección del jugador: no se vuelve
    a marcar en ese turno.
 7. El panel consulta `/api/state` cada segundo y pinta.

@@ -12,14 +12,15 @@ RIOT_NOTICE = (
 
 # Decisiones de juego: opcionales y desactivadas por defecto (las normas no aceptan apps que decidan
 # por el jugador). Siguen la recomendación de Nachero, pero nunca pisan lo que marque el jugador:
-# Nachero marca su recomendación de pick y confirma lo que esté marcado al final del turno. Los bans
-# solo se recomiendan en el panel: Nachero nunca los marca ni los confirma (issue #30).
-GAME_DECISIONS = ("auto_hover_pick", "auto_lock_pick")  # los bans solo se recomiendan
+# Nachero marca su recomendación; el pick confirma lo que esté marcado al final del turno y el ban
+# no se confirma nunca: lo hace el cliente al acabar el tiempo (issue #30).
+GAME_DECISIONS = ("auto_ban", "auto_hover_pick", "auto_lock_pick")
 
 # Qué hace en el cliente cada interruptor en modo Activo, en el orden de la partida.
 CLIENT_ACTIONS = (
     ("auto_accept", "acepta la partida"),
     ("auto_spells", "pone los hechizos de tu rol"),
+    ("auto_ban", "marca tu ban (lo confirma el cliente al acabar el tiempo)"),
     ("auto_hover_pick", "marca tu pick"),
     ("auto_lock_pick", "confirma el pick marcado"),
     ("import_runes", "crea la página de runas «Nachero»"),

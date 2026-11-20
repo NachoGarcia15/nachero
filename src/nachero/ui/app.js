@@ -383,6 +383,10 @@ function appear(el) {
 
 function renderDraft([d, idle, s]) {
   const el = $("#draft-main");
+  // Sin selección de campeón, dos columnas: picks a ciegas y, al lado, evaluar y el estado.
+  const idleNow = !(s.empty && s.empty !== "loading") && !s.loading && !d;
+  $("#view-draft").classList.toggle("is-idle", idleNow);
+  if (!idleNow) $("#draft-status").innerHTML = "";
   if (s.empty && s.empty !== "loading") { rotateTips(false); el.innerHTML = emptyState(s.empty, s); return; }
   // Cuatro estados: buscando el cliente, conectado y cargando (los dos con la pantalla de carga),
   // cliente cerrado (datos guardados, o el aviso de `no_client` si no hay) y listo.
@@ -429,7 +433,7 @@ function renderDraft([d, idle, s]) {
       </article>` : `<div class="hero"><div class="hero-body"><h1>Sin candidatos</h1><p class="muted">No hay campeones disponibles en tu pool para este rol.</p></div></div>`}
 
       <div class="block">
-        <div class="block-head"><h3>${d.locked ? "Otras opciones que tenías" : "Alternativas"}</h3>${modeSwitch(d.mode)}</div>
+        <div class="block-head"><h3>${d.locked ? "Otras opciones que tenías" : "Alternativas"}${hint("WR estimado = 50 + suma de partes. Rival = línea + resto del rival + composición + riesgo de counter. Fuera de su rol principal, la confianza baja con las partidas que tiene en tu rol.", "start")}</h3>${modeSwitch(d.mode)}</div>
         <div class="rows ${d.mode}">
           <div class="row head"><span></span><span></span><span style="text-align:left">Campeón</span>${d.mode === "pool" ? "<span>Tú</span>" : ""}<span>Parche</span><span>Rival</span><span>Equipo</span><span>Estimado</span></div>
           ${alts.map((p, i) => {
@@ -437,7 +441,7 @@ function renderDraft([d, idle, s]) {
             return `
           <div class="row">
             <span class="i">${i + (d.locked ? 1 : 2)}</span><img src="${img("tile", p.id)}" alt="">
-            <div class="nm">${esc(p.name)}<small>${esc(subline(p))}</small></div>
+            <div class="nm" title="${esc(subline(p))}">${esc(p.name)}<small>${esc(subline(p))}</small></div>
             ${d.mode === "pool" ? `<span class="c ${tone(p.parts.you)}">${signed(p.parts.you)}</span>` : ""}
             <span class="c ${tone(p.parts.meta)}">${signed(p.parts.meta)}</span>
             <span class="c ${p.matchups_loaded ? tone(rival) : "muted"}">${p.matchups_loaded ? signed(rival) : "…"}</span>
@@ -445,7 +449,6 @@ function renderDraft([d, idle, s]) {
             <span class="c est">${f1(p.est)}%</span>
           </div>`; }).join("")}
         </div>
-        <p class="foot">WR estimado = 50 + suma de partes. Rival = línea + resto del rival + composición + riesgo de counter. Fuera de su rol principal, la confianza baja con las partidas que tiene en tu rol.</p>
       </div>
 
       <div class="block ${d.ban_suggestions.length ? "split" : ""}">
@@ -551,29 +554,80 @@ function renderUnsupported(el, d) {
   </div>`;
 }
 
+/* Ayuda bajo demanda: un «?» que muestra la explicación al pasar el ratón o con el teclado. */
+function hint(text, where = "") {
+  return `<button type="button" class="hint ${where}" data-tip="${esc(text)}" aria-label="${esc(text)}">?</button>`;
+}
+
+const MODE_LABEL = { paused: "Pausado", observe: "Observar", active: "Activo" };
+const PICK_MODE_HELP = {
+  pool: "Con tu pool: suma tu experiencia, forma y resultados con cada campeón a su fuerza en Master+ este parche.",
+  meta: "Solo meta y draft: ignora tu pool y recomienda por la fuerza del campeón en Master+ este parche, sus matchups y lo que encaje con tu equipo.",
+};
+
+// Tier del parche como píldora de color: S dorado, A verde, B azul, C y D neutros.
+const tierClass = (t) => "t-" + (/^[SABC]/.test(t || "") ? t[0].toLowerCase() : "d");
+
+// Tarjeta de un pick a ciegas: lo que importa en dos líneas y el detalle completo al pasar el ratón.
+function pickCard(p, i, selected) {
+  const exp = p.games ? `${p.games} partida${p.games === 1 ? "" : "s"} · ${p.wr}% WR`
+    : p.exp >= 5 ? `~${p.exp} partidas de maestría` : "Sin experiencia";
+  const cat = p.role_cat && p.role_cat !== "main" ? p.role_cat_es : "";
+  return `<button type="button" class="card ${i === 0 ? "first" : ""} ${selected ? "sel" : ""}" data-id="${p.id}" title="${esc(subline(p))} · clic para ver por qué">
+    <img src="${img("tile", p.id)}" alt="" loading="lazy">
+    <span class="rk">#${i + 1}</span>
+    ${p.tier ? `<span class="tier ${tierClass(p.tier)}" title="Tier en el parche">${esc(p.tier)}</span>` : ""}
+    <span class="card-body">
+      <b class="nm">${esc(p.name)}</b>
+      <span class="pct">${f1(p.est)}<small>%</small></span>
+      <span class="l1">${esc(exp)}</span>
+      ${p.confidence ? `<span class="l2"><i class="dot conf-${esc(p.confidence)}"></i>Confianza ${esc((p.confidence_es || "").toLowerCase())}${cat ? ` · ${esc(cat)}` : ""}</span>` : ""}
+    </span>
+  </button>`;
+}
+
+// Estado de la app a la vista: cliente, tus partidas y de cuándo son los datos.
+function statusCard(s) {
+  const dt = s.data || {};
+  const rows = [];
+  if (dt.patch) rows.push(["Estadísticas", `${esc(dt.source || "Lolalytics")} ${esc(dt.tier || "")}`]);
+  if (dt.patch) rows.push(["Parche", `<span class="num">${esc(dt.patch)}</span> · <span class="${dt.stale ? "warn" : ""}">${ago(dt.updated)}${dt.stale ? " · desfasados" : ""}</span>`]);
+  rows.push(["Tu historial", s.games ? `<span class="num">${nf0.format(s.games)}</span> partidas` : "sin partidas"]);
+  return `<div class="panel status"><div class="panel-head"><h3>Estado</h3></div>
+    <dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl></div>`;
+}
+
 function renderIdle(el, idle, s) {
   const paused = s.mode === "paused";
   const picks = (idle && idle.picks) || [];
+  const live = paused ? "paused" : s.offline ? "off" : "on";
+  const modeHelp = paused ? "No lee la selección ni toca el cliente."
+    : s.mode === "active" ? s.active_summary || "Actuará según tus ajustes."
+    : "Solo recomienda: no acepta la partida ni toca el cliente.";
   el.innerHTML = `<div class="idle">
-    <h1>${paused ? "Nachero está en pausa" : "Esperando a la selección de campeón"}${s.booting ? `<span class="stale" title="Se ven tus datos guardados mientras se cargan los nuevos">Actualizando…</span>` : ""}</h1>
+    <div class="idle-top">
+      <div>
+        <h1><span class="live ${live}" aria-hidden="true"></span>${paused ? "Nachero está en pausa" : "Esperando a la selección de campeón"}${s.booting ? `<span class="stale" title="Se ven tus datos guardados mientras se cargan los nuevos">Actualizando…</span>` : ""}</h1>
+        <p class="lead">${esc(s.phase_es || "")} · modo ${MODE_LABEL[s.mode] || ""}${hint(modeHelp)}</p>
+      </div>
+      <button class="btn ghost" data-cover-demo title="Una selección de campeón simulada. No toca el cliente.">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Probar con una partida de demo</button>
+    </div>
     ${s.offline ? `<p class="note-off">Abre League of Legends y me conecto solo. Mientras, ${s.games ? `uso tus ${nf0.format(s.games)} partidas guardadas` : "no tengo tus partidas y recomiendo solo por el meta"}.</p>` : ""}
-    <p class="lead">${esc(s.phase_es || "")}${paused ? "" : s.mode === "active" ? " · modo Activo. " + esc(s.active_summary || "Actuará según tus ajustes.") : " · modo Observar: solo recomienda, no acepta la partida ni toca el cliente"}</p>
-    ${cover()}
-    ${idle ? `<div class="idle-role"><span>Tu rol</span>${roleSwitch(idle, s.main_role)}
-      <small>${idle.auto ? "Automático: el que más juegas." : "Fijado por ti."} En la selección de campeón manda el rol que te asigne el cliente.</small></div>` : ""}
+    ${flow(live)}
+    ${idle ? `<div class="toolbar">
+      <div class="idle-role"><span class="lbl">Tu rol${hint(`${idle.auto ? "Automático: el que más juegas." : "Fijado por ti."} En la selección de campeón manda el rol que te asigne el cliente.`, "start")}</span>${roleSwitch(idle, s.main_role)}</div>
+      <div class="idle-role"><span class="lbl">Base${hint(PICK_MODE_HELP[s.pick_mode] || PICK_MODE_HELP.pool, "end")}</span>${modeSwitch(s.pick_mode)}</div>
+    </div>` : ""}
     ${picks.length ? `
-      <div class="block-head"><h3>Si entras ahora de ${esc(idle.role_es)}, a ciegas</h3>${modeSwitch(s.pick_mode)}</div>
-      <div class="idle-grid">${picks.map((p) => `
-        <div class="card"><img src="${img("tile", p.id)}" alt="">
-          <div><b>${esc(p.name)}</b><span class="num">${f1(p.est)}%</span><small>${esc(subline(p))}</small></div></div>`).join("")}
-      </div>` : ""}
-    <p class="idle-foot">${s.pick_mode === "meta"
-      ? "Modo solo meta y draft: ignora tu pool y recomienda por la fuerza del campeón en Master+ este parche, sus matchups y lo que encaje con tu equipo."
-      : "Con tu pool: suma tu experiencia, forma y resultados con cada campeón a su fuerza en Master+ este parche."}</p>
+      <div class="block-head"><h3>Si entras ahora de ${esc(idle.role_es)}, a ciegas</h3><span>pulsa uno para ver por qué</span></div>
+      <div class="idle-grid">${picks.map((p, i) => pickCard(p, i, p.id === EVAL.draft.id)).join("")}</div>` : ""}
   </div>`;
+  $("#draft-status").innerHTML = statusCard(s);
   bindModeSwitch(el);
   el.querySelectorAll(".roleswitch button").forEach((b) => (b.onclick = () => post("/api/settings", { main_role: b.dataset.role })));
   el.querySelectorAll("[data-cover-demo]").forEach((b) => (b.onclick = startDemo));
+  el.querySelectorAll(".card[data-id]").forEach((b) => (b.onclick = () => evalPick("draft", Number(b.dataset.id), idle && idle.role, b.querySelector(".nm").textContent)));
 }
 
 const ROLE_BTNS = [["top", "Top"], ["jungle", "Jungla"], ["middle", "Mid"], ["bottom", "ADC"], ["utility", "Support"]];
@@ -620,7 +674,7 @@ function renderPool(rows) {
   });
   el.innerHTML = `
     <div class="pool-head">
-      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol: tu experiencia y resultados con él, más su fuerza en Master+ este parche. Con maestría alta, cada campeón sale también en sus roles principal y flex.</p>${historyNote(STATE.history)}</div>
+      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol${hint("Tu experiencia y resultados con él, más su fuerza en Master+ este parche. Con maestría alta, cada campeón sale también en sus roles principal y flex.")}</p>${historyNote(STATE.history)}</div>
       <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos <small>${rows.length}</small></button>${ROLE_BTNS.map(([r, t]) => `<button data-r="${r}" class="${POOL_ROLE === r ? "on" : ""}" ${count(r) ? "" : "disabled"}>${t} <small>${count(r)}</small></button>`).join("")}</div>
     </div>
     <div class="tablewrap"><table>
@@ -632,7 +686,7 @@ function renderPool(rows) {
         <td class="${r.wr == null ? "muted" : r.wr >= 55 ? "pos" : r.wr < 45 ? "neg" : ""}">${r.wr == null ? "—" : r.wr + "%"}</td>
         <td><span class="exp"><i><b style="width:${Math.min(100, (r.exp / 150) * 100)}%"></b></i>${nf0.format(r.exp)}</span></td>
         <td class="${tone(r.you)}">${signed(r.you)}</td>
-        <td><span class="tier">${esc(r.tier || "—")}</span></td>
+        <td>${r.tier ? `<span class="tier pill ${tierClass(r.tier)}">${esc(r.tier)}</span>` : `<span class="tier">—</span>`}</td>
         <td class="${tone(r.meta)}">${signed(r.meta)}</td>
         <td><span class="chip conf-${esc(r.confidence)}" title="${nf0.format(r.meta_games || 0)} partidas en este rol en Master+">${esc(r.confidence_es || "—")}</span></td>
         <td><b>${f1(r.est)}%</b></td></tr>`).join("")}</tbody>
@@ -693,9 +747,12 @@ function renderEvalForm(where) {
   const e = EVAL[where];
   if (!box.dataset.ready) {
     box.dataset.ready = "1";
-    box.innerHTML = `<div class="block-head"><h3>Evaluar cualquier campeón</h3><span>${where === "draft" ? "en el rol que elijas, con el draft actual si estás en la selección" : "en el rol que elijas, a ciegas, como una fila más de tu pool"}</span></div>
+    box.innerHTML = `<div class="panel-head"><h3>Evaluar cualquier campeón${hint(where === "draft"
+        ? "En el rol que elijas, con el draft actual si estás en la selección. Por ejemplo Teemo en jungla o Katarina en ADC: sale su estimación aunque casi no se juegue ahí, con la confianza que dan sus partidas en ese rol."
+        : "En el rol que elijas, a ciegas, como una fila más de tu pool. Sale su estimación aunque casi no se juegue en ese rol, con la confianza que dan sus partidas ahí.", "end")}</h3></div>
       <div class="eval-form">
-        <input type="search" list="champ-list" placeholder="Escribe un campeón…" aria-label="Campeón a evaluar" autocomplete="off">
+        <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+        <input type="search" list="champ-list" placeholder="Escribe un campeón…" aria-label="Campeón a evaluar" autocomplete="off"></label>
         <div class="seg seg-sm evalroles" role="radiogroup" aria-label="Rol"></div>
       </div>
       <div class="eval-out"></div>`;
@@ -718,6 +775,20 @@ function renderEvalForm(where) {
     });
   }
   box.querySelector(".evalroles").innerHTML = ROLE_BTNS.map(([r, t]) => `<button data-erole="${r}" class="${e.role === r ? "on" : ""}" role="radio" aria-checked="${e.role === r}">${t}</button>`).join("");
+}
+
+// Evaluar desde fuera del buscador (una tarjeta de la espera): rellena el campo y pide el resultado.
+function evalPick(where, id, role, name) {
+  const e = EVAL[where];
+  const c = CHAMPS.find((x) => x.id === id);
+  renderEvalForm(where);
+  const input = $(`#eval-${where} input`);
+  if (input) input.value = c ? c.name : name || "";
+  if (role && ROLE_NAME[role] && role !== e.role) { e.role = role; renderEvalForm(where); }
+  if (e.id !== id || !e.res) { e.id = id; e.res = null; }
+  renderEvalOut(where);
+  evalFetch(where);
+  if (window.matchMedia("(max-width: 1100px)").matches) $(`#eval-${where}`).scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 async function evalFetch(where) {
@@ -747,7 +818,8 @@ function renderEvalOut(where) {
   const out = $(`#eval-${where} .eval-out`);
   const e = EVAL[where];
   if (!out) return;
-  if (!e.id) { out.innerHTML = `<p class="muted">Por ejemplo Teemo en jungla o Katarina en ADC: sale su estimación aunque casi no se juegue ahí, con la confianza que dan sus partidas en ese rol.</p>`; return; }
+  if (where === "draft") document.querySelectorAll("#draft-main .card[data-id]").forEach((c) => c.classList.toggle("sel", Number(c.dataset.id) === e.id));
+  if (!e.id) { out.innerHTML = `<p class="eval-empty">Escribe un campeón para ver su WR estimado y de dónde sale.</p>`; return; }
   const res = e.res;
   if (!res) { out.innerHTML = `<p class="muted">Calculando…</p>`; return; }
   if (res.error) { out.innerHTML = `<p class="neg">${esc(res.error)}</p>`; return; }
@@ -1116,15 +1188,15 @@ document.addEventListener("keydown", (e) => {
   } else if (!$("#about").hidden && e.key === "Escape") closeAbout();
 });
 
-// Portada de la pantalla de espera: qué hace Nachero, en tres ideas.
-const COVER = [
-  ['<path d="M4 5h16v14H4z"/><path d="M9 5v14M15 5v14"/>', "Lee tu selección", "Tu rol, tu equipo y el rival, en directo."],
-  ['<path d="M5 13l4 4L19 7"/>', "Recomienda picks y bans", "Con datos Master+ y tu historial."],
-  ['<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', "Prepara tus runas", "Las de Master+, al confirmar tu pick."],
+// Qué hace Nachero en tres pasos, en una línea. El primero (leer la selección) late mientras
+// espera al cliente; los otros dos llegan con la selección de campeón.
+const FLOW = [
+  ["Lee tu selección", "Tu rol, tu equipo y el rival, en directo."],
+  ["Recomienda picks y bans", "Con datos Master+ y tu historial."],
+  ["Prepara tus runas", "Las de Master+, al confirmar tu pick."],
 ];
-function cover() {
-  return `<div class="cover">${COVER.map(([d, b, s]) => `<div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg><div><b>${b}</b><small>${s}</small></div></div>`).join("")}</div>
-    <div class="cover-demo"><button class="btn" data-cover-demo>Probar con una partida de demo</button><span>Una selección de campeón simulada. No toca el cliente.</span></div>`;
+function flow(live) {
+  return `<ol class="flow ${live}" aria-label="Cómo funciona">${FLOW.map(([b, s], i) => `<li class="${i === 0 ? "now" : ""}" title="${esc(s)}"><i>${i + 1}</i>${b}</li>`).join("")}</ol>`;
 }
 
 /* ------------------------------------------------------------------ configuración guiada (#4) */

@@ -342,7 +342,9 @@ def run_session():
         pcache = {}
     if online:
         TASKS.start("history", detail="Leyendo tus últimas 200 partidas…")
-        games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
+        games = load_history(
+            lcu, str(paths.history_file()), CFG["history_queues"], log, str(paths.history_import_file())
+        )
         TASKS.finish("history", f"{len(games)} partidas de la Grieta")
         TASKS.start("mastery", detail="Leyendo…")
         mastery = lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20) or pcache.get(
@@ -467,7 +469,9 @@ def run_session():
                 queue, queue_tries, queue_logged = None, 0, False
             if phase in ("EndOfGame", "PreEndOfGame"):
                 TASKS.start("history", detail="Partida nueva: actualizando…")
-                games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
+                games = load_history(
+                    lcu, str(paths.history_file()), CFG["history_queues"], log, str(paths.history_import_file())
+                )
                 TASKS.finish("history", f"{len(games)} partidas de la Grieta")
                 with contextlib.suppress(Exception):
                     if resolve_records(games):

@@ -26,13 +26,25 @@ def role_of(p: dict) -> str:
     return ""
 
 
-def load_history(lcu, cache_path, queues, log):
+def load_history(lcu, cache_path, queues, log, import_path=None):
+    """Historial del cliente (últimas 200 partidas) unido al guardado. Con `import_path`, también las
+    partidas de `history_import.json` (tu temporada completa, del recolector: ver docs/RECOLECTOR.md)."""
     cache = {}
     if os.path.exists(cache_path):
         try:
             cache = {g["gameId"]: g for g in read_json(cache_path, [])}
         except Exception:
             cache = {}
+    if import_path and os.path.exists(import_path):
+        try:
+            extra = [g for g in read_json(import_path, []) if isinstance(g, dict) and g.get("role")]
+            added = sum(1 for g in extra if g["gameId"] not in cache)
+            for g in extra:
+                cache.setdefault(g["gameId"], g)
+            if added:
+                log(f"Historial: {added} partidas importadas de tu temporada", "ok")
+        except Exception:
+            log("No pude leer history_import.json: lo ignoro", "warn")
     try:
         mh = (
             lcu.req(

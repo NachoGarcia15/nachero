@@ -44,6 +44,9 @@ src/nachero/
              updates.py  aviso de nueva versión (latest.json público)
              main.py     argumentos y arranque
   ui/        Panel (HTML/CSS/JS sin dependencias)
+
+src/nachero_collector/   Recolector de la fase 2 (API de Riot → esquema 1). No va en la app
+                         ni en el .exe; ver docs/RECOLECTOR.md
   defaults/  Ajustes por defecto
   config.py, paths.py, jsonio.py
 ```

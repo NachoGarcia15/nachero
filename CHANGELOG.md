@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.25.0] - 2026-11-19
+
+### Añadido
+- **Recolector de partidas** con la API de Riot (`src/nachero_collector/`, aparte de la app y del
+  `.exe`; ver `docs/RECOLECTOR.md`): jugadores de Master+ de EUW, partidas nuevas de soloq y
+  conteos del esquema 1 por parche. Respeta los límites de la clave personal y `Retry-After`. Las
+  partidas en bruto se descartan al contarse; la clave solo va en `RIOT_API_KEY`.
+- **Tu historial completo**: `python -m nachero_collector historial "Nombre#TAG"` descarga tus
+  partidas de la temporada que el cliente ya no da, y Nachero las une a tu historial si dejas
+  `history_import.json` en la carpeta de tu perfil.
+
 ## [0.24.0] - 2026-11-19
 
 ### Añadido

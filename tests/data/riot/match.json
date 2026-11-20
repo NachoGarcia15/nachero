@@ -1,0 +1,615 @@
+{
+ "metadata": {
+  "dataVersion": "2",
+  "matchId": "EUW1_7000000001",
+  "participants": [
+   "puuid-0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-4xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-5xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-6xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "puuid-9xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  ]
+ },
+ "info": {
+  "gameId": 7000000001,
+  "gameCreation": 1795000000000,
+  "gameEndTimestamp": 1795001800000,
+  "gameDuration": 1800,
+  "gameVersion": "16.23.712.4321",
+  "queueId": 420,
+  "mapId": 11,
+  "participants": [
+   {
+    "puuid": "puuid-0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador0",
+    "riotIdTagline": "EUW",
+    "championId": 516,
+    "teamPosition": "TOP",
+    "teamId": 100,
+    "win": true,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador1",
+    "riotIdTagline": "EUW",
+    "championId": 163,
+    "teamPosition": "JUNGLE",
+    "teamId": 100,
+    "win": true,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8128
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador2",
+    "riotIdTagline": "EUW",
+    "championId": 103,
+    "teamPosition": "MIDDLE",
+    "teamId": 100,
+    "win": true,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador3",
+    "riotIdTagline": "EUW",
+    "championId": 222,
+    "teamPosition": "BOTTOM",
+    "teamId": 100,
+    "win": true,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8128
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-4xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador4",
+    "riotIdTagline": "EUW",
+    "championId": 412,
+    "teamPosition": "UTILITY",
+    "teamId": 100,
+    "win": true,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-5xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador5",
+    "riotIdTagline": "EUW",
+    "championId": 126,
+    "teamPosition": "TOP",
+    "teamId": 200,
+    "win": false,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8128
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-6xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador6",
+    "riotIdTagline": "EUW",
+    "championId": 64,
+    "teamPosition": "JUNGLE",
+    "teamId": 200,
+    "win": false,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador7",
+    "riotIdTagline": "EUW",
+    "championId": 55,
+    "teamPosition": "MIDDLE",
+    "teamId": 200,
+    "win": false,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8128
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador8",
+    "riotIdTagline": "EUW",
+    "championId": 17,
+    "teamPosition": "BOTTOM",
+    "teamId": 200,
+    "win": false,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "puuid": "puuid-9xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "riotIdGameName": "Jugador9",
+    "riotIdTagline": "EUW",
+    "championId": 69,
+    "teamPosition": "UTILITY",
+    "teamId": 200,
+    "win": false,
+    "kills": 5,
+    "deaths": 3,
+    "assists": 7,
+    "goldEarned": 12000,
+    "totalDamageDealtToChampions": 20000,
+    "totalMinionsKilled": 180,
+    "neutralMinionsKilled": 20,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "statPerks": {
+      "defense": 5011,
+      "flex": 5008,
+      "offense": 5005
+     },
+     "styles": [
+      {
+       "description": "primaryStyle",
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8128
+        },
+        {
+         "perk": 8139
+        },
+        {
+         "perk": 8140
+        },
+        {
+         "perk": 8105
+        }
+       ]
+      },
+      {
+       "description": "subStyle",
+       "style": 8300,
+       "selections": [
+        {
+         "perk": 8347
+        },
+        {
+         "perk": 8304
+        }
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "teams": [
+   {
+    "teamId": 100,
+    "win": true,
+    "bans": [
+     {
+      "championId": 238,
+      "pickTurn": 1
+     },
+     {
+      "championId": -1,
+      "pickTurn": 2
+     }
+    ]
+   },
+   {
+    "teamId": 200,
+    "win": false,
+    "bans": [
+     {
+      "championId": 245,
+      "pickTurn": 6
+     }
+    ]
+   }
+  ]
+ }
+}

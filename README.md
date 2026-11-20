@@ -94,6 +94,13 @@ Cada cuenta de LoL tiene su perfil: historial, maestría y rango se guardan apar
 campeón simulada con tus datos reales, sin reiniciar y sin tocar el cliente. Se cierra con
 «Salir de la demo» o sola si empieza una partida de verdad. `--demo` hace lo mismo al arrancar.
 
+## Ajustes
+Todo se cambia desde el panel (botón de ajustes, arriba a la derecha): modos y qué toca en el
+cliente, pesos de la recomendación, tu perfil y, en **Más ajustes**, el modo al abrir Nachero,
+los hechizos de cada rol, tu estilo, los bans prioritarios por rol, los puntos extra por campeón
+y los campeones que no quieres que te recomiende nunca. Se guardan en `config.json` de tu
+carpeta de datos.
+
 ## Modos
 - **Pausado**: no analiza ni actúa: ni recomienda ni toca el cliente.
 - **Observar** (el modo con el que arranca): recomienda y dice qué haría, sin tocar el cliente

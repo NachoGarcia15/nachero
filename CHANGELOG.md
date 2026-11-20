@@ -121,6 +121,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 - **El bucle de la champ select ya no espera a la red**: las fichas de campeón y el catálogo de
   runas se piden en segundo plano al arrancar, y la caché de Lolalytics se escribe sin bloquear
   al motor. Si analizar la selección tarda más de 3 s, el registro lo dice («Selección lenta: …»).
+- **Causa de que no saliera (ni se aplicara) el ban en la fase de bans**: ahí el cliente devuelve
+  `[-1]` en `bannable-champion-ids` y el filtro dejaba fuera a todos. Ahora solo cuentan ids
+  reales; si no hay, vale la lista de la planificación (igual con `pickable`).
 - Una personalizada con bans dice en el registro «con bans, recomiendo como en un draft» en
   lugar de «sin bans».
 - Mensajes nuevos en el panel y el registro: «Marcado X · se confirmará a falta de N s» y

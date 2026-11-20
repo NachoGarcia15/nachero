@@ -3,6 +3,17 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.20.0] - 2026-11-19
+
+### Añadido
+- **Fuentes de estadísticas intercambiables**: el motor solo usa la interfaz `StatsProvider`
+  (`domain/stats.py`). Lolalytics es una implementación más; otra lee un archivo local
+  (`nachero-stats.json`, formato provisional en `docs/DATOS.md`).
+- Ajuste `stats_sources` (por defecto `["lolalytics"]`): varias fuentes en orden, la primera manda
+  y las demás cubren lo que le falte. `stats_file` para la ruta del archivo local.
+- El panel (Ajustes → Datos) y el diagnóstico dicen de qué fuente salen los datos.
+- Tests de contrato comunes que toda fuente debe pasar.
+
 ## [0.19.0] - 2026-11-19
 
 ### Añadido

@@ -95,6 +95,11 @@
     "bottom": [],
     "utility": []
   },
+  "_stats_sources_info": "Fuentes de estadísticas en orden: la primera manda y las demás cubren lo que le falte. \"lolalytics\" (web) y \"local\" (archivo stats_file; vacío = stats/nachero-stats.json en tu carpeta de datos). Se aplica al reiniciar.",
+  "stats_sources": [
+    "lolalytics"
+  ],
+  "stats_file": "",
   "_history_queues_info": "Colas del historial que cuentan para tu pool: 420 soloq, 440 flex, 400 normal draft, 490 partida rapida.",
   "history_queues": [
     420,

@@ -116,6 +116,11 @@ def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
             if ok:
                 cfg[k] = {n.strip(): round(float(b), 2) for n, b in v.items() if b}
                 changed.append("campeones con puntos extra")
+        elif k == "stats_mode" and v in ("auto", "own", "lolalytics"):
+            cfg[k] = v
+            changed.append(
+                "fuente de estadísticas " + {"auto": "automática", "own": "propia", "lolalytics": "Lolalytics"}[v]
+            )
         elif k == "start_mode" and v in MODES:
             cfg[k] = v
             changed.append("modo al abrir " + {"paused": "pausado", "observe": "observar", "active": "activo"}[v])

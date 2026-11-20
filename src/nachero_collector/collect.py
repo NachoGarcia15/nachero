@@ -7,6 +7,7 @@ recolector, nunca en los datos publicados.
 """
 
 import gzip
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -105,3 +106,28 @@ def collect(riot, out_dir, state_path, region="euw1", league="master_plus", play
                "requests": riot.requests}  # fmt: skip
     log(f"Contadas {counted} partidas · parches {', '.join(sorted(docs)) or '—'} · {riot.requests} peticiones")
     return summary
+
+
+def publish_index(out_dir, now=time.time) -> dict:
+    """Escribe `index.json` con los archivos publicados (lo que lee la app, ver
+    sources/remote_stats.py). Devuelve el manifiesto."""
+    root = Path(out_dir)
+    files = []
+    for f in sorted(root.glob("*/*/*.json.gz")):
+        doc = dataset.load_file(f)
+        if dataset.validate(doc):
+            continue
+        files.append(
+            {
+                "patch": doc["patch"],
+                "region": doc["region"],
+                "league": doc["league"],
+                "path": f.relative_to(root).as_posix(),
+                "games": doc["totals"]["games"],
+                "generated": doc["generated"],
+                "sha256": hashlib.sha256(f.read_bytes()).hexdigest(),
+            }
+        )
+    index = {"schema": dataset.SCHEMA, "generated": iso(now()), "files": files}
+    (root / "index.json").write_text(json.dumps(index, indent=1), encoding="utf-8")
+    return index

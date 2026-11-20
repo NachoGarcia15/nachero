@@ -59,38 +59,28 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 ## [0.14.0] - 2026-11-19
 
 ### Cambiado
-- **Auto ban y auto pick respetan tu elección** (normas de Riot): Nachero marca su recomendación
-  una sola vez por turno y, en el pick, a falta de `lock_when_seconds_left` s confirma **lo que
-  esté marcado**: lo suyo si no has tocado nada o el campeón que hayas marcado tú. Si marcas otro
-  (en el cliente o en el panel), no lo vuelve a cambiar en ese turno, aunque el cliente tarde un
-  tick en reflejar tu cambio.
-- **El ban solo se marca, nunca se confirma**: al empezar tu turno Nachero marca el ban
-  recomendado y lo banea el cliente al acabar el tiempo (antes se confirmaba a los 1,5–3 s y, en
-  soloq, no llegaba a aplicarse). Si marcas otro, se banea el tuyo. Tampoco bloquea el bucle con
-  una espera.
-- El ban se marca al empezar la fase de bans (`BAN_PICK`), no en la planificación: ahí el cliente
-  ya da el ban como «en curso» pero ignora lo que se marque sin dar error, y el ban se quedaba
-  vacío. Si tras marcar la acción sigue vacía, no cuenta como hecho y se reintenta (también en
-  el pick); el registro dice «Ban marcado» solo cuando el cliente ya lo muestra.
-- **El bucle de la champ select ya no espera a la red.** La ficha de cada campeón (daño, aguante,
-  dificultad…) se pedía al cliente de una en una y sin caché en disco: en el primer tick tras
-  arrancar Nachero, con 30 candidatos o más, eso tardaba ~1 min y el ban no daba tiempo. Ahora se
-  piden todas en segundo plano al arrancar y, mientras llegan, se usa una ficha neutra. La caché
-  de Lolalytics (más de 10 MB) se escribe sin bloquear al motor, y el catálogo de runas
-  también se pide en segundo plano. Si analizar la selección tarda más de 3 s, el registro lo
-  dice con el tiempo de cada parte («Selección lenta: …»).
-- Antes de marcar o confirmar, Nachero relee la acción en el cliente: si el jugador acaba de
-  marcar otro campeón (también su intención de pick en la planificación), manda el suyo aunque
-  la sesión del tick vaya con retraso.
-- En soloq (los 10 banean a la vez) no repite el ban que ya ha marcado un aliado.
+- **Auto pick que respeta tu elección** (normas de Riot): Nachero marca su recomendación una
+  sola vez por turno y, a falta de `lock_when_seconds_left` s, confirma **lo que esté marcado**:
+  lo suyo si no has tocado nada o el campeón que hayas marcado tú. Si marcas otro (en el cliente
+  o en el panel), no lo vuelve a cambiar en ese turno, aunque el cliente tarde en reflejarlo.
+  Antes de marcar o confirmar relee la acción en el cliente. Si el campeón marcado se lo lleva
+  otro, vuelve a marcar la recomendación.
+- **Los bans solo se recomiendan**: se quita el ajuste «Banear» (`auto_ban`; si lo tenías
+  guardado, se ignora). Nachero nunca marca ni confirma un ban, ni desde el panel. La
+  recomendación tiene en cuenta el campeón que Nachero te recomienda jugar (o el que tengas
+  marcado) y los picks o intenciones de tus aliados: prioriza a quien los countea (matchups en
+  caché) junto con la fuerza en el parche, dice por qué («countea a Taliyah (tu pick) y a
+  Garen») y no repite lo que ya han marcado o baneado tus aliados.
+- **El bucle de la champ select ya no espera a la red**: las fichas de campeón y el catálogo de
+  runas se piden en segundo plano al arrancar, y la caché de Lolalytics se escribe sin bloquear
+  al motor. Si analizar la selección tarda más de 3 s, el registro lo dice («Selección lenta: …»).
 - Una personalizada con bans dice en el registro «con bans, recomiendo como en un draft» en
   lugar de «sin bans».
-- Si el campeón marcado se lo lleva otro, vuelve a marcar la recomendación.
-- Mensajes nuevos en el panel y el registro: «Marcado X · se confirmará a falta de N s»,
-  «Marcado X · lo banea el cliente al acabar el tiempo» y «Has elegido X: se confirmará X».
+- Mensajes nuevos en el panel y el registro: «Marcado X · se confirmará a falta de N s» y
+  «Has elegido X: se confirmará X».
 
 ### Añadido
-- **Elegir desde el panel**: en tu turno, botones con las 5 mejores opciones de pick o de ban.
+- **Elegir desde el panel**: en tu turno de pick, botones con las 5 mejores opciones.
   Un clic lo marca en el cliente (`POST /api/draft/choose`) y cuenta como elección tuya.
   Solo en modo Activo y con la acción pendiente.
 

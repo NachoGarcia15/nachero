@@ -28,6 +28,7 @@ class Draft:
         self.hovered: dict[int, int] = {}
         self.choice: dict[int, int] = {}
         self.confirmed: set[int] = set()
+        self.last_ids: dict[str, set[int]] = {}  # última lista válida de pickable/bannable en esta selección
         self.timings: dict[str, float] = {}  # cuánto tarda cada parte del último tick (registro)
         self.context = None  # rol, aliados y rivales del último tick (para «Evaluar cualquier campeón»)
         # ARAM: campeón que tienes, desde cuándo (los rerolls van rápido) y para cuál se importaron
@@ -83,7 +84,7 @@ class Draft:
         }
         enemy_ids = [m["championId"] for m in s["theirTeam"] if m["championId"]]
         if pickable is None:
-            pickable = set(self.lcu.get("/lol-champ-select/v1/pickable-champion-ids") or [])
+            pickable = self.valid_ids("pickable", self.lcu.get("/lol-champ-select/v1/pickable-champion-ids"))
         # tu ban pendiente; si hubiera varios, primero el que está en curso (en soloq, los 10 a la vez)
         mine_bans = [a for a in acts if a["actorCellId"] == me and a["type"] == "ban" and not a["completed"]]
         my_ban = next((a for a in mine_bans if a.get("isInProgress")), mine_bans[0] if mine_bans else None)
@@ -170,7 +171,7 @@ class Draft:
         bans = []
         if my_ban:  # solo mientras tu ban este pendiente
             if bannable is None:
-                bannable = set(self.lcu.get("/lol-champ-select/v1/bannable-champion-ids") or [])
+                bannable = self.valid_ids("bannable", self.lcu.get("/lol-champ-select/v1/bannable-champion-ids"))
             # contra tu pick recomendado (o el que tengas marcado) y los picks o intenciones de tus aliados
             mine_now = (my_pick or {}).get("championId") or 0
             top = ([{"id": mine_now, "name": ch.name(mine_now)}] if mine_now and mine_now != (best or {}).get("id")
@@ -385,6 +386,16 @@ class Draft:
         elif not acting and hover and target:
             status.append(("info", f"Marcaría {target['name']}"))
         return {"marked": marked, "by": by}
+
+    def valid_ids(self, kind, ids):
+        """Ids de campeón reales (> 0) de `pickable`/`bannable`. En BAN_PICK el cliente devuelve
+        `[-1]` en bannable: entonces vale la última lista válida (la de planificación) o, sin ella,
+        ninguna (no se filtra; lo baneado o elegido ya se excluye aparte)."""
+        got = {c for c in ids or [] if isinstance(c, int) and not isinstance(c, bool) and c > 0}
+        if got:
+            self.last_ids[kind] = got
+            return got
+        return set(self.last_ids.get(kind, set()))
 
     def action_now(self, aid):
         """El campeón marcado ahora mismo en la acción `aid` (0 si ninguno), leído del cliente; en un

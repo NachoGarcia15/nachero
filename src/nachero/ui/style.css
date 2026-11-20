@@ -820,3 +820,5 @@ small.err { color: var(--neg); }
 .cal-sum { margin: 6px 0; color: var(--text-2); font-size: 13px; }
 .cal-sum b { color: var(--text); }
 @media (max-width: 760px) { .cal-row { grid-template-columns: 70px 44px 1fr 56px 56px; gap: 6px; } }
+.srcpick { display: grid; gap: 6px; margin-bottom: 12px; }
+.srcpick .seg { width: fit-content; }

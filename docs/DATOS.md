@@ -61,6 +61,14 @@ cubren lo que le falte (`ChainStats`). El panel dice de cuál salen los datos.
 }
 ```
 
+- `"remote"`: los **datos propios publicados** (#20). La app lee `index.json` de `stats_url`, baja
+  el archivo del parche actual y el del anterior (`ETag`, cada hora) a `cache/stats/` y los usa como
+  `"local"`. Ver `docs/RECOLECTOR.md` para publicarlos.
+
+Lo normal es elegir la fuente con `stats_mode` (Ajustes → Datos): **automática** (propios si los
+hay del parche y la liga; si no, Lolalytics, y el panel lo dice), **propia** o **Lolalytics**.
+`stats_sources` solo hace falta para combinaciones a mano.
+
 Toda fuente nueva pasa los tests de contrato de `tests/test_fuentes.py`.
 
 ## Reglas que no cambian

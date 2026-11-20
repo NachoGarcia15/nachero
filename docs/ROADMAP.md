@@ -7,11 +7,10 @@
   oficial y puede cambiar ([docs](https://developer.riotgames.com/docs/lol)).
 - Prohibido: *"Apps that dictate player decisions"*. Los productos *"should not remove game
   decisions, but may highlight decisions that are important and give multiple choices"*.
-  → Recomendar sí. **Auto-ban, auto-marcar y auto-confirmar solo si** siguen la lógica de la
-  app, son opcionales (desactivados por defecto) y **nunca pisan la selección del jugador**:
-  Nachero marca su recomendación, el jugador la puede cambiar en el cliente o en el panel, y al
-  final del turno se confirma lo que esté marcado (el ban, el propio cliente al acabar el
-  tiempo) (#30). Al registrar la app (#24) se describe así
+  → Recomendar sí. Bans: solo se recomiendan, nunca se marcan (#30). **Auto-marcar y
+  auto-confirmar el pick solo si** siguen la lógica de la app, son opcionales (desactivados por
+  defecto) y **nunca pisan la selección del jugador**: Nachero marca su recomendación, el jugador
+  la puede cambiar en el cliente o en el panel, y al final del turno se confirma lo marcado. Al registrar la app (#24) se describe así
   y se pregunta a Riot; si dicen que no, se quitan esos ajustes. Auto-aceptar: opcional.
 - No identificar a jugadores ocultos por el juego (Nachero no lo hace).
 - Aviso obligatorio y visible: *"Nachero isn't endorsed by Riot Games and doesn't reflect the

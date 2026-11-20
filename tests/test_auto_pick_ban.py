@@ -21,6 +21,7 @@ class Client:
 
     def __init__(self, session, reject=()):
         self.s, self.reject, self.patches = session, set(reject), []
+        self.swallow = 0  # PATCH que el cliente acepta sin error pero no aplica
 
     def action(self, aid):
         return next(a for grp in self.s["actions"] for a in grp if a["id"] == aid)
@@ -37,6 +38,9 @@ class Client:
             if body.get("championId") in self.reject:
                 return None  # el cliente no lo acepta (p. ej. no lo tienes)
             self.patches.append((aid, dict(body)))
+            if self.swallow:
+                self.swallow -= 1
+                return b""
             self.action(aid).update(body)
         return b""
 
@@ -316,6 +320,48 @@ def test_soloq_diez_bans_a_la_vez(champs, auto):
     assert len(ban_patches) == 1 and ban_patches[0][0] == 103  # tu acción, no la de otro
     assert "completed" not in ban_patches[0][1]
     assert out["choose"]["marked"] == ban_patches[0][1]["championId"]
+
+
+def test_planificacion_no_marca_el_ban_y_lo_marca_en_bans(champs, auto):
+    """En PLANNING el cliente da el ban como «en curso» pero ignora lo que se marque en él."""
+    s = soloq("PLANNING")
+    for a in s["actions"][0]:
+        a["isInProgress"] = True
+    lcu = Client(s)
+    d = Draft(lcu, champs, engine(champs))
+    out = tick(d, lcu)
+    assert not [p for p in lcu.patches if p[0] == 103]  # nada en el ban durante la planificación
+    assert out["my_turn"] is None and out["choose"]["kind"] == "pick"
+    assert d.choose("ban", 4) == (False, "Aún no te toca banear")
+    lcu.s["timer"]["phase"] = "BAN_PICK"
+    out = tick(d, lcu)
+    ban = out["ban_suggestions"][0]["id"]
+    assert [p for p in lcu.patches if p[0] == 103] == [(103, {"championId": ban})]
+    assert lcu.action(103)["championId"] == ban and out["my_turn"] == "ban"
+
+
+def test_marcado_que_el_cliente_no_aplica_se_reintenta(champs, auto):
+    """El PATCH del ban no da error pero la acción sigue en 0: no cuenta como hecho."""
+    lcu = Client(soloq())
+    lcu.swallow = 1
+    d = Draft(lcu, champs, engine(champs))
+    out = tick(d, lcu)
+    ban = out["ban_suggestions"][0]["id"]
+    assert lcu.action(103)["championId"] == 0
+    out = tick(d, lcu)
+    assert lcu.action(103)["championId"] == ban
+    assert out["choose"] == {**out["choose"], "marked": ban, "by": "nachero"}
+    tick(d, lcu)
+    assert len([p for p in lcu.patches if p[0] == 103]) == 2  # ya reflejado: no vuelve a marcar
+
+
+def test_pick_que_el_cliente_no_aplica_se_reintenta(champs, auto):
+    lcu = Client(session())
+    lcu.swallow = 1
+    d = Draft(lcu, champs, engine(champs))
+    best = tick(d, lcu)["hero"]["id"]
+    out = tick(d, lcu)
+    assert lcu.patches == [(1, {"championId": best})] * 2 and out["choose"]["by"] == "nachero"
 
 
 def test_soloq_no_repite_el_ban_de_un_aliado(champs, auto):

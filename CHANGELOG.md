@@ -87,8 +87,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   o en el panel), no lo vuelve a cambiar en ese turno, aunque el cliente tarde en reflejarlo.
   Antes de marcar o confirmar relee la acción en el cliente. Si el campeón marcado se lo lleva
   otro, vuelve a marcar la recomendación.
-- **Los bans solo se recomiendan**: se quita el ajuste «Banear» (`auto_ban`; si lo tenías
-  guardado, se ignora). Nachero nunca marca ni confirma un ban, ni desde el panel. La
+- **Auto ban: solo marca**. Con «Banear» (desactivado por defecto), en la fase de bans
+  (`BAN_PICK`, nunca en la planificación) Nachero marca el ban recomendado sin confirmarlo: lo
+  banea el cliente al acabar el tiempo. Comprueba que el cliente lo muestra (si no, reintenta)
+  y, si marcas otro (en el cliente o en el panel), no lo vuelve a tocar. La
   recomendación tiene en cuenta el campeón que Nachero te recomienda jugar (o el que tengas
   marcado) y los picks o intenciones de tus aliados: prioriza a quien los countea (matchups en
   caché) junto con la fuerza en el parche, dice por qué («countea a Taliyah (tu pick) y a
@@ -105,7 +107,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   «Has elegido X: se confirmará X».
 
 ### Añadido
-- **Elegir desde el panel**: en tu turno de pick, botones con las 5 mejores opciones.
+- **Elegir desde el panel**: en tu turno, botones con las 5 mejores opciones de pick o de ban.
   Un clic lo marca en el cliente (`POST /api/draft/choose`) y cuenta como elección tuya.
   Solo en modo Activo y con la acción pendiente.
 

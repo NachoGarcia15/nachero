@@ -3,6 +3,24 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.27.0] - 2026-11-20
+
+### Cambiado
+- **Pantalla de espera en dos columnas**: los picks a ciegas a la izquierda y, al lado, «Evaluar
+  cualquier campeón» y una tarjeta de estado (fuente de datos, parche y su antigüedad, tus
+  partidas). Por debajo de 1100 px vuelve a una columna.
+- **Tarjetas de pick nuevas**: posición y tier (píldora de color: S dorado, A verde, B azul, C y D
+  neutros) en las esquinas, WR estimado grande, y debajo tus partidas y la confianza con un punto
+  de color. El detalle completo, al pasar el ratón. **Pulsar una tarjeta la evalúa** al lado, con
+  el desglose de por qué sale ese WR.
+- Cabecera de la espera con un **punto vivo** mientras escucha al cliente, el botón de demo a la
+  derecha y los tres pasos de Nachero en una sola línea en vez de tres tarjetas.
+- **Menos texto fijo**: las explicaciones (tu rol, base de la recomendación, modo, alternativas,
+  evaluar, Tu pool) pasan a un «?» que se abre al pasar el ratón o con el teclado.
+- **Capas de superficie** (fondo, paneles y controles con tonos y sombras distintos), rango en
+  una insignia, foco visible con teclado y tier en color también en Tu pool. En Tu pool, evaluar
+  y «¿Acierta Nachero?» van uno al lado del otro bajo la tabla.
+
 ## [0.26.0] - 2026-11-19
 
 ### Añadido

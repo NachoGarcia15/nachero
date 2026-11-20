@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.24.0] - 2026-11-19
+
+### Añadido
+- **Formato de datos propio, esquema 1** (`docs/FORMATO_DATOS.md`): un archivo por parche, región
+  y liga (`16.22/euw1/master_plus.json.gz`) con conteos agregados (partidas y victorias) por
+  campeón y rol, bans, matchups por pareja de líneas, sinergias de dúo y páginas de runas. Sin
+  identificadores de jugadores: el lector rechaza el archivo si los lleva.
+- Lector con validación (`sources/dataset.py`) que calcula WR, pick y ban rate, reparto por roles,
+  tier, «delta 1/2» de los matchups y las runas más jugada y de mayor WR.
+- **Principio de parche**: con pocas partidas se mezcla con el parche anterior; el anterior pesa
+  k / (n + k), el mismo encogimiento del motor.
+- La fuente «Archivo local» (`stats_sources: ["local"]`) lee un archivo del esquema o una carpeta
+  con la estructura publicada.
+
 ## [0.23.0] - 2026-11-19
 
 ### Añadido

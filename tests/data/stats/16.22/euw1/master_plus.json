@@ -1,0 +1,129 @@
+{
+ "schema": 1,
+ "patch": "16.22",
+ "region": "euw1",
+ "league": "master_plus",
+ "generated": "2026-11-12T08:00:00Z",
+ "cutoff": "2026-11-12T08:00:00Z",
+ "collector": "nachero-collector 0.1.0",
+ "totals": {
+  "games": 6000
+ },
+ "champions": {
+  "163": {
+   "bans": 120,
+   "roles": {
+    "jungle": {
+     "games": 900,
+     "wins": 495,
+     "runes": [
+      {
+       "pri": [
+        8112,
+        8139,
+        8140,
+        8105
+       ],
+       "sec": [
+        8347,
+        8304
+       ],
+       "mod": [
+        5008,
+        5008,
+        5007
+       ],
+       "games": 600,
+       "wins": 312
+      },
+      {
+       "pri": [
+        8128,
+        8139,
+        8140,
+        8105
+       ],
+       "sec": [
+        8347,
+        8304
+       ],
+       "mod": [
+        5008,
+        5008,
+        5007
+       ],
+       "games": 300,
+       "wins": 183
+      }
+     ]
+    },
+    "middle": {
+     "games": 300,
+     "wins": 156
+    }
+   }
+  },
+  "64": {
+   "bans": 360,
+   "roles": {
+    "jungle": {
+     "games": 1200,
+     "wins": 588
+    }
+   }
+  },
+  "103": {
+   "bans": 30,
+   "roles": {
+    "middle": {
+     "games": 1050,
+     "wins": 546
+    }
+   }
+  },
+  "222": {
+   "bans": 15,
+   "roles": {
+    "bottom": {
+     "games": 900,
+     "wins": 450
+    }
+   }
+  },
+  "412": {
+   "bans": 15,
+   "roles": {
+    "utility": {
+     "games": 840,
+     "wins": 441
+    }
+   }
+  },
+  "516": {
+   "bans": 15,
+   "roles": {
+    "top": {
+     "games": 750,
+     "wins": 390
+    }
+   }
+  }
+ },
+ "matchups": {
+  "163:jungle": {
+   "64:jungle": {
+    "games": 270,
+    "wins": 156,
+    "gold15": 180
+   }
+  }
+ },
+ "synergies": {
+  "163:jungle": {
+   "103:middle": {
+    "games": 120,
+    "wins": 75
+   }
+  }
+ }
+}

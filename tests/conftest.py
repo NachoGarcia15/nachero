@@ -141,6 +141,14 @@ def real_champs():
     return FakeChamps(REAL_CHAMPS)
 
 
+@pytest.fixture(autouse=True)
+def sin_perfil(monkeypatch):
+    """Cada prueba empieza sin perfil de cuenta en uso."""
+    from nachero import paths
+
+    monkeypatch.setitem(paths._PROFILE, "id", None)
+
+
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     """Carpeta de datos de usuario aislada para cada prueba."""

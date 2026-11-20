@@ -227,6 +227,26 @@ def load_tournament(name):
         TASKS.fail("golgg", f"gol.gg no responde ({name}): pruébalo otra vez en un rato")
 
 
+def open_profile(lcu):
+    """Usa los datos de la cuenta conectada (o, sin cliente, los de la última). Sin datos
+    personales en el registro: ni nombre ni puuid."""
+    me = lcu.get("/lol-summoner/v1/current-summoner", timeout=10) if lcu else None
+    me = me if isinstance(me, dict) else {}
+    pid = me.get("puuid")
+    moved = paths.use_profile(pid or paths.last_profile())
+    if moved:
+        log("Tu historial y tu maestría pasan al perfil de esta cuenta", "ok")
+    name, tag = me.get("gameName") or me.get("displayName"), me.get("tagLine")
+    with LOCK:
+        if pid:
+            APP["profile"] = {"name": f"{name}#{tag}" if name and tag else name or "", "saved": False}
+        elif paths.profile_id():
+            APP["profile"] = {"name": "", "saved": True}  # sin cliente: la última cuenta
+        else:
+            APP["profile"] = None
+    return paths.profile_id()
+
+
 def run_session():
     TASKS.plan()
     lcu = LCU()
@@ -237,6 +257,7 @@ def run_session():
         TASKS.finish("client", "Conectado")
     else:
         TASKS.skip("client", "Cerrado: sigo sin él")
+    open_profile(lcu if online else None)
     try:
         pcache = read_json(paths.player_file(), {})
     except Exception:

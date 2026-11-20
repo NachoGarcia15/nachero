@@ -168,6 +168,12 @@ class Engine:
             for cid, m in self.player.mastery.items():
                 if m.get("championPoints", 0) >= 40000 and R.at_least(self.roles.category(cid, role), "occasional"):
                     out.add(cid)
+            # los que estás practicando (puntos extra), aunque aún no los hayas jugado
+            for name, bonus in self.cfg.get("pool_bonus", {}).items():
+                cid = self.champs.id(name)
+                practicing = isinstance(bonus, (int, float)) and bonus > 0
+                if cid and practicing and R.at_least(self.roles.category(cid, role), "occasional"):
+                    out.add(cid)
         never = {self.champs.id(n) for n in self.cfg.get("never_pick", [])}
         return {c for c in out if c and c not in never}
 
@@ -333,7 +339,8 @@ class Engine:
             "vs_comp": vc * self.w("comp"),
             "risk": risk * self.w("matchup"),
         }
-        bonus = float(self.cfg.get("pool_bonus", {}).get(self.champs.name(cid), 0)) if pool_mode else 0.0
+        bonus = self.cfg.get("pool_bonus", {}).get(self.champs.name(cid), 0)
+        bonus = float(bonus) if pool_mode and isinstance(bonus, (int, float)) else 0.0
         total = sum(parts.values()) + bonus
         return {
             "id": cid,

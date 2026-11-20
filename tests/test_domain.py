@@ -149,3 +149,14 @@ def test_resumen_del_historial_frente_a_la_temporada():
 def test_resumen_del_historial_sin_ranked_ni_partidas():
     h = Player([], []).history_summary(None)
     assert h == {"games": 0, "since": None, "season": None, "missing": 0, "client_limit": 200}
+
+
+def test_composicion_cuenta_lo_marcado_como_estimacion(champs):
+    from nachero.domain.engine import comp_summary
+
+    solo = comp_summary([4], champs)
+    assert solo["est"] == 0 and solo["ad"] == 1 and solo["phys"] == 100
+    con = comp_summary([4], champs, hovers=[1, 2, 4, 0])  # repetidos y vacíos no cuentan
+    assert con["n"] == 3 and con["est"] == 2 and con["ap"] == 2 and con["front"] == 1
+    assert 0 < con["phys"] < 100
+    assert comp_summary([], champs)["phys"] is None

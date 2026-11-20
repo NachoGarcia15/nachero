@@ -4,6 +4,8 @@ Solo crea, reemplaza o borra paginas cuyo nombre empieza por "Nachero" (o "draft
 antiguo): nunca toca las tuyas.
 """
 
+import threading
+
 from nachero.domain import runes as R
 
 
@@ -14,6 +16,19 @@ class RuneImporter:
         self._styles_of: dict[int, int] | None = None
         self.perk_names: dict[int, str] = {}
         self.style_names: dict[int, str] = {}
+        self.loading = False  # catálogo pidiéndose en segundo plano (ver preload)
+
+    def preload(self) -> None:
+        """Pide el catálogo de runas en segundo plano: describe() no espera mientras llega."""
+        self.loading = True
+
+        def load():
+            try:
+                self.styles_of()
+            finally:
+                self.loading = False
+
+        threading.Thread(target=load, daemon=True).start()
 
     def styles_of(self) -> dict[int, int]:
         if self._styles_of is None:
@@ -27,6 +42,8 @@ class RuneImporter:
         return self._styles_of
 
     def describe(self, rune_set: dict) -> dict | None:
+        if self._styles_of is None and self.loading:
+            return None  # el catálogo aún no ha llegado: el panel lo describe en el siguiente tick
         return R.describe(rune_set, self.styles_of(), self.perk_names, self.style_names)
 
     def apply(self, lcu, champion: str, role_short: str, rune_set: dict) -> tuple[bool, str]:

@@ -74,7 +74,9 @@ class Draft:
         enemy_ids = [m["championId"] for m in s["theirTeam"] if m["championId"]]
         if pickable is None:
             pickable = set(self.lcu.get("/lol-champ-select/v1/pickable-champion-ids") or [])
-        my_ban = next((a for a in acts if a["actorCellId"] == me and a["type"] == "ban" and not a["completed"]), None)
+        # tu ban pendiente; si hubiera varios, primero el que está en curso (en soloq, los 10 a la vez)
+        mine_bans = [a for a in acts if a["actorCellId"] == me and a["type"] == "ban" and not a["completed"]]
+        my_ban = next((a for a in mine_bans if a.get("isInProgress")), mine_bans[0] if mine_bans else None)
         my_pick = next((a for a in acts if a["actorCellId"] == me and a["type"] == "pick"), None)
         timer = s.get("timer", {})
         left = max(0, timer.get("adjustedTimeLeftInPhase", 0) / 1000)
@@ -131,7 +133,21 @@ class Draft:
             self.recorded = True
             fit = ctx.get("role_fit") or {}
             self.record = calibration.make_record(time.time() * 1000, queue, role, mine, self.last_top, fit.get("kind"))
-        blocked = banned | set(ally_ids) | set(enemy_ids) | ally_intent | {p["id"] for p in picks[:2]} | {locked}
+        # en soloq todos banean a la vez: no repetir el ban que ya ha marcado un aliado
+        ally_ban_intent = {
+            a["championId"]
+            for a in acts
+            if a["type"] == "ban" and not a["completed"] and a.get("isAllyAction") and a["actorCellId"] != me
+        } - {0}
+        blocked = (
+            banned
+            | set(ally_ids)
+            | set(enemy_ids)
+            | ally_intent
+            | ally_ban_intent
+            | {p["id"] for p in picks[:2]}
+            | {locked}
+        )
         bans = []
         if my_ban:  # solo mientras tu ban este pendiente
             if bannable is None:
@@ -152,13 +168,14 @@ class Draft:
             else:
                 status.append(("info", f"Pondría {names}"))
 
-        # ban y pick: Nachero marca su recomendación y confirma lo que esté marcado al final del
-        # turno; si el jugador marca otro campeón (en el cliente o en el panel), manda el jugador
+        # ban y pick: Nachero marca su recomendación (una vez por acción). El pick confirma lo que
+        # esté marcado al final del turno; el ban no se confirma nunca: lo hace el cliente al acabar
+        # el tiempo. Si el jugador marca otro campeón (en el cliente o en el panel), manda el jugador
         taken = banned | set(ally_ids) | set(enemy_ids)
         choose = None
         if my_ban and my_ban["isInProgress"]:
             auto = CFG.get("auto_ban", False)
-            turn = self.turn("ban", my_ban, bans[0] if bans else None, taken, acting, auto, auto, left, status)
+            turn = self.turn("ban", my_ban, bans[0] if bans else None, taken, acting, auto, False, left, status)
             choose = {"kind": "ban", "options": [ch.brief(b["id"]) for b in bans[:5]], **turn}
         if my_pick and not my_pick["completed"] and best:
             turn = self.turn(
@@ -274,14 +291,19 @@ class Draft:
     def turn(self, kind, action, target, taken, acting, hover, lock, left, status):
         """Tu ban o tu pick (`kind`) en la acción pendiente `action`.
 
-        Con `hover`, marca la recomendación `target`; con `lock`, confirma lo que esté marcado a
-        falta de `lock_when_seconds_left` s. Si lo marcado no es lo que marcó Nachero, es la
-        elección del jugador: no se vuelve a marcar en ese turno y se confirma eso.
+        Con `hover`, Nachero marca la recomendación `target` una sola vez por acción; solo la
+        vuelve a marcar si lo marcado deja de estar disponible (lo elige o lo banea otro). Si lo
+        marcado no es lo que marcó Nachero, es la elección del jugador y manda en ese turno. Así
+        no pisa al jugador aunque el cliente devuelva su cambio un tick tarde.
+
+        Pick: con `lock`, confirma lo que esté marcado a falta de `lock_when_seconds_left` s.
+        Ban: solo se marca, nunca se confirma: lo banea el cliente al acabar el tiempo.
         Devuelve qué hay marcado y quién lo marcó, para el panel."""
         name = self.champs.name
         aid, cur = action["id"], action.get("championId") or 0
         secs = CFG.get("lock_when_seconds_left", 8)
         ban = kind == "ban"
+        lock = lock and not ban
         if cur and cur != self.hovered.get(aid):  # lo ha marcado el jugador (el registro lo dice el estado)
             self.choice[aid] = cur
         choice = self.choice.get(aid)
@@ -293,8 +315,15 @@ class Draft:
         marked = choice or (cur if cur not in taken else 0)
         # el pick se puede marcar antes de tu turno (intención); el ban, solo en tu turno
         can_hover = not choice and hover and acting and target and (not ban or action["isInProgress"])
-        if can_hover and cur != target["id"] and self.patch(aid, {"championId": target["id"]}):
-            self.hovered[aid] = marked = target["id"]
+        # una vez por acción: si ya marcó, no vuelve a hacerlo salvo que lo marcado ya no valga
+        fresh = aid not in self.hovered or cur in taken
+        if can_hover and fresh and cur != target["id"]:
+            if self.patch(aid, {"championId": target["id"]}):
+                self.hovered[aid] = marked = target["id"]
+                if ban:
+                    self.note(f"Ban marcado: {name(marked)} · lo banea el cliente al acabar el tiempo")
+            else:  # se reintenta en el siguiente tick (antes un rechazo dejaba el ban sin hacer)
+                self.note(f"El cliente no deja marcar {name(target['id'])}: lo reintento", "warn")
         by = "player" if choice else ("nachero" if marked and marked == self.hovered.get(aid) else None)
         if action["isInProgress"]:
             final = marked or (target["id"] if target else 0)
@@ -302,14 +331,20 @@ class Draft:
             if acting and lock and final and 0 < left <= secs:  # sin reloj (0) no se confirma a ciegas
                 if aid not in self.confirmed and self.patch(aid, {"championId": final, "completed": True}):
                     self.confirmed.add(aid)
-                    self.note(("Baneado " if ban else "Confirmado ") + name(final))
+                    self.note(f"Confirmado {name(final)}")
+            elif ban and acting and marked and (by == "player" or hover):
+                if by == "player":
+                    msg = f"Has elegido banear {name(marked)} · lo banea el cliente al acabar el tiempo"
+                else:
+                    msg = f"Marcado {name(marked)} · lo banea el cliente al acabar el tiempo"
+                status.append(("turn_auto", msg))
             elif acting and lock and final:
                 if by == "player":
                     msg = f"Has elegido {what}: se confirmará {name(final)}"
                 elif by == "nachero":
-                    msg = f"{'Ban marcado' if ban else 'Marcado'} {name(final)} · se confirmará a falta de {secs} s"
+                    msg = f"Marcado {name(final)} · se confirmará a falta de {secs} s"
                 else:
-                    msg = f"Te toca {'banear' if ban else 'elegir'}: {name(final)} · se confirmará a falta de {secs} s"
+                    msg = f"Te toca elegir: {name(final)} · se confirmará a falta de {secs} s"
                 status.append(("turn_auto", msg))
             elif by == "player":
                 status.append(("turn", f"Has elegido {what}: confírmalo tú"))

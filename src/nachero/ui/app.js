@@ -15,6 +15,7 @@ let STATE = null;
 let VIEW = "draft";
 let POOL_ROLE = "all";
 let POOL_SORT = { key: "est", dir: -1 };
+let POOL_Q = "";
 
 /* ------------------------------------------------------------------ red */
 async function post(url, body) {
@@ -32,6 +33,10 @@ function setView(v) {
   VIEW = v;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   ["draft", "pool", "pro", "log"].forEach((k) => ($("#view-" + k).hidden = k !== v));
+  const sec = $("#view-" + v);
+  sec.classList.remove("view-in");
+  void sec.offsetWidth;
+  sec.classList.add("view-in");
   if (v === "pro" && typeof proInit === "function") proInit();
   if (v === "pool") loadCalibration(true);
   try { localStorage.setItem("nachero.view", v); } catch (_) {}
@@ -179,9 +184,13 @@ function renderWork(s) {
   w.hidden = !show;
   if (!show) return;
   w.classList.toggle("err", !pg.busy);
-  w.querySelector("span").textContent = pg.busy ? `Actualizando · ${pg.label}` : `${errs[0].text}: falló, reintento solo`;
+  w.querySelector("span").textContent = pg.busy ? `Actualizando${pg.steps > 1 ? ` ${pg.step}/${pg.steps}` : ""}` : "Error al actualizar";
   const mark = { done: "✓", running: "…", error: "!", skipped: "–", pending: "·" };
-  w.title = (s.tasks || []).map((t) => `${mark[t.state] || ""} ${t.text}${t.total && t.state === "running" ? ` ${t.done}/${t.total}` : ""}${t.state === "error" ? `: ${t.error}` : t.detail ? `: ${t.detail}` : ""}`).join("\n");
+  w.title = (pg.busy ? `${pg.label}
+
+` : `${errs[0].text}: falló, reintento solo
+
+`) + (s.tasks || []).map((t) => `${mark[t.state] || ""} ${t.text}${t.total && t.state === "running" ? ` ${t.done}/${t.total}` : ""}${t.state === "error" ? `: ${t.error}` : t.detail ? `: ${t.detail}` : ""}`).join("\n");
 }
 
 function renderHeader(s) {
@@ -208,7 +217,7 @@ function renderHeader(s) {
   // qué hace el modo actual: al pasar el ratón por el selector (antes, una línea fija bajo la barra)
   const cur = modes[s.mode];
   $("#modes").title = cur ? `${cur.label}: ${s.mode === "active" && !s.demo ? cur.text + " " + cur.summary : cur.text}` : "";
-  once("modes", modes, () => renderModes(modes));
+  once("modes", [modes, s.mode], () => renderModes(modes, s.mode));
 }
 
 // Aviso de nueva versión (si `update_url` apunta a un latest.json): enlace a la descarga.
@@ -219,12 +228,12 @@ function renderUpdate(u) {
   el.innerHTML = `<span>Hay una versión nueva de Nachero: <b>${esc(u.version)}</b>${u.notes ? ` · ${esc(u.notes)}` : ""}</span><a class="btn" href="${esc(u.url)}" target="_blank" rel="noopener">Descargar</a>`;
 }
 
-function renderModes(modes) {
+function renderModes(modes, cur) {
   $("#modes-help").innerHTML = ["paused", "observe", "active"].filter((k) => modes[k]).map((k) => {
     const m = modes[k];
     const touches = k !== "active" ? "No toca el cliente."
       : m.touches.length ? `En el cliente: ${m.touches.map(esc).join(" · ")}.` : "Con tus ajustes no toca el cliente.";
-    return `<div class="opt"><div class="tx"><b>${esc(m.label)}</b><small>${esc(m.text)}<br>${touches}</small></div></div>`;
+    return `<div class="opt mode ${k === cur ? "cur" : ""}"><div class="tx"><b>${esc(m.label)}${k === cur ? `<span class="now">Ahora</span>` : ""}</b><small>${esc(m.text)}<br>${touches}</small></div></div>`;
   }).join("");
 }
 
@@ -241,11 +250,17 @@ function slot(p, side) {
 }
 
 function comp(c) {
-  return `${c.identity ? `<div class="ident">${esc(c.identity)}</div>` : ""}<div class="comp">
+  const est = c.est > 0;
+  const tip = est ? ` title="Incluye ${c.est} campeón${c.est === 1 ? "" : "es"} solo marcado${c.est === 1 ? "" : "s"}: puede cambiar"` : "";
+  const dmg = c.phys == null ? "" : `<div class="dmgbar" title="Daño del equipo: ${c.phys} % físico · ${100 - c.phys} % mágico">
+      <i class="ad" style="width:${c.phys}%"></i><i class="ap" style="width:${100 - c.phys}%"></i></div>
+    <div class="dmglbl"><span>Físico ${c.phys} %</span><span>Mágico ${100 - c.phys} %</span></div>`;
+  return `${c.identity ? `<div class="ident">${esc(c.identity)}</div>` : ""}<div class="comp ${est ? "est" : ""}"${tip}>
     <div><b>${c.ad}</b><small>AD</small></div>
     <div><b>${c.ap}</b><small>AP</small></div>
     <div><b>${c.front}</b><small>Frontline</small></div>
-    <div><b>${c.cc}</b><small>Control</small></div></div>`;
+    <div><b>${c.cc}</b><small>Control</small></div></div>
+    ${est ? `<div class="comp-est">estimado con lo marcado</div>` : ""}${dmg}`;
 }
 
 const PART_LABELS = [
@@ -267,7 +282,8 @@ function parts(p, d) {
     const pending = MU_PARTS.includes(k) && !p.matchups_loaded;
     const v = p.parts[k] || 0;
     const w = pending ? 0 : Math.min(50, (Math.abs(v) / 4) * 50);
-    return `<div class="part"><span>${label}</span><div class="track"><i class="${v >= 0 ? "p" : "n"}" style="width:${w}%"></i></div><span class="v ${pending ? "muted" : tone(v)}">${pending ? "…" : signed(v)}</span></div>`;
+    const zero = !pending && Math.abs(v) < 0.05;
+    return `<div class="part ${zero ? "zero" : ""}"><span>${label}</span><div class="track"><i class="${v >= 0 ? "p" : "n"}" style="width:${w}%"></i></div><span class="v ${pending ? "muted" : tone(v)}">${pending ? "…" : signed(v)}</span></div>`;
   }).join("")}</div>`;
 }
 
@@ -313,13 +329,18 @@ const RUNES_STATE = {
   pending: "Runas",
 };
 
+// Color de cada rama de runas (nombres del cliente, en inglés o español).
+const TREES = { precision: "precision", precisión: "precision", domination: "domination", dominación: "domination",
+  sorcery: "sorcery", brujería: "sorcery", resolve: "resolve", valor: "resolve", inspiration: "inspiration", inspiración: "inspiration" };
+const treeClass = (name) => (TREES[String(name || "").toLowerCase()] ? "tree-" + TREES[String(name || "").toLowerCase()] : "");
+
 function runesLine(r, locked) {
   if (!r) return "";
   if (r.state === "loading") return `<div class="runes muted">Cargando runas…</div>`;
   if (r.state === "none") {
     return `<div class="runes muted">Sin runas recomendadas para este campeón en este rol${locked ? ": no se importa nada" : ""}.</div>`;
   }
-  return `<div class="runes ${r.state}">
+  return `<div class="runes ${r.state} ${treeClass(r.primary)}">
     <span class="lbl">${RUNES_STATE[r.state] || "Runas"}</span>
     <b>${esc(r.keystone)}</b> <span class="muted">· ${esc(r.primary)} + ${esc(r.secondary)}</span>
     <small>${esc((r.runes || []).join(" · "))}${r.source ? ` — ${esc(r.source)}` : ""}</small>
@@ -441,7 +462,7 @@ function renderDraft([d, idle, s]) {
             return `
           <div class="row">
             <span class="i">${i + (d.locked ? 1 : 2)}</span><img src="${img("tile", p.id)}" alt="">
-            <div class="nm" title="${esc(subline(p))}">${esc(p.name)}<small>${esc(subline(p))}</small></div>
+            <div class="nm" title="${esc(subline(p))}"><span class="nm1">${esc(p.name)}${tierPill(p.tier)}</span><small>${esc(expText(p))}${p.confidence ? `<span class="sep">·</span>${confText(p)}` : ""}</small></div>
             ${d.mode === "pool" ? `<span class="c ${tone(p.parts.you)}">${signed(p.parts.you)}</span>` : ""}
             <span class="c ${tone(p.parts.meta)}">${signed(p.parts.meta)}</span>
             <span class="c ${p.matchups_loaded ? tone(rival) : "muted"}">${p.matchups_loaded ? signed(rival) : "…"}</span>
@@ -541,7 +562,7 @@ function renderUnsupported(el, d) {
       <p class="lead">En ARAM Nachero solo prepara las runas de ARAM del campeón que te toque (Lolalytics), y las cambia si cambias de campeón. Ni picks, ni bans, ni hechizos.</p>
       ${!a.champ ? `<p class="muted">Esperando a que tengas campeón…</p>`
         : !r ? `<p class="muted">Importar runas está desactivado en Ajustes.</p>`
-        : r.keystone ? `<div class="runes ${esc(r.state)}"><span class="lbl">${ARAM_RUNES[r.state] || "Runas de ARAM"}${r.state === "imported" ? ` para ${esc(a.champ.name)}` : ""}</span>
+        : r.keystone ? `<div class="runes ${esc(r.state)} ${treeClass(r.primary)}"><span class="lbl">${ARAM_RUNES[r.state] || "Runas de ARAM"}${r.state === "imported" ? ` para ${esc(a.champ.name)}` : ""}</span>
             <b>${esc(r.keystone)}</b> <span class="muted">· ${esc(r.primary)} + ${esc(r.secondary)}</span>
             <small>${esc((r.runes || []).join(" · "))}</small></div>`
         : `<p class="muted">${ARAM_RUNES[r.state] || ""}</p>`}
@@ -568,11 +589,14 @@ const PICK_MODE_HELP = {
 // Tier del parche como píldora de color: S dorado, A verde, B azul, C y D neutros.
 const tierClass = (t) => "t-" + (/^[SABC]/.test(t || "") ? t[0].toLowerCase() : "d");
 
+// Lo corto de un pick: tu experiencia con él, su confianza (con punto de color) y el tier.
+const expText = (p) => (p.games ? `${p.games} partida${p.games === 1 ? "" : "s"} · ${p.wr}% WR`
+  : p.exp >= 5 ? `~${p.exp} partidas de maestría` : "Sin experiencia");
+const confText = (p) => (p.confidence ? `<i class="dot conf-${esc(p.confidence)}"></i>Confianza ${esc((p.confidence_es || "").toLowerCase())}${p.role_cat && p.role_cat !== "main" ? ` · ${esc(p.role_cat_es)}` : ""}` : "");
+const tierPill = (t) => (t ? `<span class="tier pill ${tierClass(t)}" title="Tier en el parche">${esc(t)}</span>` : "");
+
 // Tarjeta de un pick a ciegas: lo que importa en dos líneas y el detalle completo al pasar el ratón.
 function pickCard(p, i, selected) {
-  const exp = p.games ? `${p.games} partida${p.games === 1 ? "" : "s"} · ${p.wr}% WR`
-    : p.exp >= 5 ? `~${p.exp} partidas de maestría` : "Sin experiencia";
-  const cat = p.role_cat && p.role_cat !== "main" ? p.role_cat_es : "";
   return `<button type="button" class="card ${i === 0 ? "first" : ""} ${selected ? "sel" : ""}" data-id="${p.id}" title="${esc(subline(p))} · clic para ver por qué">
     <img src="${img("tile", p.id)}" alt="" loading="lazy">
     <span class="rk">#${i + 1}</span>
@@ -580,9 +604,10 @@ function pickCard(p, i, selected) {
     <span class="card-body">
       <b class="nm">${esc(p.name)}</b>
       <span class="pct">${f1(p.est)}<small>%</small></span>
-      <span class="l1">${esc(exp)}</span>
-      ${p.confidence ? `<span class="l2"><i class="dot conf-${esc(p.confidence)}"></i>Confianza ${esc((p.confidence_es || "").toLowerCase())}${cat ? ` · ${esc(cat)}` : ""}</span>` : ""}
+      <span class="l1">${esc(expText(p))}</span>
+      ${p.confidence ? `<span class="l2">${confText(p)}</span>` : ""}
     </span>
+    <span class="go" aria-hidden="true">Ver análisis →</span>
   </button>`;
 }
 
@@ -620,7 +645,7 @@ function renderIdle(el, idle, s) {
       <div class="idle-role"><span class="lbl">Base${hint(PICK_MODE_HELP[s.pick_mode] || PICK_MODE_HELP.pool, "end")}</span>${modeSwitch(s.pick_mode)}</div>
     </div>` : ""}
     ${picks.length ? `
-      <div class="block-head"><h3>Si entras ahora de ${esc(idle.role_es)}, a ciegas</h3><span>pulsa uno para ver por qué</span></div>
+      <div class="block-head"><h3>Si entras ahora de ${esc(idle.role_es)}, a ciegas</h3></div>
       <div class="idle-grid">${picks.map((p, i) => pickCard(p, i, p.id === EVAL.draft.id)).join("")}</div>` : ""}
   </div>`;
   $("#draft-status").innerHTML = statusCard(s);
@@ -664,9 +689,12 @@ function renderPool(rows) {
     return;
   }
   if (el.querySelector(".skel")) appear(el);
+  const typing = document.activeElement && document.activeElement.id === "pool-q";
   const count = (k) => rows.filter((r) => r.role_key === k).length;
   if (POOL_ROLE !== "all" && !ROLE_NAME[POOL_ROLE]) POOL_ROLE = "all";  // filtro guardado de una versión anterior
-  const list = rows.filter((r) => POOL_ROLE === "all" || r.role_key === POOL_ROLE).slice();
+  const q = POOL_Q.trim().toLowerCase();
+  const list = rows.filter((r) => (POOL_ROLE === "all" || r.role_key === POOL_ROLE) && (!q || r.name.toLowerCase().includes(q)));
+  const maxExp = Math.max(1, ...rows.map((r) => r.exp || 0));
   const k = POOL_SORT.key;
   list.sort((a, b) => {
     const va = a[k] ?? -1e9, vb = b[k] ?? -1e9;
@@ -675,7 +703,8 @@ function renderPool(rows) {
   el.innerHTML = `
     <div class="pool-head">
       <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol${hint("Tu experiencia y resultados con él, más su fuerza en Master+ este parche. Con maestría alta, cada campeón sale también en sus roles principal y flex.")}</p>${historyNote(STATE.history)}</div>
-      <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos <small>${rows.length}</small></button>${ROLE_BTNS.map(([r, t]) => `<button data-r="${r}" class="${POOL_ROLE === r ? "on" : ""}" ${count(r) ? "" : "disabled"}>${t} <small>${count(r)}</small></button>`).join("")}</div>
+      <div class="pool-tools"><label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" id="pool-q" placeholder="Buscar campeón…" aria-label="Buscar campeón en tu pool" autocomplete="off" value="${esc(POOL_Q)}"></label>
+      <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos <small>${rows.length}</small></button>${ROLE_BTNS.map(([r, t]) => `<button data-r="${r}" class="${POOL_ROLE === r ? "on" : ""}" ${count(r) ? "" : "disabled"}>${t} <small>${count(r)}</small></button>`).join("")}</div></div>
     </div>
     <div class="tablewrap"><table>
       <thead><tr>${POOL_COLS.map(([key, label]) => `<th data-k="${key}" class="${key === k ? "sorted" : ""}">${label}${key === k ? (POOL_SORT.dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
@@ -684,14 +713,18 @@ function renderPool(rows) {
         <td class="rl">${esc(r.role)}${r.role_cat && r.role_cat !== "main" ? ` <span class="chip cat">${esc(r.role_cat_es)}</span>` : ""}</td>
         <td>${r.games || "—"}</td>
         <td class="${r.wr == null ? "muted" : r.wr >= 55 ? "pos" : r.wr < 45 ? "neg" : ""}">${r.wr == null ? "—" : r.wr + "%"}</td>
-        <td><span class="exp"><i><b style="width:${Math.min(100, (r.exp / 150) * 100)}%"></b></i>${nf0.format(r.exp)}</span></td>
+        <td><span class="exp"><i><b style="width:${Math.min(100, (100 * (r.exp || 0)) / maxExp)}%"></b></i>${nf0.format(r.exp)}</span></td>
         <td class="${tone(r.you)}">${signed(r.you)}</td>
         <td>${r.tier ? `<span class="tier pill ${tierClass(r.tier)}">${esc(r.tier)}</span>` : `<span class="tier">—</span>`}</td>
         <td class="${tone(r.meta)}">${signed(r.meta)}</td>
         <td><span class="chip conf-${esc(r.confidence)}" title="${nf0.format(r.meta_games || 0)} partidas en este rol en Master+">${esc(r.confidence_es || "—")}</span></td>
-        <td><b>${f1(r.est)}%</b></td></tr>`).join("")}</tbody>
+        <td><b>${f1(r.est)}%</b></td></tr>`).join("") || `<tr><td colspan="${POOL_COLS.length}" class="none">Ningún campeón con «${esc(POOL_Q)}»</td></tr>`}</tbody>
     </table></div>`;
   el.querySelectorAll(".filters button").forEach((b) => (b.onclick = () => { POOL_ROLE = b.dataset.r; memo.pool = null; renderPool(STATE.pool); evalDefaults("pool"); }));
+  // repintar la tabla no debe quitarte el foco del buscador (ni al escribir ni al llegar datos)
+  const qi = el.querySelector("#pool-q");
+  if (typing) { qi.focus(); qi.setSelectionRange(qi.value.length, qi.value.length); }
+  qi.oninput = () => { POOL_Q = qi.value; renderPool(STATE.pool); };
   el.querySelectorAll("th").forEach((th) => (th.onclick = () => {
     const key = th.dataset.k;
     POOL_SORT = { key, dir: POOL_SORT.key === key ? -POOL_SORT.dir : (key === "name" || key === "role" ? 1 : -1) };

@@ -138,7 +138,14 @@ class Draft:
             role, unavailable, pickable, allies, enemy_ids, enemy_left_after=enemy_left_after, include=[locked]
         )
         enemy_roles = ctx["enemy_roles"]
-        ally, enemy = comp_summary(ally_ids, ch), comp_summary(enemy_ids, ch)
+        # «Tu equipo» en el panel: contigo y con lo marcado (como estimación) hasta que se confirme
+        mine_now = my_pick.get("championId") if my_pick else None
+        ally = comp_summary(
+            [*ally_ids, *([mine_now] if locked else [])],
+            ch,
+            [c for c, w in allies if w < 1] + ([mine_now] if mine_now and not locked else []),
+        )
+        enemy = comp_summary(enemy_ids, ch)
         ally_ident = T.identity(allies, ch)
         enemy_ident = T.identity([(e, 1.0) for e in enemy_ids], ch)
         ally["identity"], enemy["identity"] = T.IDENTITY_ES[ally_ident[0]], T.IDENTITY_ES[enemy_ident[0]]

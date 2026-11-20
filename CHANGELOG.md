@@ -3,6 +3,27 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.28.0] - 2026-11-20
+
+### Cambiado
+- **Composición de tu equipo con lo marcado**: cuenta tu campeón y los que tus aliados solo han
+  marcado, como estimación («estimado con lo marcado»), en vez de quedarse en 0 hasta que
+  confirmen. Nueva barra de reparto de daño físico/mágico en los dos equipos.
+- **Desglose del WR más legible**: barras más gruesas con el eje en 0 marcado y las partes que
+  no suman nada, atenuadas.
+- **Runas con el color de su rama** (Precisión, Dominación, Brujería, Valor, Inspiración).
+- **Alternativas como las tarjetas**: tier en píldora junto al nombre y debajo tus partidas y la
+  confianza con su punto de color.
+- Pantalla de espera: el **mejor pick destaca** con borde dorado, lo que evalúas lleva aro blanco
+  y al pasar el ratón la tarjeta sube y muestra «Ver análisis →».
+- **Tu pool**: tabla en tarjeta con cabecera fija, **buscador de campeón** y barra de experiencia
+  relativa a tu campeón con más maestría.
+- Barra superior: el trabajo en segundo plano es una píldora corta («Actualizando 2/5») con el
+  detalle en el tooltip, y ya no empuja las pestañas.
+- Ajustes: velo con desenfoque, el modo actual marcado («Ahora») y las normas del modo Activo en
+  tres puntos.
+- Cifras tabulares en toda la app, scroll fino y un fundido corto al cambiar de vista.
+
 ## [0.27.0] - 2026-11-20
 
 ### Cambiado

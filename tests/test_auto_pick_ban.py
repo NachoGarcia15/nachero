@@ -262,25 +262,97 @@ def soloq(phase="BAN_PICK", me=3):
 BAN_IDS = {9, *range(100, 110)}
 
 
-@pytest.mark.parametrize("on", [True, False])
-@pytest.mark.parametrize("phase", ["PLANNING", "BAN_PICK"])
-def test_nachero_nunca_toca_el_ban(champs, auto, monkeypatch, on, phase):
-    """Con cualquier ajuste (también un `auto_ban` antiguo guardado), ningún PATCH a un ban."""
-    for k in ("auto_ban", "auto_hover_pick", "auto_lock_pick"):
-        monkeypatch.setitem(CFG, k, on)
-    for s in (session(ban=True), soloq(phase)):
-        s["timer"]["phase"] = phase
-        lcu = Client(s)
-        d = Draft(lcu, champs, engine(champs))
-        for left in (20, 5, 1):
-            out = tick(d, lcu, left=left)
-        assert not [p for p in lcu.patches if p[0] in BAN_IDS]
-        assert out["ban_suggestions"]  # se recomienda en el panel
-        if phase == "BAN_PICK":
-            b = out["ban_suggestions"][0]
-            assert out["status"][0]["msg"].startswith(f"Te toca banear: {b['name']}")
-            assert out["my_turn"] == "ban" and out["choose"] is None  # sin botones de ban
-    assert d.choose("ban", 4) == (False, "Nachero solo recomienda bans: bánealo tú en el cliente")
+def ban_lcu(phase="PLANNING"):
+    """Cliente con los datos reales: bannable [-1] en BAN_PICK, 174 ids en planificación."""
+    lcu = Client(soloq(phase))
+    reales = list(CHAMPS)
+
+    def get(path, timeout=None):
+        if path.endswith("bannable-champion-ids"):
+            return reales if lcu.s["timer"]["phase"] == "PLANNING" else [-1]
+        if path.endswith("pickable-champion-ids"):
+            return reales
+        return Client.get(lcu, path, timeout)
+
+    lcu.get = get
+    return lcu
+
+
+def to_bans(lcu):
+    lcu.s["timer"]["phase"] = "BAN_PICK"
+    for a in lcu.s["actions"][0]:
+        a["isInProgress"] = True
+
+
+def ban_patches(lcu):
+    return [p for p in lcu.patches if p[0] in BAN_IDS]
+
+
+def test_auto_ban_marca_en_bans_sin_confirmar(champs, auto, monkeypatch):
+    monkeypatch.setitem(CFG, "auto_ban", True)
+    lcu = ban_lcu()
+    d = Draft(lcu, champs, engine(champs))
+    for a in lcu.s["actions"][0]:
+        a["isInProgress"] = True  # en planificación el cliente ya los da en curso
+    d.tick(lcu.s, True)
+    assert ban_patches(lcu) == []  # nada en PLANNING
+    to_bans(lcu)
+    lcu.swallow = 1  # el primer PATCH no se aplica: se reintenta
+    out = d.tick(lcu.s, True)
+    ban = out["ban_suggestions"][0]["id"]
+    assert lcu.action(103)["championId"] == 0
+    d.tick(lcu.s, True)
+    assert ban_patches(lcu) == [(103, {"championId": ban})] * 2  # sin completed
+    out = d.tick(lcu.s, True)  # el cliente ya lo muestra
+    assert out["status"][0] == {
+        "kind": "turn_auto",
+        "msg": f"Ban marcado: {champs.name(ban)} · lo banea el cliente al acabar el tiempo",
+    }
+    assert out["choose"] == {**out["choose"], "kind": "ban", "marked": ban, "by": "nachero"}
+    for _ in range(2):
+        d.tick(lcu.s, True)
+    assert len(ban_patches(lcu)) == 2
+
+
+def test_auto_ban_no_pisa_al_jugador(champs, auto, monkeypatch):
+    monkeypatch.setitem(CFG, "auto_ban", True)
+    lcu = ban_lcu("BAN_PICK")
+    to_bans(lcu)
+    d = Draft(lcu, champs, engine(champs))
+    ban = d.tick(lcu.s, True)["ban_suggestions"][0]["id"]
+    otro = next(c for c in CHAMPS if c != ban)
+    lcu.player_marks(103, otro)
+    for _ in range(3):
+        out = d.tick(lcu.s, True)
+    assert ban_patches(lcu) == [(103, {"championId": ban})]
+    assert out["status"][0]["msg"] == f"Has elegido banear {champs.name(otro)}"
+    # desde el panel también cuenta como elección del jugador
+    assert d.choose("ban", ban) == (True, champs.name(ban))
+    out = d.tick(lcu.s, True)
+    assert out["choose"]["by"] == "player" and ban_patches(lcu)[-1] == (103, {"championId": ban})
+
+
+def test_auto_ban_no_marca_lo_de_un_aliado(champs, auto, monkeypatch):
+    monkeypatch.setitem(CFG, "auto_ban", True)
+    lcu = ban_lcu("BAN_PICK")
+    to_bans(lcu)
+    first = Draft(ban_lcu("BAN_PICK"), champs, engine(champs)).tick(soloq(), False)["ban_suggestions"][0]["id"]
+    lcu.action(101)["championId"] = first  # un aliado ya lo ha marcado
+    Draft(lcu, champs, engine(champs)).tick(lcu.s, True)
+    assert ban_patches(lcu) and all(b["championId"] != first for a, b in ban_patches(lcu) if a == 103)
+
+
+@pytest.mark.parametrize("acting", [True, False])
+def test_sin_auto_ban_no_hay_patch_de_ban(champs, auto, monkeypatch, acting):
+    monkeypatch.setitem(CFG, "auto_ban", acting is False)  # observar con el ajuste activo tampoco
+    lcu = ban_lcu("BAN_PICK")
+    to_bans(lcu)
+    d = Draft(lcu, champs, engine(champs))
+    for _ in range(3):
+        out = d.tick(lcu.s, acting)
+    assert ban_patches(lcu) == []
+    b = out["ban_suggestions"][0]
+    assert out["status"][0]["msg"].startswith(f"Te toca banear: {b['name']} · ")
 
 
 def ban_engine(champs, mu=None, top=None):

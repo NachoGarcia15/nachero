@@ -12,6 +12,7 @@ from nachero.domain.common import ROLES
 
 TOGGLES = [
     "auto_accept",
+    "auto_ban",
     "auto_hover_pick",
     "auto_lock_pick",
     "auto_spells",

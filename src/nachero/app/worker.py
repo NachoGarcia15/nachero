@@ -18,7 +18,7 @@ from nachero.domain.common import tier_name as TIER
 from nachero.domain.engine import Engine
 from nachero.domain.player import Player
 from nachero.domain.pro import ProEngine
-from nachero.domain.queues import classify
+from nachero.domain.queues import classify, has_bans
 from nachero.jsonio import read_json, write_json
 from nachero.sources.champions import Champs
 from nachero.sources.golgg import GolGG
@@ -125,6 +125,14 @@ QUEUE_LOG = {
     "other": ("{name}: Nachero solo recomienda en la Grieta del Invocador; no toco nada", "hint"),
     "unknown": ("No he podido leer el tipo de cola: recomiendo como en la Grieta", "warn"),
 }
+
+
+def queue_message(queue: dict, session: dict | None) -> tuple[str, str]:
+    """Mensaje del registro para la cola: una personalizada con bans se trata como un draft."""
+    if queue["kind"] == "blind" and has_bans(session or {}):
+        return f"Cola: {queue['name']} · con bans, recomiendo como en un draft", "info"
+    msg, kind = QUEUE_LOG[queue["kind"]]
+    return msg.format(name=queue["name"]), kind
 
 
 def read_queue(lcu):
@@ -339,7 +347,7 @@ def run_session():
     demo = None  # se crea al abrir la demo (por --demo o desde el panel)
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
-    queue, queue_tries = None, 0  # tipo de cola de la champ select actual
+    queue, queue_tries, queue_logged = None, 0, False  # tipo de cola de la champ select actual
     while True:
         mode = APP["mode"]
         if not online:
@@ -371,7 +379,7 @@ def run_session():
             log(f"Fase: {PHASE_ES.get(phase, phase)}")
             if phase == "ChampSelect":
                 draft.reset()
-                queue, queue_tries = None, 0
+                queue, queue_tries, queue_logged = None, 0, False
             if phase in ("EndOfGame", "PreEndOfGame"):
                 TASKS.start("history", detail="Partida nueva: actualizando…")
                 games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
@@ -442,12 +450,13 @@ def run_session():
                             # tres intentos; si el cliente no la da, se recomienda como en la Grieta
                             queue_tries += 1
                             queue = read_queue(lcu) or (classify(None) if queue_tries >= 3 else None)
-                            if queue:
-                                msg, kind = QUEUE_LOG[queue["kind"]]
-                                log(msg.format(name=queue["name"]), kind)
                         d = None
                         if queue:
                             s = lcu.get("/lol-champ-select/v1/session")
+                            if not queue_logged and isinstance(s, dict):
+                                # con la sesión, para saber si la personalizada tiene bans
+                                queue_logged = True
+                                log(*queue_message(queue, s))
                             d = champ_select_view(draft, s, acting, queue)
                     with LOCK:
                         APP["draft"] = d

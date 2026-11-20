@@ -73,6 +73,9 @@ class Draft:
         mine_bans = [a for a in acts if a["actorCellId"] == me and a["type"] == "ban" and not a["completed"]]
         my_ban = next((a for a in mine_bans if a.get("isInProgress")), mine_bans[0] if mine_bans else None)
         my_pick = next((a for a in acts if a["actorCellId"] == me and a["type"] == "pick"), None)
+        if my_pick and not my_pick["completed"] and not my_pick.get("championId") and my.get("championPickIntent"):
+            # tu intención de pick (planificación) cuenta como lo marcado en la acción
+            my_pick = {**my_pick, "championId": my["championPickIntent"]}
         timer = s.get("timer", {})
         left = max(0, timer.get("adjustedTimeLeftInPhase", 0) / 1000)
         # en planificación el cliente ya da los bans como «en curso», pero ignora lo que se marque
@@ -316,9 +319,13 @@ class Draft:
         # aplicó), no cuenta como hecho y se reintenta
         fresh = aid not in self.hovered or not cur or cur in taken
         if can_hover and fresh and cur != target["id"]:
-            if self.patch(aid, {"championId": target["id"]}):
+            # la sesión del tick puede ir con retraso: antes de marcar, lo que hay ahora en el cliente
+            now = self.action_now(aid)
+            if now and now != self.hovered.get(aid) and now not in taken:  # lo acaba de marcar el jugador
+                self.choice[aid] = choice = marked = now
+            elif now is not None and self.patch(aid, {"championId": target["id"]}):
                 self.hovered[aid] = marked = target["id"]
-            else:  # se reintenta en el siguiente tick (antes un rechazo dejaba el ban sin hacer)
+            elif now is not None:  # se reintenta en el siguiente tick (antes un rechazo dejaba el ban sin hacer)
                 self.note(f"El cliente no deja marcar {name(target['id'])}: lo reintento", "warn")
         if ban and cur and cur == self.hovered.get(aid):  # solo cuando el cliente ya lo muestra
             self.note(f"Ban marcado: {name(cur)} · lo banea el cliente al acabar el tiempo")
@@ -327,6 +334,8 @@ class Draft:
             final = marked or (target["id"] if target else 0)
             what = f"{'banear ' if ban else ''}{name(final)}" if final else ""
             if acting and lock and final and 0 < left <= secs:  # sin reloj (0) no se confirma a ciegas
+                now = self.action_now(aid) if aid not in self.confirmed else None
+                final = now if now and now not in taken else final  # lo marcado en este momento
                 if aid not in self.confirmed and self.patch(aid, {"championId": final, "completed": True}):
                     self.confirmed.add(aid)
                     self.note(f"Confirmado {name(final)}")
@@ -353,6 +362,21 @@ class Draft:
         elif not acting and hover and target and not ban:
             status.append(("info", f"Marcaría {target['name']}"))
         return {"marked": marked, "by": by}
+
+    def action_now(self, aid):
+        """El campeón marcado ahora mismo en la acción `aid` (0 si ninguno), leído del cliente; en un
+        pick sin campeón, tu intención. None si no se puede leer."""
+        s = self.lcu.get("/lol-champ-select/v1/session")
+        if not isinstance(s, dict):
+            return None
+        action = next((a for grp in s.get("actions") or [] for a in grp if a.get("id") == aid), None)
+        if action is None:
+            return None
+        cid = action.get("championId") or 0
+        if not cid and action.get("type") == "pick":
+            me = s.get("localPlayerCellId")
+            cid = next((m.get("championPickIntent") or 0 for m in s.get("myTeam", []) if m.get("cellId") == me), 0)
+        return cid
 
     def patch(self, aid, body):
         """Cambia la acción `aid` de la champ select. True si el cliente lo acepta."""

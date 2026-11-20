@@ -141,6 +141,11 @@ def player_file() -> Path:
     return data_dir() / "player_cache.json"
 
 
+def history_import_file() -> Path:
+    """Tu temporada completa, descargada con el recolector (`python -m nachero_collector historial`)."""
+    return data_dir() / "history_import.json"
+
+
 def predictions_file() -> Path:
     """Picks confirmados con su WR estimado y el resultado, para la calibración (#9)."""
     return data_dir() / "predictions.json"

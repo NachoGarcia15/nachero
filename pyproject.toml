@@ -28,6 +28,7 @@ version = { attr = "nachero.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["nachero", "nachero.*"]  # el recolector (nachero_collector) no va en la app
 
 [tool.setuptools.package-data]
 nachero = ["ui/*", "ui/*.ico", "defaults/*.json"]
@@ -52,7 +53,7 @@ ignore = [
 [tool.mypy]
 python_version = "3.10"
 mypy_path = "src"
-packages = ["nachero"]
+packages = ["nachero", "nachero_collector"]
 ignore_missing_imports = true
 check_untyped_defs = false
 warn_unused_ignores = true

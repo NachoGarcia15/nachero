@@ -146,6 +146,30 @@ def test_si_cambia_la_recomendacion_actualiza_su_marca(champs, auto):
     assert out["choose"]["by"] == "nachero"
 
 
+def test_no_vuelve_a_marcar_si_cambia_la_recomendacion(champs, auto):
+    lcu = Client(session())
+    d = Draft(lcu, champs, engine(champs))
+    best = tick(d, lcu)["hero"]["id"]
+    lcu.s["myTeam"][1]["championPickIntent"] = best  # un aliado lo marca: cambia la recomendación
+    out = tick(d, lcu)
+    assert out["hero"]["id"] != best
+    assert lcu.patches == [(1, {"championId": best})]  # ya marcó una vez: no lo vuelve a tocar
+
+
+def test_cambio_del_jugador_que_llega_un_tick_tarde(champs, auto):
+    lcu = Client(session())
+    d = Draft(lcu, champs, engine(champs))
+    best = tick(d, lcu)["hero"]["id"]
+    otro = next(c for c in (1, 8, 2) if c != best)
+    # el jugador marca otro, pero el cliente aún devuelve lo de Nachero y la recomendación cambia
+    lcu.s["myTeam"][1]["championPickIntent"] = best
+    tick(d, lcu)
+    lcu.player_marks(1, otro)
+    out = tick(d, lcu, left=3)
+    assert lcu.patches == [(1, {"championId": best}), (1, {"championId": otro, "completed": True})]
+    assert out["choose"]["by"] == "player"
+
+
 def test_eleccion_del_jugador_que_se_lleva_otro_vuelve_a_la_recomendacion(champs, auto):
     lcu = Client(session())
     d = Draft(lcu, champs, engine(champs))
@@ -196,33 +220,112 @@ def test_observar_no_toca_el_cliente(champs, auto):
 
 
 # ------------------------------------------------------------------ ban
-def test_ban_se_marca_y_no_se_confirma_enseguida(champs, auto):
+def test_ban_solo_se_marca_y_nunca_se_confirma(champs, auto):
     lcu = Client(session(ban=True))
     d = Draft(lcu, champs, engine(champs))
     out = tick(d, lcu)
     ban = out["ban_suggestions"][0]["id"]
     assert (9, {"championId": ban}) in lcu.patches
-    assert not any(b.get("completed") for _, b in lcu.patches)  # nada de banear a los 1,5–3 s
     assert out["choose"]["kind"] == "ban" and out["choose"]["marked"] == ban
     assert out["status"][0] == {
         "kind": "turn_auto",
-        "msg": f"Ban marcado {champs.name(ban)} · se confirmará a falta de 8 s",
+        "msg": f"Marcado {champs.name(ban)} · lo banea el cliente al acabar el tiempo",
     }
-    tick(d, lcu, left=6)
-    assert lcu.patches[-1] == (9, {"championId": ban, "completed": True})
+    for left in (6, 2, 1):
+        tick(d, lcu, left=left)
+    assert not any(b.get("completed") for _, b in lcu.patches)  # lo confirma el temporizador del cliente
+    assert [p for p in lcu.patches if p[0] == 9] == [(9, {"championId": ban})]
 
 
-def test_ban_cambiado_por_el_jugador(champs, auto):
+def test_ban_cambiado_por_el_jugador_no_se_toca(champs, auto):
     lcu = Client(session(ban=True))
     d = Draft(lcu, champs, engine(champs))
     ban = tick(d, lcu)["ban_suggestions"][0]["id"]
     otro = next(c for c in (4, 10, 6) if c != ban)
     lcu.player_marks(9, otro)
+    for left in (15, 4, 1):
+        out = tick(d, lcu, left=left)
+    assert out["choose"]["by"] == "player" and out["choose"]["marked"] == otro
+    assert (
+        out["status"][0]["msg"] == f"Has elegido banear {champs.name(otro)} · lo banea el cliente al acabar el tiempo"
+    )
+    assert [p for p in lcu.patches if p[0] == 9] == [(9, {"championId": ban})]
+
+
+def test_ban_rechazado_se_reintenta(champs, auto):
+    lcu = Client(session(ban=True))
+    d = Draft(lcu, champs, engine(champs))
+    ban = d.tick(lcu.s, True, pickable=set(), bannable=set())["ban_suggestions"][0]["id"]
+    lcu.patches.clear()
+    d.reset()
+    lcu.action(9)["championId"] = 0
+    lcu.reject = {ban}
     out = tick(d, lcu)
-    assert out["choose"]["by"] == "player"
-    assert out["status"][0]["msg"] == f"Has elegido banear {champs.name(otro)}: se confirmará {champs.name(otro)}"
-    tick(d, lcu, left=4)
-    assert lcu.patches[-1] == (9, {"championId": otro, "completed": True})
+    assert not [p for p in lcu.patches if p[0] == 9]
+    assert out["status"][0]["msg"].startswith("Te toca banear: ")
+    lcu.reject = set()
+    tick(d, lcu)
+    assert (9, {"championId": ban}) in lcu.patches
+
+
+def soloq(phase="BAN_PICK", me=3):
+    """Champ select de soloq: los 10 banean a la vez (un grupo con 10 bans en curso), luego la
+    revelación de bans y los picks 1-2-2-2-2-1."""
+    ban_on = phase == "BAN_PICK"
+    bans = [
+        {"id": 100 + c, "actorCellId": c, "championId": 0, "completed": False, "isAllyAction": c < 5,
+         "isInProgress": ban_on, "type": "ban"}
+        for c in range(10)
+    ]  # fmt: skip
+    reveal = [{"id": 200, "actorCellId": -1, "championId": 0, "completed": False, "isAllyAction": False,
+               "isInProgress": False, "type": "ten_bans_reveal"}]  # fmt: skip
+    order = [[0], [5, 6], [1, 2], [7, 8], [3, 4], [9]]
+    picks = [
+        [{"id": 300 + c, "actorCellId": c, "championId": 0, "completed": False, "isAllyAction": c < 5,
+          "isInProgress": False, "type": "pick"} for c in grp]
+        for grp in order
+    ]  # fmt: skip
+    team = [{"cellId": c, "assignedPosition": "jungle" if c == me else "", "championId": 0,
+             "championPickIntent": 0} for c in range(5)]  # fmt: skip
+    return {
+        "localPlayerCellId": me,
+        "myTeam": team,
+        "theirTeam": [{"cellId": 5 + i, "championId": 0} for i in range(5)],
+        "actions": [bans, reveal, *picks],
+        "bans": {"myTeamBans": [], "theirTeamBans": []},
+        "timer": {"phase": phase, "adjustedTimeLeftInPhase": 25000},
+    }
+
+
+def test_soloq_diez_bans_a_la_vez(champs, auto):
+    lcu = Client(soloq("PLANNING"))
+    d = Draft(lcu, champs, engine(champs))
+    out = tick(d, lcu)  # planificación: solo la intención de pick, nada de ban
+    assert [p[0] for p in lcu.patches] == [303] and out["my_turn"] is None
+    # empieza la fase de bans: los 10 en curso; dos aliados ya han marcado su ban
+    lcu.s["timer"]["phase"] = "BAN_PICK"
+    for a in lcu.s["actions"][0]:
+        a["isInProgress"] = True
+    out = tick(d, lcu)
+    ally_hover = out["ban_suggestions"][0]["id"]
+    lcu.action(101)["championId"] = ally_hover
+    lcu.action(106)["championId"] = 4  # un rival: no cuenta
+    out = tick(d, lcu)
+    assert out["my_turn"] == "ban" and out["choose"]["kind"] == "ban"
+    ban_patches = [p for p in lcu.patches if p[0] != 303]
+    assert len(ban_patches) == 1 and ban_patches[0][0] == 103  # tu acción, no la de otro
+    assert "completed" not in ban_patches[0][1]
+    assert out["choose"]["marked"] == ban_patches[0][1]["championId"]
+
+
+def test_soloq_no_repite_el_ban_de_un_aliado(champs, auto):
+    lcu = Client(soloq())
+    d0 = Draft(Client(soloq()), champs, engine(champs))
+    first = d0.tick(soloq(), False, pickable=set(), bannable=set())["ban_suggestions"][0]["id"]
+    lcu.action(101)["championId"] = first  # un aliado ya lo ha marcado
+    out = tick(Draft(lcu, champs, engine(champs)), lcu)
+    assert out["choose"]["marked"] and out["choose"]["marked"] != first
+    assert all(b["id"] != first for b in out["ban_suggestions"])
 
 
 def test_sin_auto_ban_no_toca_el_ban(champs, auto, monkeypatch):

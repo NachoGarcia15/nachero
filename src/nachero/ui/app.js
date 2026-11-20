@@ -394,7 +394,7 @@ function renderDraft([d, idle, s]) {
 
     <div class="center">
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
-      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind === "turn_auto" ? "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí" : "hazlo tú"}</small></div>` : ""}
+      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? "hazlo tú" : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
       ${chooser(d.choose)}
       ${roleFitLine(d)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
@@ -799,7 +799,7 @@ $("#view-log").addEventListener("click", (e) => { if (e.target.id === "diag") co
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [
   ["auto_accept", "Aceptar partida", "Con 1–3 s de retraso aleatorio."],
-  ["auto_ban", "Banear", "Marca el primer ban sugerido (sin pisar los picks marcados por aliados) y confirma lo que esté marcado al final del turno. Si marcas otro, se banea el tuyo."],
+  ["auto_ban", "Banear", "Marca el primer ban sugerido (sin pisar los picks ni los bans marcados por aliados); no lo confirma: lo banea el cliente al acabar el tiempo. Si marcas otro, se banea el tuyo."],
   ["auto_hover_pick", "Marcar pick", "Marca tu mejor campeón y lo actualiza con el draft. Si marcas otro (en el cliente o aquí), deja de cambiarlo."],
   ["auto_lock_pick", "Confirmar pick", "Confirma lo que esté marcado al final de tu turno: tu elección o, si no tocas nada, la de Nachero."],
   ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],
@@ -825,7 +825,7 @@ function renderSettings(st) {
   bindModeSwitch($("#pickmode-settings"));
   $("#toggles").innerHTML = TOGGLES.map(([k, t, d]) => `
     <div class="opt"><div class="tx"><b>${t}</b><small>${d}</small>
-      ${k === "auto_lock_pick" ? `<div class="secs">Pick y ban, cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}"> s</div>` : ""}</div>
+      ${k === "auto_lock_pick" ? `<div class="secs">Cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}"> s</div>` : ""}</div>
       <label class="sw"><input type="checkbox" data-k="${k}" ${st[k] ? "checked" : ""} aria-label="${t}"><span></span></label></div>`).join("");
   $("#toggles").insertAdjacentHTML("beforeend", `
     <div class="opt"><div class="tx"><b>Página de runas</b><small>Cuál importar de Lolalytics Master+.</small>

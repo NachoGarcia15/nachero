@@ -607,3 +607,20 @@ def test_bannable_menos_uno_en_bans(champs, auto):
     d2 = Draft(lcu, champs, engine(champs))
     assert d2.tick(lcu.s, True)["ban_suggestions"]
     assert d2.valid_ids("bannable", [-1, 0, True, "7"]) == set()
+
+
+def test_turno_de_ban_pone_el_ban_en_primer_plano(champs, auto):
+    lcu = ban_lcu()
+    d = Draft(lcu, champs, engine(champs))
+    out = d.tick(lcu.s, True)
+    assert out["focus"] == "pick" and out["choose"]["kind"] == "pick"  # planificación: como siempre
+    to_bans(lcu)
+    out = d.tick(lcu.s, True)
+    assert out["focus"] == "ban" and out["choose"]["kind"] == "ban"
+    assert [o["id"] for o in out["choose"]["options"]] == [b["id"] for b in out["ban_suggestions"]][:5]
+    assert out["hero"]  # el pick recomendado sigue en la vista, en segundo plano
+    # acaba tu ban y llega tu pick: vuelve el pick
+    lcu.action(103).update(completed=True, isInProgress=False, championId=out["ban_suggestions"][0]["id"])
+    lcu.action(303)["isInProgress"] = True
+    out = d.tick(lcu.s, True)
+    assert out["focus"] == "pick" and out["choose"]["kind"] == "pick" and out["my_turn"] == "pick"

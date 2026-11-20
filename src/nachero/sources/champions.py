@@ -14,8 +14,8 @@ class Champs:
         # con `background` (tras `preload`), info() no espera al cliente: devuelve una ficha neutra
         # y pide la de verdad en segundo plano. El bucle de la champ select nunca espera a la red.
         self.background = False
-        self.q = queue.Queue()  # type: ignore[var-annotated]
-        self.queued = set()  # type: ignore[var-annotated]
+        self.q = queue.Queue()
+        self.queued = set()
         self.loader = None
 
     def id(self, name):

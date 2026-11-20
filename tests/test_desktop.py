@@ -148,6 +148,7 @@ def calls(monkeypatch):
     """Sustituye lo que abre cosas (ventanas, navegador, diálogos) y apunta las llamadas."""
     seen: dict[str, list] = {"front": [], "browser": [], "box": []}
     monkeypatch.setattr(desktop, "bring_to_front", lambda pid: seen["front"].append(pid) or True)
+    monkeypatch.setattr(desktop, "request_show", lambda url: False)  # sin otro Nachero escuchando
     monkeypatch.setattr(M.webbrowser, "open", lambda url: seen["browser"].append(url))
     monkeypatch.setattr(desktop, "message_box", lambda text, kind="error", title="Nachero": seen["box"].append(text))
     monkeypatch.setattr(desktop, "has_console", lambda: False)
@@ -242,11 +243,15 @@ def test_con_webview2_abre_la_ventana(home, calls, monkeypatch):
     monkeypatch.setitem(OPTS, "window", False)
     monkeypatch.setattr(W, "worker", lambda: None)
     monkeypatch.setattr(desktop, "window_problem", lambda: None)
-    monkeypatch.setattr(desktop, "open_window", lambda url, state, storage: opened.append((url, state, storage)))
+    monkeypatch.setattr(
+        desktop, "open_window", lambda url, state, storage, app: opened.append((url, state, storage, app))
+    )
     port = free_port()
     M.run(["--port", str(port)])
     assert OPTS["window"] is True
-    assert opened == [(f"http://127.0.0.1:{port}/?v={M.__version__}", paths.window_file(), paths.webview_dir())]
+    (abierta,) = opened
+    assert abierta[:3] == (f"http://127.0.0.1:{port}/?v={M.__version__}", paths.window_file(), paths.webview_dir())
+    assert abierta[3]["hidden"] is False and abierta[3]["cfg"] is M.CFG
     assert calls["browser"] == [] and calls["box"] == []
 
 

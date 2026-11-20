@@ -8,8 +8,8 @@ import webbrowser
 from http.server import ThreadingHTTPServer
 
 from nachero import __version__, config, paths
-from nachero.app import desktop
-from nachero.app.state import APP, OPTS, log, logger, set_demo, setup_logging
+from nachero.app import desktop, updates
+from nachero.app.state import APP, LOCK, OPTS, log, logger, set_demo, setup_logging
 from nachero.app.status import platform_info, platform_warning
 from nachero.config import CFG
 
@@ -38,6 +38,7 @@ def parse_args(argv=None):
     p.add_argument("--demo", action="store_true", help="champ select simulado para ver el panel")
     p.add_argument("--browser", action="store_true", help="abre el panel en el navegador, sin ventana (desarrollo)")
     p.add_argument("--no-browser", action="store_true", help="no abre ventana ni navegador: solo el servidor del panel")
+    p.add_argument("--tray", action="store_true", help="arranca en la bandeja del sistema, sin mostrar la ventana")
     p.add_argument("--profile", action="store_true", help="muestra tu pool en consola y sale")
     p.add_argument("--install-shortcut", action="store_true", help="crea acceso directo en el Menú Inicio")
     p.add_argument("--port", type=int, default=None, help="puerto del panel (por defecto, el de los ajustes)")
@@ -155,10 +156,11 @@ def run(argv=None):
     threading.Thread(target=worker, daemon=True).start()
     log(f"Nachero {__version__} · panel en {url}", "ok")
     panel = f"{url}/?v={__version__}"
+    threading.Thread(target=check_update, daemon=True).start()
     if ui == "window":
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
-            desktop.open_window(panel, paths.window_file(), paths.webview_dir())
+            desktop.open_window(panel, paths.window_file(), paths.webview_dir(), window_controls(args.tray))
         finally:
             stop(srv)
         log("Ventana cerrada: Nachero se cierra.")
@@ -166,6 +168,35 @@ def run(argv=None):
     if ui == "browser":
         webbrowser.open(panel)
     serve(srv, keep_open_text(url, notice), "warn" if notice else "info")
+
+
+def set_mode(mode: str) -> None:
+    """Cambia el modo (desde la bandeja); el panel lo ve en el siguiente sondeo."""
+    if mode in ("paused", "observe", "active"):
+        with LOCK:
+            APP["mode"] = mode
+        log("Modo " + {"paused": "pausado", "observe": "observar", "active": "activo"}[mode] + " (bandeja)", "ok")
+
+
+def window_controls(hidden: bool) -> dict:
+    """Lo que la ventana y la bandeja necesitan de la app."""
+    return {
+        "cfg": CFG,
+        "save": config.save,
+        "get_mode": lambda: APP["mode"],
+        "set_mode": set_mode,
+        "hidden": hidden,
+        "register_show": lambda fn: OPTS.__setitem__("show_window", fn),
+    }
+
+
+def check_update() -> None:
+    """Aviso de nueva versión si `update_url` apunta a un latest.json público (ver app/updates.py)."""
+    found = updates.check(CFG.get("update_url", ""), __version__)
+    if found:
+        with LOCK:
+            APP["update"] = found
+        log(f"Hay una versión nueva de Nachero: {found['version']}", "ok")
 
 
 def bind(port: int, handler) -> ThreadingHTTPServer | None:
@@ -195,7 +226,10 @@ def another_instance(url: str, port: int, ui: str) -> None:
     if info.get("window"):
         log("Nachero ya está abierto: traigo su ventana al frente.")
         pid = info.get("pid")
-        desktop.bring_to_front(pid if isinstance(pid, int) else 0)  # si aún no tiene ventana, sale enseguida
+        pid = pid if isinstance(pid, int) else 0
+        desktop.allow_foreground(pid)
+        if not desktop.request_show(url):  # en la bandeja: se la pide al otro Nachero
+            desktop.bring_to_front(pid)  # si aún no tiene ventana, sale enseguida
         return
     log(f"Nachero ya está abierto en {url}; abro el panel.")
     if ui != "none":

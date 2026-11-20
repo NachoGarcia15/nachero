@@ -4,6 +4,13 @@
   "_welcome_seen_info": "true cuando ya has visto la bienvenida (se vuelve a ver desde «?» en la barra).",
   "welcome_seen": false,
   "ui_port": 8765,
+  "_close_to_tray_info": "Cerrar la ventana deja Nachero en la bandeja (sigue aceptando partidas y leyendo la selección). false: cerrar sale del todo.",
+  "close_to_tray": true,
+  "tray_hint_shown": false,
+  "_start_with_windows_info": "Abrir Nachero en la bandeja al iniciar sesión en Windows. Se cambia desde Ajustes.",
+  "start_with_windows": false,
+  "_update_url_info": "latest.json público con la última versión ({\"version\", \"url\", \"notes\"}). Vacío: sin aviso de actualización.",
+  "update_url": "",
   "auto_accept": true,
   "accept_delay_seconds": [
     1.0,

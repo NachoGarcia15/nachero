@@ -195,6 +195,7 @@ function renderHeader(s) {
   if (noWin) $("#platform").textContent = `Nachero necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga nachero.exe y ábrelo en Windows.`;
   $("#rank").innerHTML = s.rank ? `<b>${esc(s.rank.tier)}</b> · ${s.rank.lp} LP · ${s.rank.w}V ${s.rank.l}D` : "";
   $("#demo").hidden = !s.demo;
+  once("update", s.update || null, renderUpdate);
   $("#demo-exit").hidden = !s.demo_ui;
   const modes = s.modes || {};
   document.querySelectorAll("#modes button").forEach((b) => {
@@ -207,6 +208,14 @@ function renderHeader(s) {
   const cur = modes[s.mode];
   $("#modes").title = cur ? `${cur.label}: ${s.mode === "active" && !s.demo ? cur.text + " " + cur.summary : cur.text}` : "";
   once("modes", modes, () => renderModes(modes));
+}
+
+// Aviso de nueva versión (si `update_url` apunta a un latest.json): enlace a la descarga.
+function renderUpdate(u) {
+  const el = $("#update");
+  el.hidden = !u;
+  if (!u) return;
+  el.innerHTML = `<span>Hay una versión nueva de Nachero: <b>${esc(u.version)}</b>${u.notes ? ` · ${esc(u.notes)}` : ""}</span><a class="btn" href="${esc(u.url)}" target="_blank" rel="noopener">Descargar</a>`;
 }
 
 function renderModes(modes) {
@@ -770,6 +779,10 @@ const TOGGLES = [
   ["import_runes", "Importar runas", "Al confirmar, crea la página «Nachero» con las runas de Lolalytics Master+. Nunca toca tus páginas."],
   ["open_coachless_on_lock", "Abrir Coachless", "La build del campeón confirmado, en tu navegador."],
 ];
+const APP_TOGGLES = [
+  ["close_to_tray", "Cerrar deja Nachero en la bandeja", "Sigue aceptando partidas y leyendo la selección. Para salir, clic derecho en su icono → Salir."],
+  ["start_with_windows", "Abrir al iniciar Windows", "Arranca en la bandeja al iniciar sesión, sin abrir la ventana."],
+];
 const WEIGHTS = [
   ["pool", "Tu pool", "Experiencia, forma y resultados con cada campeón."],
   ["meta", "Fuerza en el parche", "Winrate del campeón en tu rol en Master+."],
@@ -796,6 +809,16 @@ function renderSettings(st) {
   document.querySelectorAll("#toggles input[type=checkbox]").forEach((i) => (i.onchange = () => post("/api/settings", { [i.dataset.k]: i.checked })));
   const secs = $("#secs");
   if (secs) secs.onchange = () => post("/api/settings", { lock_when_seconds_left: Number(secs.value) });
+
+  $("#app-settings").innerHTML = APP_TOGGLES.map(([k, title, d]) => `
+    <div class="opt"><div class="tx"><b>${title}</b><small>${d}</small></div>
+      <label class="sw"><input type="checkbox" data-app="${k}" ${st[k] ? "checked" : ""} aria-label="${title}"><span></span></label></div>`).join("")
+    + `<p class="drawer-note" id="app-msg" role="status"></p>`;
+  document.querySelectorAll("#app-settings input").forEach((i) => (i.onchange = async () => {
+    const r = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [i.dataset.app]: i.checked }) }).catch(() => null);
+    if (!r || !r.ok) { i.checked = !i.checked; $("#app-msg").textContent = r ? (await r.json()).error || "No se ha podido cambiar" : "Nachero no responde"; }
+    poll();
+  }));
 
   const w = st.weights || {};
   $("#weights").innerHTML = WEIGHTS.map(([k, t, d]) => `

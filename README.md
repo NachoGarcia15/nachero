@@ -66,6 +66,14 @@ nachero --install-shortcut
 Crea `Nachero.lnk` en el Menú Inicio con su icono y `AppUserModelID`, permitiendo anclarlo a la
 barra de tareas mostrando `Nachero` y su icono en lugar del ejecutable genérico de Python.
 
+**Bandeja del sistema**: cerrar la ventana deja Nachero en la bandeja (junto al reloj) y sigue
+aceptando partidas y leyendo la selección. Clic en su icono para abrirlo; clic derecho para
+cambiar de modo o salir. En Ajustes → App: «Cerrar deja Nachero en la bandeja» (desactívalo para
+que cerrar salga del todo) y «Abrir al iniciar Windows» (arranca en la bandeja; también `--tray`).
+
+**Aviso de nueva versión**: si `update_url` (en `config.json`) apunta a un `latest.json` público
+con `{"version": "0.17.0", "url": "https://…", "notes": "…"}`, Nachero avisa al arrancar.
+
 Si Nachero ya está abierto en ese puerto, volver a ejecutarlo trae su ventana al frente (o abre
 su panel en el navegador si va sin ventana). En otro puerto (`--port`) se abre una copia aparte.
 Desde un terminal, la consola muestra la actividad; `Ctrl+C` cierra Nachero.

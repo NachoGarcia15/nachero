@@ -51,7 +51,7 @@ def test_sin_ajustes_guardados_usa_los_nuevos_valores(home):
     paths.config_file().write_text(json.dumps({"pick_mode": "meta"}), encoding="utf-8")
     cfg = config.load()
     assert cfg["pick_mode"] == "meta"
-    assert [cfg[k] for k in GAME_DECISIONS] == [False, False]
+    assert [cfg[k] for k in GAME_DECISIONS] == [False, False, False]
 
 
 def test_respeta_lo_que_el_usuario_ya_tenia_guardado(home):
@@ -113,7 +113,7 @@ def test_que_toca_el_modo_activo_con_los_valores_por_defecto():
 def test_que_toca_con_todo_activado():
     cfg = {k: True for k in config.TOGGLES} | {"lock_when_seconds_left": 5}
     acciones = client_actions(cfg)
-    assert not [a for a in acciones if "ban" in a] and "marca tu pick" in acciones
+    assert "marca tu ban (lo confirma el cliente al acabar el tiempo)" in acciones and "marca tu pick" in acciones
     assert "confirma el pick marcado a falta de 5 s" in acciones
 
 

@@ -122,6 +122,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   «Has elegido X: se confirmará X».
 
 ### Añadido
+- **Tu turno de ban en primer plano**: en la fase de bans, con tu ban en curso, el panel enseña
+  arriba el ban recomendado con su motivo y los botones de ban; tu pick recomendado pasa debajo.
+  En la planificación y en tu turno de pick, el pick vuelve al primer plano.
 - **Elegir desde el panel**: en tu turno, botones con las 5 mejores opciones de pick o de ban.
   Un clic lo marca en el cliente (`POST /api/draft/choose`) y cuenta como elección tuya.
   Solo en modo Activo y con la acción pendiente.

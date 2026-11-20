@@ -99,23 +99,23 @@ campeón simulada con tus datos reales, sin reiniciar y sin tocar el cliente. Se
 - **Observar** (el modo con el que arranca): recomienda y dice qué haría, sin tocar el cliente
   (solo lee la selección de campeón y tu historial). No acepta la partida: para eso, pasa a **Activo**.
 - **Activo**: actúa según los interruptores del panel de ajustes (aceptar partida, hechizos,
-  importar runas, abrir Coachless y, si los activas, banear, marcar pick y confirmar pick).
+  importar runas, abrir Coachless y, si los activas, marcar pick y confirmar pick; los bans solo se recomiendan).
 
 El panel explica cada modo bajo la barra superior y en Ajustes, con lo que tocará en el cliente
 según tus interruptores.
 
-**Banear, marcar pick y confirmar pick vienen desactivados**: las normas de Riot no aceptan apps
+**Marcar pick y confirmar pick vienen desactivados**: las normas de Riot no aceptan apps
 que tomen decisiones de juego por el jugador. Si los activas, siguen la recomendación de Nachero,
 pero **la última palabra es tuya**:
 - **Pick**: Nachero marca su recomendación **una vez** (solo la cambia si otro se lleva ese
   campeón). A falta de `lock_when_seconds_left` segundos (8 por defecto) confirma **lo que esté
   marcado**: lo suyo si no has tocado nada, o el campeón que hayas marcado tú.
-- **Ban**: solo marca. Al empezar la fase de bans (no en la planificación) marca el ban recomendado (sin repetir el que ya haya
-  marcado un aliado) y **no lo confirma**: lo banea el cliente al acabar el tiempo. Si marcas
-  otro, se banea el tuyo.
+- **Ban**: solo se recomienda; lo marcas y lo confirmas tú. La recomendación tiene en cuenta tu
+  pick recomendado y los de tus aliados: prioriza a quien los countea y a los fuertes del parche,
+  y no repite lo que ya han marcado o baneado tus aliados.
 - **Si marcas otro campeón** (en el cliente o en el panel), Nachero no lo vuelve a cambiar en ese
   turno, aunque el cliente tarde en reflejar tu cambio.
-- **Desde el panel**: en tu turno salen las 5 mejores opciones de pick o de ban; un clic la marca
+- **Desde el panel**: en tu turno de pick salen las 5 mejores opciones; un clic la marca
   en el cliente y cuenta como elección tuya. Solo en modo Activo.
 - El pick se confirma unos segundos antes del final, no a cero: si no da tiempo, en ranked se
   esquiva.

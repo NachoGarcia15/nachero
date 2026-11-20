@@ -86,7 +86,6 @@ def engine(champs):
 def auto(monkeypatch):
     """Activo con marcar y confirmar (pick y ban), a falta de 8 s; sin hechizos ni runas."""
     for k, v in {
-        "auto_ban": True,
         "auto_hover_pick": True,
         "auto_lock_pick": True,
         "lock_when_seconds_left": 8,
@@ -224,61 +223,13 @@ def test_confirma_una_sola_vez(champs, auto):
 
 
 def test_observar_no_toca_el_cliente(champs, auto):
-    lcu = Client(session(ban=True, left=2))
+    lcu = Client(session(left=2))
     d = Draft(lcu, champs, engine(champs))
     out = tick(d, lcu, acting=False)
     assert lcu.patches == [] and out["choose"]["enabled"] is False
 
 
-# ------------------------------------------------------------------ ban
-def test_ban_solo_se_marca_y_nunca_se_confirma(champs, auto):
-    lcu = Client(session(ban=True))
-    d = Draft(lcu, champs, engine(champs))
-    out = tick(d, lcu)
-    ban = out["ban_suggestions"][0]["id"]
-    assert (9, {"championId": ban}) in lcu.patches
-    assert out["choose"]["kind"] == "ban" and out["choose"]["marked"] == ban
-    assert out["status"][0] == {
-        "kind": "turn_auto",
-        "msg": f"Marcado {champs.name(ban)} · lo banea el cliente al acabar el tiempo",
-    }
-    for left in (6, 2, 1):
-        tick(d, lcu, left=left)
-    assert not any(b.get("completed") for _, b in lcu.patches)  # lo confirma el temporizador del cliente
-    assert [p for p in lcu.patches if p[0] == 9] == [(9, {"championId": ban})]
-
-
-def test_ban_cambiado_por_el_jugador_no_se_toca(champs, auto):
-    lcu = Client(session(ban=True))
-    d = Draft(lcu, champs, engine(champs))
-    ban = tick(d, lcu)["ban_suggestions"][0]["id"]
-    otro = next(c for c in (4, 10, 6) if c != ban)
-    lcu.player_marks(9, otro)
-    for left in (15, 4, 1):
-        out = tick(d, lcu, left=left)
-    assert out["choose"]["by"] == "player" and out["choose"]["marked"] == otro
-    assert (
-        out["status"][0]["msg"] == f"Has elegido banear {champs.name(otro)} · lo banea el cliente al acabar el tiempo"
-    )
-    assert [p for p in lcu.patches if p[0] == 9] == [(9, {"championId": ban})]
-
-
-def test_ban_rechazado_se_reintenta(champs, auto):
-    lcu = Client(session(ban=True))
-    d = Draft(lcu, champs, engine(champs))
-    ban = d.tick(lcu.s, True, pickable=set(), bannable=set())["ban_suggestions"][0]["id"]
-    lcu.patches.clear()
-    d.reset()
-    lcu.action(9)["championId"] = 0
-    lcu.reject = {ban}
-    out = tick(d, lcu)
-    assert not [p for p in lcu.patches if p[0] == 9]
-    assert out["status"][0]["msg"].startswith("Te toca banear: ")
-    lcu.reject = set()
-    tick(d, lcu)
-    assert (9, {"championId": ban}) in lcu.patches
-
-
+# ------------------------------------------------------------------ ban: solo se recomienda
 def soloq(phase="BAN_PICK", me=3):
     """Champ select de soloq: los 10 banean a la vez (un grupo con 10 bans en curso), luego la
     revelación de bans y los picks 1-2-2-2-2-1."""
@@ -308,58 +259,70 @@ def soloq(phase="BAN_PICK", me=3):
     }
 
 
-def test_soloq_diez_bans_a_la_vez(champs, auto):
-    lcu = Client(soloq("PLANNING"))
-    d = Draft(lcu, champs, engine(champs))
-    out = tick(d, lcu)  # planificación: solo la intención de pick, nada de ban
-    assert [p[0] for p in lcu.patches] == [303] and out["my_turn"] is None
-    # empieza la fase de bans: los 10 en curso; dos aliados ya han marcado su ban
-    lcu.s["timer"]["phase"] = "BAN_PICK"
-    for a in lcu.s["actions"][0]:
-        a["isInProgress"] = True
-    out = tick(d, lcu)
-    ally_hover = out["ban_suggestions"][0]["id"]
-    lcu.action(101)["championId"] = ally_hover
-    lcu.action(106)["championId"] = 4  # un rival: no cuenta
-    out = tick(d, lcu)
-    assert out["my_turn"] == "ban" and out["choose"]["kind"] == "ban"
-    ban_patches = [p for p in lcu.patches if p[0] != 303]
-    assert len(ban_patches) == 1 and ban_patches[0][0] == 103  # tu acción, no la de otro
-    assert "completed" not in ban_patches[0][1]
-    assert out["choose"]["marked"] == ban_patches[0][1]["championId"]
+BAN_IDS = {9, *range(100, 110)}
 
 
-def test_planificacion_no_marca_el_ban_y_lo_marca_en_bans(champs, auto):
-    """En PLANNING el cliente da el ban como «en curso» pero ignora lo que se marque en él."""
-    s = soloq("PLANNING")
-    for a in s["actions"][0]:
-        a["isInProgress"] = True
+@pytest.mark.parametrize("on", [True, False])
+@pytest.mark.parametrize("phase", ["PLANNING", "BAN_PICK"])
+def test_nachero_nunca_toca_el_ban(champs, auto, monkeypatch, on, phase):
+    """Con cualquier ajuste (también un `auto_ban` antiguo guardado), ningún PATCH a un ban."""
+    for k in ("auto_ban", "auto_hover_pick", "auto_lock_pick"):
+        monkeypatch.setitem(CFG, k, on)
+    for s in (session(ban=True), soloq(phase)):
+        s["timer"]["phase"] = phase
+        lcu = Client(s)
+        d = Draft(lcu, champs, engine(champs))
+        for left in (20, 5, 1):
+            out = tick(d, lcu, left=left)
+        assert not [p for p in lcu.patches if p[0] in BAN_IDS]
+        assert out["ban_suggestions"]  # se recomienda en el panel
+        if phase == "BAN_PICK":
+            b = out["ban_suggestions"][0]
+            assert out["status"][0]["msg"].startswith(f"Te toca banear: {b['name']}")
+            assert out["my_turn"] == "ban" and out["choose"] is None  # sin botones de ban
+    assert d.choose("ban", 4) == (False, "Nachero solo recomienda bans: bánealo tú en el cliente")
+
+
+def ban_engine(champs, mu=None, top=None):
+    cfg = {"pick_mode": "meta", "weights": {}, "main_role": "jungle"}
+    lola = FakeLola(all_roles(jungle=JUNGLE, top=top or {}), matchups=mu or {})
+    return Engine(champs, lola, Player([_game("jungle")] * 5, []), cfg)
+
+
+def bans_for(champs, s, mu=None, top=None):
     lcu = Client(s)
-    d = Draft(lcu, champs, engine(champs))
-    out = tick(d, lcu)
-    assert not [p for p in lcu.patches if p[0] == 103]  # nada en el ban durante la planificación
-    assert out["my_turn"] is None and out["choose"]["kind"] == "pick"
-    assert d.choose("ban", 4) == (False, "Aún no te toca banear")
-    lcu.s["timer"]["phase"] = "BAN_PICK"
-    out = tick(d, lcu)
-    ban = out["ban_suggestions"][0]["id"]
-    assert [p for p in lcu.patches if p[0] == 103] == [(103, {"championId": ban})]
-    assert lcu.action(103)["championId"] == ban and out["my_turn"] == "ban"
+    return tick(Draft(lcu, champs, ban_engine(champs, mu, top)), lcu, acting=False)
 
 
-def test_marcado_que_el_cliente_no_aplica_se_reintenta(champs, auto):
-    """El PATCH del ban no da error pero la acción sigue en 0: no cuenta como hecho."""
-    lcu = Client(soloq())
-    lcu.swallow = 1
-    d = Draft(lcu, champs, engine(champs))
-    out = tick(d, lcu)
-    ban = out["ban_suggestions"][0]["id"]
-    assert lcu.action(103)["championId"] == 0
-    out = tick(d, lcu)
-    assert lcu.action(103)["championId"] == ban
-    assert out["choose"] == {**out["choose"], "marked": ban, "by": "nachero"}
-    tick(d, lcu)
-    assert len([p for p in lcu.patches if p[0] == 103]) == 2  # ya reflejado: no vuelve a marcar
+def test_ban_segun_tu_pick_y_tus_aliados(champs, auto):
+    base = bans_for(champs, soloq())
+    best = base["hero"]["id"]
+    ids = [b["id"] for b in base["ban_suggestions"]]
+    # el que menos se recomendaba banear de la jungla pasa a ser el primero si countea a tu pick
+    rival = next(c for c in reversed(list(JUNGLE)) if c != best and c not in [p["id"] for p in base["picks"][:2]])
+    out = bans_for(champs, soloq(), mu={(best, "jungle"): {"jungle": {rival: -5}}})
+    assert out["ban_suggestions"][0]["id"] == rival != (ids[0] if ids else None)
+    assert out["ban_suggestions"][0]["reasons"][0] == f"countea a {champs.name(best)} (tu pick)"
+    assert out["status"][0]["msg"] == (
+        f"Te toca banear: {champs.name(rival)} · countea a {champs.name(best)} (tu pick)"
+    )
+    # un aliado top ya ha elegido a Marksman (4): se recomienda banear a quien le countea en top,
+    # aunque sea flojo en el parche y no salga sin ese pick
+    top = {10: (49, 9000, 5, 90)}
+    s = soloq()
+    s["myTeam"][0].update(assignedPosition="top", championId=4)
+    sin = bans_for(champs, s, top=top)
+    con = bans_for(champs, s, mu={(4, "top"): {"top": {10: -5}}}, top=top)
+    assert 10 not in [b["id"] for b in sin["ban_suggestions"]]
+    shooter = next(b for b in con["ban_suggestions"] if b["id"] == 10)
+    assert shooter["reasons"][0] == f"countea a {champs.name(4)}"
+
+
+def test_ban_no_repite_lo_que_marcan_o_eligen_los_aliados(champs, auto):
+    first = bans_for(champs, soloq())["ban_suggestions"][0]["id"]
+    s = soloq()
+    s["actions"][0][1]["championId"] = first  # un aliado ya lo ha marcado como ban
+    assert first not in [b["id"] for b in bans_for(champs, s)["ban_suggestions"]]
 
 
 def test_pick_que_el_cliente_no_aplica_se_reintenta(champs, auto):
@@ -369,25 +332,6 @@ def test_pick_que_el_cliente_no_aplica_se_reintenta(champs, auto):
     best = tick(d, lcu)["hero"]["id"]
     out = tick(d, lcu)
     assert lcu.patches == [(1, {"championId": best})] * 2 and out["choose"]["by"] == "nachero"
-
-
-def test_soloq_no_repite_el_ban_de_un_aliado(champs, auto):
-    lcu = Client(soloq())
-    d0 = Draft(Client(soloq()), champs, engine(champs))
-    first = d0.tick(soloq(), False, pickable=set(), bannable=set())["ban_suggestions"][0]["id"]
-    lcu.action(101)["championId"] = first  # un aliado ya lo ha marcado
-    out = tick(Draft(lcu, champs, engine(champs)), lcu)
-    assert out["choose"]["marked"] and out["choose"]["marked"] != first
-    assert all(b["id"] != first for b in out["ban_suggestions"])
-
-
-def test_sin_auto_ban_no_toca_el_ban(champs, auto, monkeypatch):
-    monkeypatch.setitem(CFG, "auto_ban", False)
-    lcu = Client(session(ban=True, left=2))
-    d = Draft(lcu, champs, engine(champs))
-    out = tick(d, lcu)
-    assert not [p for p in lcu.patches if p[0] == 9]
-    assert out["status"][0]["msg"].startswith("Te toca banear: ")
 
 
 # ------------------------------------------------------------------ elegir desde el panel
@@ -417,7 +361,7 @@ def test_clic_sin_turno_pendiente(champs, auto):
     s = session(ban=True)
     s["actions"][0][0]["isInProgress"] = False  # el ban aún no es tuyo
     lcu = Client(s)
-    assert Draft(lcu, champs, engine(champs)).choose("ban", 3) == (False, "Aún no te toca banear")
+    assert Draft(lcu, champs, engine(champs)).choose("ban", 3)[0] is False
     lcu.action(1)["completed"] = True
     assert Draft(lcu, champs, engine(champs)).choose("pick", 3) == (False, "Ya no tienes ese turno pendiente")
     assert Draft(Client(None), champs, engine(champs)).choose("pick", 3)[0] is False
@@ -521,8 +465,8 @@ def test_tick_no_espera_a_la_red(auto, tmp_path):
     assert time.time() - t < 1.0  # sin fichas ni matchups: recomienda con lo que hay
     main = threading.current_thread()
     assert main not in lcu.calls and main not in lola.net  # nada de red en el hilo del bucle
-    ban = out["ban_suggestions"][0]["id"]
-    assert (9, {"championId": ban}) in lcu.patches  # el ban se marca ya, sin esperar a los matchups
+    assert out["ban_suggestions"] and out["my_turn"] == "ban"  # recomienda el ban sin esperar a los matchups
+    assert not [p for p in lcu.patches if p[0] == 9]
     assert {"picks y bans", "marcar", "runas"} <= set(d.timings)  # para el aviso de selección lenta
 
 

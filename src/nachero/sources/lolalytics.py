@@ -12,7 +12,7 @@ import threading
 import time
 import urllib.request
 
-from nachero.jsonio import read_json, write_json
+from nachero.jsonio import read_json
 
 LOLA_LANE = {"top": "top", "jungle": "jungle", "middle": "middle", "bottom": "bottom", "utility": "support"}
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) nachero/2.0 (uso personal)"
@@ -27,6 +27,7 @@ class Lolalytics:
         self.path = os.path.join(cache_dir, "lolalytics_cache.json")
         self.log, self.tier_name = log, tier
         self.lock = threading.RLock()
+        self.save_lock = threading.Lock()  # una escritura del archivo a la vez
         self.cache = {"tiers": {}, "builds": {}, "slugs": {}}
         if os.path.exists(self.path):
             try:
@@ -51,8 +52,15 @@ class Lolalytics:
             return r.read().decode("utf-8", "replace")
 
     def _save(self):
+        # serializar con el lock (rápido) y escribir sin él: con la caché grande (más de 10 MB)
+        # escribir tarda ~2 s y el motor, que lee la caché en cada tick, no debe esperar
         with self.lock:
-            write_json(self.path, self.cache)
+            text = json.dumps(self.cache, ensure_ascii=False)
+        with self.save_lock:
+            tmp = f"{self.path}.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(text)
+            os.replace(tmp, self.path)
 
     # -- tier list por linea
     def refresh_tiers(self, patch, force=False, progress=None):

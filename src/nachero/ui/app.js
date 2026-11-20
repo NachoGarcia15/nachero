@@ -340,6 +340,19 @@ function bindModeSwitch(root) {
   root.querySelectorAll(".pickmode button").forEach((b) => (b.onclick = () => post("/api/settings", { pick_mode: b.dataset.pm })));
 }
 
+/* Tu turno de ban: el ban recomendado en primer plano y, debajo, tu pick recomendado en corto. */
+function banHero(b, pick) {
+  return `<article class="hero">
+    <div class="hero-art" style="background-image:url('${img("splash", b.id)}')"></div>
+    <div class="hero-body">
+      <div class="eyebrow">Ban recomendado</div>
+      <h1>${esc(b.name)}</h1>
+      <ul class="why">${b.reasons.map((r) => `<li class="pos"><span>${esc(r)}</span></li>`).join("")}</ul>
+      ${pick ? `<p class="muted">Tu pick recomendado: <b>${esc(pick.name)}</b> · ${f1(pick.est)}% WR estimado</p>` : ""}
+    </div>
+  </article>`;
+}
+
 function draftContext(d) {
   if (d.blind) return "A ciegas: el rival no ve tu pick ni tú el suyo";
   const opp = d.enemy_team.find((e) => e.lane_opp && e.champ);
@@ -397,7 +410,7 @@ function renderDraft([d, idle, s]) {
       ${chooser(d.choose)}
       ${roleFitLine(d)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
-      ${best ? `
+      ${d.focus === "ban" ? banHero(d.ban_suggestions[0], best) : best ? `
       <article class="hero">
         <div class="hero-art" style="background-image:url('${img("splash", best.id)}')"></div>
         <div class="hero-body">

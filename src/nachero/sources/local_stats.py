@@ -20,6 +20,7 @@ import os
 
 from nachero.domain.common import ROLES
 from nachero.jsonio import read_json
+from nachero.sources.health import FormatChanged, Health
 
 FORMAT, VERSION = "nachero-stats", 1
 
@@ -50,6 +51,7 @@ class LocalStats:
         self.mtime = None
         self.pending: set = set()
         self.problem: str | None = None
+        self.health = Health(self.name, self.log)
         self.load()
 
     def load(self) -> bool:
@@ -69,9 +71,10 @@ class LocalStats:
         self.problem = validate(data)
         if self.problem:
             self.data = {}
-            self.log(f"Estadísticas locales: {self.path} {self.problem}", "warn")
+            self.health.fail("archivo", FormatChanged(self.problem))
             return False
         self.data = data
+        self.health.ok("archivo")
         return True
 
     @property

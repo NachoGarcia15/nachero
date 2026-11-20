@@ -14,6 +14,7 @@ import urllib.request
 
 from nachero.domain.common import norm
 from nachero.jsonio import read_json, write_json
+from nachero.sources.health import FormatChanged, Health
 
 GOL_ROLE = {"top": "TOP", "jungle": "JUNGLE", "middle": "MID", "bottom": "ADC", "utility": "SUPPORT"}
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) nachero/2.0 (uso personal)"
@@ -31,6 +32,8 @@ class GolGG:
         except Exception:
             self.cache = {"tournaments": None, "data": {}}
         self.loading = set()
+        self.health = Health("gol.gg", log)
+        self.failed: set[str] = set()  # torneos cuya última descarga falló: se usa su caché antigua
 
     def _opener(self):
         jar = http.cookiejar.CookieJar()
@@ -72,10 +75,19 @@ class GolGG:
 
     # -- estadisticas de un torneo
     def dataset(self, tournament):
+        """Datos del torneo si están frescos; si la última descarga falló, los guardados aunque sean viejos."""
         d = self.cache["data"].get(tournament)
-        if d and time.time() - d["t"] < self.TTL:
+        if d and (time.time() - d["t"] < self.TTL or tournament in self.failed):
             return d
         return None
+
+    def updated(self) -> dict | None:
+        """El torneo descargado más reciente y cuándo (para la frescura en el panel)."""
+        data = self.cache.get("data") or {}
+        if not data:
+            return None
+        name, d = max(data.items(), key=lambda kv: kv[1].get("t", 0))
+        return {"tournament": name, "t": d.get("t"), "games": d.get("games", 0)}
 
     def load(self, tournament, progress=None):
         """Descarga (bloqueante) la tabla general y las 5 por rol de un torneo. `progress(n, 6)` se
@@ -89,6 +101,8 @@ class GolGG:
             op = self._opener()
             pages = 1 + len(GOL_ROLE)
             allrows = parse_gol(self._get(op, url))
+            if not allrows:
+                raise FormatChanged("sin tabla de campeones")
             if progress:
                 progress(1, pages)
             roles = {}
@@ -101,9 +115,15 @@ class GolGG:
             with self.lock:
                 self.cache["data"][tournament] = {"t": time.time(), "games": games, "all": allrows, "roles": roles}
                 self._save()
+            self.failed.discard(tournament)
+            self.health.ok("torneos")
             self.log(f"gol.gg: {tournament} · {games} partidas", "ok")
         except Exception as e:
-            self.log(f"gol.gg: no pude leer {tournament} ({e.__class__.__name__})", "warn")
+            self.failed.add(tournament)
+            self.health.fail("torneos", e)
+            old = self.cache["data"].get(tournament)
+            extra = " Uso los datos guardados." if old else ""
+            self.log(f"gol.gg: no pude leer {tournament} ({e.__class__.__name__}).{extra}", "warn")
         finally:
             self.loading.discard(tournament)
 

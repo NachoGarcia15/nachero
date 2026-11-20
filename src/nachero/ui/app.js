@@ -415,6 +415,7 @@ function renderDraft([d, idle, s]) {
         <div class="hero-art" style="background-image:url('${img("splash", best.id)}')"></div>
         <div class="hero-body">
           <div class="eyebrow">${d.locked ? "Tu pick confirmado" : "Mejor pick para " + esc(d.role_es)}${d.mode === "meta" ? " · sin tu pool" : ""}</div>
+          ${dataLine(s.data)}
           <h1>${esc(best.name)}</h1>
           <div class="chips">${roleChips(best)}</div>
           <div class="est"><span class="num">${f1(best.est)}%</span><small>WR estimado</small></div>
@@ -875,14 +876,33 @@ function ago(ts) {
   return m < 1 ? "ahora mismo" : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`;
 }
 
+// Avisos de fuentes que ya no se leen bien (cambio de formato): se sigue con los datos guardados.
+function warnText(w) {
+  return `${w.source} ha cambiado su página (${w.kind}): sigo con los datos guardados${w.last_ok ? ` de ${ago(w.last_ok)}` : ""}.`;
+}
+function renderDataWarn(ws) {
+  const el = $("#datawarn");
+  el.hidden = !ws.length;
+  el.textContent = ws.length ? `${ws.map(warnText).join(" ")} Las recomendaciones pueden ir desfasadas.` : "";
+}
+
+// Frescura: de dónde salen los datos y de cuándo son (junto a la recomendación).
+function dataLine(dt) {
+  if (!dt || !dt.patch) return "";
+  return `<div class="datasrc ${dt.stale ? "stale" : ""}" title="Fuente de las estadísticas de esta recomendación">Datos: ${esc(dt.source || "Lolalytics")} ${esc(dt.tier || "")} · parche ${esc(dt.patch)} · ${ago(dt.updated)}${dt.stale ? " · desfasados" : ""}</div>`;
+}
+
 function renderData(dt, why) {
   if (why && why !== "no_data") { $("#datainfo").innerHTML = emptyState(why, STATE).replace("empty-state", "empty-state small"); return; }
   if (!dt || !dt.patch) { $("#datainfo").textContent = "Cargando…"; return; }
+  const pro = dt.pro;
   $("#datainfo").innerHTML = `${why ? `<p class="warn-line">${EMPTY.no_data(STATE)[1]}</p>` : ""}
+    ${(dt.warnings || []).map((w) => `<p class="warn-line">${esc(warnText(w))}</p>`).join("")}
+    ${dt.stale ? `<p class="warn-line">Las estadísticas son de ${ago(dt.updated)} o de otro parche: pulsa «Actualizar ahora».</p>` : ""}
     ${esc(dt.source || "Lolalytics")} · ${esc(dt.tier)} · parche ${esc(dt.patch)}<br>
     ${nf0.format(dt.games)} partidas analizadas por rol<br>
     Matchups en caché: ${dt.counters}${dt.pending ? ` · descargando ${dt.pending}` : ""}<br>
-    Actualizado ${ago(dt.updated)}
+    Actualizado ${ago(dt.updated)}${pro ? `<br>Competitivo (gol.gg): ${esc(pro.tournament)} · ${ago(pro.t)}` : ""}
     <div><button class="btn" id="refresh">Actualizar ahora</button></div>`;
   $("#refresh").onclick = () => post("/api/refresh");
 }
@@ -1119,11 +1139,13 @@ async function poll() {
     once("draft", [s.draft, s.idle, { connected: s.connected, offline: s.offline, loading: s.loading, mode: s.mode,
       tasks: s.loading ? s.tasks : null, progress: s.loading ? pg : null, booting: pg.booting, active_summary: ((s.modes || {}).active || {}).summary, main_role: (s.settings || {}).main_role,
       games: s.games, phase_es: s.offline ? "Cliente cerrado" : s.phase_es, pick_mode: s.settings.pick_mode,
-      empty: empty.draft, platform: s.platform }], renderDraft);
+      empty: empty.draft, platform: s.platform,
+      data: s.data && { source: s.data.source, patch: s.data.patch, tier: s.data.tier, stale: s.data.stale, updated: s.data.updated && Math.floor(s.data.updated / 60) } }], ([d, idle, k]) => renderDraft([d, idle, { ...k, data: s.data }]));
     once("pool", [s.pool, empty.pool, s.pool && s.pool.length ? null : [pg.current, taskOf(s, pg.current)]], () => renderPool(s.pool));
     once("log", s.log, renderLog);
     once("settings", s.settings, renderSettings);
     once("profile", [s.settings, s.profile], () => renderProfile(s.settings, s.profile));
+    once("datawarn", (s.data && s.data.warnings) || [], renderDataWarn);
     once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data }, () => renderData(s.data, empty.data));
     evalTick();
     if (VIEW === "pro" && typeof proTick === "function") proTick();

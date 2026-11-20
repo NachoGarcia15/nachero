@@ -7,8 +7,7 @@
     1.0,
     3.0
   ],
-  "_game_decisions_info": "Banear, marcar y confirmar pick deciden por ti: desactivados por defecto (normas de Riot). Activalos en Ajustes si los quieres.",
-  "auto_ban": false,
+  "_game_decisions_info": "Marcar y confirmar pick deciden por ti: desactivados por defecto (normas de Riot). Activalos en Ajustes si los quieres. Los bans solo se recomiendan.",
   "auto_hover_pick": false,
   "auto_lock_pick": false,
   "lock_when_seconds_left": 8,

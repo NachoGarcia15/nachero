@@ -58,12 +58,12 @@ def evaluate_request(query: str) -> tuple[int, dict]:
 
 
 def choose_request(body: dict) -> tuple[int, dict]:
-    """`POST /api/draft/choose {"kind": "pick"|"ban", "id": 17}`: marca un campeón en tu turno
+    """`POST /api/draft/choose {"kind": "pick", "id": 17}`: marca un campeón en tu pick
     desde el panel. Cuenta como elección del jugador: Nachero no lo vuelve a cambiar."""
     kind, cid = body.get("kind"), body.get("id")
     champs, draft = CTX.get("champs"), CTX.get("draft")
     valid_id = isinstance(cid, int) and not isinstance(cid, bool) and champs is not None and cid in champs.by_id
-    if kind not in ("pick", "ban") or not valid_id:
+    if kind != "pick" or not valid_id:  # los bans solo se recomiendan: nunca se marcan
         return 400, {"error": "campeón o turno no válido"}
     with LOCK:
         mode, phase = APP.get("mode"), APP.get("phase")

@@ -75,6 +75,11 @@ class Draft:
         my_pick = next((a for a in acts if a["actorCellId"] == me and a["type"] == "pick"), None)
         timer = s.get("timer", {})
         left = max(0, timer.get("adjustedTimeLeftInPhase", 0) / 1000)
+        # en planificación el cliente ya da los bans como «en curso», pero ignora lo que se marque
+        # en ellos (sin error): el turno de ban empieza de verdad en BAN_PICK
+        planning = timer.get("phase") == "PLANNING"
+        if my_ban and planning:
+            my_ban = {**my_ban, "isInProgress": False}
 
         unavailable = banned | set(ally_ids) | set(enemy_ids) | ally_intent
         locked = my_pick["championId"] if my_pick and my_pick["completed"] and my_pick["championId"] else None
@@ -198,7 +203,11 @@ class Draft:
         for _kind, msg in status:
             self.note(("Observando · " if not acting else "") + msg, "hint")
 
-        in_progress = {a["actorCellId"]: a["type"] for a in acts if a.get("isInProgress") and not a["completed"]}
+        in_progress = {
+            a["actorCellId"]: a["type"]
+            for a in acts
+            if a.get("isInProgress") and not a["completed"] and not (planning and a["type"] == "ban")
+        }
         my_team = []
         for m in sorted(s["myTeam"], key=lambda m: m["cellId"]):
             cid = m["championId"] or 0
@@ -303,15 +312,17 @@ class Draft:
         marked = choice or (cur if cur not in taken else 0)
         # el pick se puede marcar antes de tu turno (intención); el ban, solo en tu turno
         can_hover = not choice and hover and acting and target and (not ban or action["isInProgress"])
-        # una vez por acción: si ya marcó, no vuelve a hacerlo salvo que lo marcado ya no valga
-        fresh = aid not in self.hovered or cur in taken
+        # una vez por acción: si ya marcó y el cliente lo refleja, no vuelve a hacerlo salvo que lo
+        # marcado ya no valga. Si la acción sigue vacía (el cliente aceptó el PATCH pero no lo
+        # aplicó), no cuenta como hecho y se reintenta
+        fresh = aid not in self.hovered or not cur or cur in taken
         if can_hover and fresh and cur != target["id"]:
             if self.patch(aid, {"championId": target["id"]}):
                 self.hovered[aid] = marked = target["id"]
-                if ban:
-                    self.note(f"Ban marcado: {name(marked)} · lo banea el cliente al acabar el tiempo")
             else:  # se reintenta en el siguiente tick (antes un rechazo dejaba el ban sin hacer)
                 self.note(f"El cliente no deja marcar {name(target['id'])}: lo reintento", "warn")
+        if ban and cur and cur == self.hovered.get(aid):  # solo cuando el cliente ya lo muestra
+            self.note(f"Ban marcado: {name(cur)} · lo banea el cliente al acabar el tiempo")
         by = "player" if choice else ("nachero" if marked and marked == self.hovered.get(aid) else None)
         if action["isInProgress"]:
             final = marked or (target["id"] if target else 0)
@@ -359,7 +370,8 @@ class Draft:
         action = next((a for a in acts if a["actorCellId"] == me and a["type"] == kind and not a["completed"]), None)
         if action is None:
             return False, "Ya no tienes ese turno pendiente"
-        if kind == "ban" and not action.get("isInProgress"):
+        planning = (s.get("timer") or {}).get("phase") == "PLANNING"
+        if kind == "ban" and (planning or not action.get("isInProgress")):
             return False, "Aún no te toca banear"
         name = self.champs.name(cid)
         prev = self.choice.get(action["id"])

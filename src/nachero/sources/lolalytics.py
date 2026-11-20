@@ -20,6 +20,9 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) nachero/2.0 (uso personal)"
 
 
 class Lolalytics:
+    """Fuente de estadísticas (`domain.stats.StatsProvider`) que lee la web de Lolalytics."""
+
+    name = "Lolalytics"
     TIER_TTL = 6 * 3600
     COUNTER_TTL = 24 * 3600
     RETRY_AFTER = 30 * 60
@@ -119,6 +122,15 @@ class Lolalytics:
     def updated_at(self):
         ts = [t["t"] for t in self.cache["tiers"].values()]
         return min(ts) if ts else None
+
+    def stats(self):
+        """Partidas analizadas por rol y builds en caché (para el panel)."""
+        with self.lock:
+            tiers = self.cache.get("tiers", {})
+            return {
+                "games": sum(v.get("games", 0) for v in tiers.values()),
+                "builds": len(self.cache.get("builds", {})),
+            }
 
     # -- matchups por campeon contra las 5 lineas (pagina de build)
     def matchups(self, cid, role, fetch=True):

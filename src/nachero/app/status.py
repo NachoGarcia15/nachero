@@ -98,7 +98,7 @@ def diagnostics(app: dict, version: str, system: str, frozen: bool, secrets: tup
         f"Conexión: {conn}{' · cargando' if app.get('loading') else ''}",
         f"Fase: {app.get('phase_es') or app.get('phase') or '—'} · modo {app.get('mode')}"
         + (" · demo" if app.get("demo") else ""),
-        f"Parche: {app.get('patch') or '—'} · Lolalytics {data.get('games', 0)} partidas, "
+        f"Parche: {app.get('patch') or '—'} · {data.get('source') or 'Lolalytics'} {data.get('games', 0)} partidas, "
         f"{data.get('counters', 0)} matchups en caché",
         f"Partidas en el historial: {app.get('games', 0)}",
     ]

@@ -303,6 +303,7 @@ class Draft:
             "queue": queue.get("name", ""),
             "blind": blind,
             "lane_known": ctx["lane_known"],
+            "role_fit": ctx["role_fit"],
             "enemy_left_after": enemy_left_after,
             "choose": choose,
             # en tu turno de ban, el panel pone el ban recomendado en primer plano y el pick debajo

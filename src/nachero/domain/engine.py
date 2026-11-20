@@ -12,6 +12,7 @@ Todas las piezas se expresan en puntos de winrate (pp) para poder sumarlas:
   encaje_aliado   lo que le falta a tu equipo (dano AP/AD, frontline, control, dano) y lo que sobra.
   respuesta_comp  ajustes pequenos contra la composicion rival (mucho control, mucha amenaza de entrada...).
   riesgo_counter  si tu rival de linea aun no ha elegido y le quedan picks: castiga campeones faciles de counterear.
+  facil           (solo en autofill) +0,8 / 0 / -1 segun la dificultad del campeon en el cliente.
 
   delta 2 = WR real del enfrentamiento - WR esperado por la fuerza de ambos campeones. Mide solo la
   interaccion, por eso se suma a la fuerza del meta sin contarla dos veces.
@@ -119,6 +120,23 @@ def infer_roles(enemy_ids, lola, cfg=None):
     return dict(zip(ids, best, strict=True))
 
 
+# ---------------------------------------------------------------- autofill
+# Un rol que no es el principal ni el secundario es autofill si tienes pocas partidas en él.
+AUTOFILL_GAMES = 15
+AUTOFILL_SHARE = 0.10
+ROLE_FIT_ES = {
+    "main": "tu rol principal",
+    "secondary": "tu rol secundario",
+    "familiar": "un rol que juegas a menudo",
+    "autofill": "autofill",
+    "unknown": "",
+}
+# En autofill: campeones fáciles (dificultad del cliente, 1 a 3), más peso a la fuerza en el
+# parche y más castigo al riesgo de counter (vas a ciegas en un rol que no dominas).
+EASE = {1: 0.8, 2: 0.0, 3: -1.0}
+AUTOFILL_META, AUTOFILL_RISK = 1.25, 1.6
+
+
 # ---------------------------------------------------------------- motor
 class Engine:
     def __init__(self, champs, lola, player, cfg):
@@ -132,6 +150,25 @@ class Engine:
         """Rol fuera de la champ select: el elegido en ajustes o, en "auto", el que mas juegas."""
         r = self.cfg.get("main_role", "auto")
         return r if r in ROLES else self.player.main_role
+
+    def role_fit(self, role):
+        """Cuánto es tuyo el rol asignado: principal, secundario, habitual o autofill.
+        Sin historial no se sabe ("unknown") y no cambia nada."""
+        games = self.player.role_games.get(role, 0)
+        total = len(self.player.games)
+        second = self.cfg.get("secondary_role")
+        main = self.main_role()
+        if role == main:
+            kind = "main"
+        elif role == second:
+            kind = "secondary"
+        elif not total:
+            kind = "unknown"
+        elif games >= AUTOFILL_GAMES and games / total >= AUTOFILL_SHARE:
+            kind = "familiar"
+        else:
+            kind = "autofill"
+        return {"kind": kind, "kind_es": ROLE_FIT_ES[kind], "games": games, "main": main}
 
     @property
     def mode(self):
@@ -164,7 +201,8 @@ class Engine:
             for cid, r in self.player.by_cr:
                 if r == role:
                     out.add(cid)
-            out |= set(self.strong(role, 18))
+            # en autofill tu historial en el rol dice poco: más campeones fuertes del parche
+            out |= set(self.strong(role, 30 if self.role_fit(role)["kind"] == "autofill" else 18))
             for cid, m in self.player.mastery.items():
                 if m.get("championPoints", 0) >= 40000 and R.at_least(self.roles.category(cid, role), "occasional"):
                     out.add(cid)
@@ -319,8 +357,9 @@ class Engine:
         ) * 0.3
 
     # -- recomendacion principal
-    def score(self, cid, role, allies, enemy_ids, enemy_roles, enemy_left_after):
-        """Tarjeta de un campeon en un rol: WR estimado, partes, matchups, rol y confianza."""
+    def score(self, cid, role, allies, enemy_ids, enemy_roles, enemy_left_after, autofill=False):
+        """Tarjeta de un campeon en un rol: WR estimado, partes, matchups, rol y confianza.
+        Con `autofill`, suma lo fácil que es y pesa más la fuerza en el parche y el riesgo de counter."""
         lane_known = any(r == role for r in enemy_roles.values())
         pool_mode = self.mode == "pool"
         meta, tierrow = self.meta(cid, role)
@@ -339,6 +378,16 @@ class Engine:
             "vs_comp": vc * self.w("comp"),
             "risk": risk * self.w("matchup"),
         }
+        why_af = []
+        if autofill:
+            difficulty = self.champs.info(cid).get("difficulty", 2)
+            parts["ease"] = EASE.get(difficulty, 0.0)
+            parts["meta"] *= AUTOFILL_META
+            parts["risk"] *= AUTOFILL_RISK
+            if difficulty == 1:
+                why_af.append(("+", "fácil de jugar: buena opción de autofill"))
+            elif difficulty == 3:
+                why_af.append(("-", "difícil de jugar sin práctica en el rol"))
         bonus = self.cfg.get("pool_bonus", {}).get(self.champs.name(cid), 0)
         bonus = float(bonus) if pool_mode and isinstance(bonus, (int, float)) else 0.0
         total = sum(parts.values()) + bonus
@@ -349,7 +398,7 @@ class Engine:
             "est": round(50 + total, 1),
             "total": total,
             "parts": {k: round(v, 1) for k, v in parts.items()},
-            "why": [{"sign": s, "text": t} for s, t in fit_why + vc_why],
+            "why": [{"sign": s, "text": t} for s, t in why_af + fit_why + vc_why],
             "dmg": self.champs.info(cid)["dmg"],
             "games": you["games"],
             "wr": round(100 * you["wins"] / you["games"]) if you["games"] else None,
@@ -375,11 +424,13 @@ class Engine:
         """allies: [(cid, peso)] de tus aliados (peso 0,5 si solo marcan). enemy_ids: picks rivales."""
         enemy_roles = infer_roles(enemy_ids, self.lola, self.cfg)
         forced = {c for c in include if c}
+        fit = self.role_fit(role)
+        autofill = fit["kind"] == "autofill"
         out = []
         for cid in self.candidates(role) | forced:
             if cid not in forced and (cid in unavailable or (pickable and cid not in pickable)):
                 continue
-            out.append(self.score(cid, role, allies, enemy_ids, enemy_roles, enemy_left_after))
+            out.append(self.score(cid, role, allies, enemy_ids, enemy_roles, enemy_left_after, autofill))
         out.sort(key=lambda r: -r["total"])
         for r in out[:12]:
             if not r["matchups_loaded"]:
@@ -389,13 +440,15 @@ class Engine:
             "lane_known": any(r == role for r in enemy_roles.values()),
             "enemy_left_after": enemy_left_after,
             "mode": self.mode,
+            "role_fit": fit,
         }
         return out, ctx
 
     def evaluate(self, cid, role, allies=(), enemy_ids=(), enemy_left_after=5):
         """Cualquier campeon en cualquier rol (buscador del panel), aunque no sea candidato."""
         enemy_roles = infer_roles(list(enemy_ids), self.lola, self.cfg)
-        row = self.score(cid, role, list(allies), list(enemy_ids), enemy_roles, enemy_left_after)
+        autofill = self.role_fit(role)["kind"] == "autofill"
+        row = self.score(cid, role, list(allies), list(enemy_ids), enemy_roles, enemy_left_after, autofill)
         if not row["matchups_loaded"]:
             self.lola.request(cid, role, self.champs.slug(cid))
         row["split"] = self.roles.describe(cid)

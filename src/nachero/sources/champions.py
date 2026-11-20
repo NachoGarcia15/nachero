@@ -94,6 +94,7 @@ class Champs:
             "cc": p.get("crowdControl", 1),
             "mobility": p.get("mobility", 1),
             "utility": p.get("utility", 1),
+            "difficulty": t.get("difficulty", 2),  # 1 fácil, 2 media, 3 difícil (para autofill)
             "roles": d.get("roles", []),
             "img": {
                 "tile": skin.get("tilePath"),

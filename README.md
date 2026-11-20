@@ -136,6 +136,13 @@ En la selección de campeón recomienda para el rol que te asigna el cliente, se
 Fuera de ella (y en colas sin roles, como Practice Tool) usa tu rol principal: por defecto el que
 más juegas, o el que elijas en la pantalla de espera del panel.
 
+### Autofill y rol secundario
+Si el cliente te da un rol que no es tu principal ni tu secundario (configuración guiada) y casi
+no lo juegas (menos de 15 partidas o menos del 10 % de tu historial), es **autofill**: el panel
+lo avisa y la recomendación suma una parte más, **Fácil de jugar** (+0,8 los campeones fáciles,
+−1 los difíciles, según el cliente), pesa la fuerza en el parche ×1,25 y el riesgo de counter
+×1,6. Un rol que juegas a menudo, aunque no sea el principal, no cuenta como autofill.
+
 ### Roles de cada campeón
 Cualquier campeón se puede evaluar en cualquier rol. Con el reparto por línea de Master+
 (partidas y % de las partidas del campeón en cada línea), cada pareja campeón-rol tiene una categoría:

@@ -3,6 +3,42 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.14.0] - 2026-11-19
+
+### Cambiado
+- **Auto pick que respeta tu elección** (normas de Riot): Nachero marca su recomendación una
+  sola vez por turno y, a falta de `lock_when_seconds_left` s, confirma **lo que esté marcado**:
+  lo suyo si no has tocado nada o el campeón que hayas marcado tú. Si marcas otro (en el cliente
+  o en el panel), no lo vuelve a cambiar en ese turno, aunque el cliente tarde en reflejarlo.
+  Antes de marcar o confirmar relee la acción en el cliente. Si el campeón marcado se lo lleva
+  otro, vuelve a marcar la recomendación.
+- **Auto ban: solo marca**. Con «Banear» (desactivado por defecto), en la fase de bans
+  (`BAN_PICK`, nunca en la planificación) Nachero marca el ban recomendado sin confirmarlo: lo
+  banea el cliente al acabar el tiempo. Comprueba que el cliente lo muestra (si no, reintenta)
+  y, si marcas otro (en el cliente o en el panel), no lo vuelve a tocar. La
+  recomendación tiene en cuenta el campeón que Nachero te recomienda jugar (o el que tengas
+  marcado) y los picks o intenciones de tus aliados: prioriza a quien los countea (matchups en
+  caché) junto con la fuerza en el parche, dice por qué («countea a Taliyah (tu pick) y a
+  Garen») y no repite lo que ya han marcado o baneado tus aliados.
+- **El bucle de la champ select ya no espera a la red**: las fichas de campeón y el catálogo de
+  runas se piden en segundo plano al arrancar, y la caché de Lolalytics se escribe sin bloquear
+  al motor. Si analizar la selección tarda más de 3 s, el registro lo dice («Selección lenta: …»).
+- **Causa de que no saliera (ni se aplicara) el ban en la fase de bans**: ahí el cliente devuelve
+  `[-1]` en `bannable-champion-ids` y el filtro dejaba fuera a todos. Ahora solo cuentan ids
+  reales; si no hay, vale la lista de la planificación (igual con `pickable`).
+- Una personalizada con bans dice en el registro «con bans, recomiendo como en un draft» en
+  lugar de «sin bans».
+- Mensajes nuevos en el panel y el registro: «Marcado X · se confirmará a falta de N s» y
+  «Has elegido X: se confirmará X».
+
+### Añadido
+- **Tu turno de ban en primer plano**: en la fase de bans, con tu ban en curso, el panel enseña
+  arriba el ban recomendado con su motivo y los botones de ban; tu pick recomendado pasa debajo.
+  En la planificación y en tu turno de pick, el pick vuelve al primer plano.
+- **Elegir desde el panel**: en tu turno, botones con las 5 mejores opciones de pick o de ban.
+  Un clic lo marca en el cliente (`POST /api/draft/choose`) y cuenta como elección tuya.
+  Solo en modo Activo y con la acción pendiente.
+
 ## [0.13.0] - 2026-11-17
 
 ### Añadido

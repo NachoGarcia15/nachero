@@ -54,8 +54,14 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    rivales, bans y orden de picks.
 4. `engine.Engine.picks` puntúa candidatos: fuerza en el parche + tú + matchups (rival de línea
    y resto, con roles estimados) + encaje con tu equipo + respuesta a su comp + riesgo de counter.
-5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto counterea tus picks).
-6. El panel consulta `/api/state` cada segundo y pinta.
+5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto countea a tu pick y a tus
+   aliados, con los matchups en caché). Con `auto_ban`, `Draft.ban_turn` marca el primero en
+   `BAN_PICK` (nunca lo confirma) y no pisa el que marque el jugador.
+6. En modo Activo, `Draft.turn` marca la recomendación de pick una vez por acción y confirma lo
+   que esté marcado a falta de `lock_when_seconds_left` s. Si lo marcado no es lo que marcó Nachero (o
+   se eligió en el panel con `POST /api/draft/choose`), es la elección del jugador: no se vuelve
+   a marcar en ese turno.
+7. El panel consulta `/api/state` cada segundo y pinta.
 
 ## Arranque y carga visible
 
@@ -85,4 +91,4 @@ cuándo se reintenta (`retry_in`); las tier lists que fallan se vuelven a pedir 
 | *Delta 2* para matchups | Mide solo la interacción; no cuenta dos veces la fuerza del campeón. |
 | Encogimiento por muestra (`shrink`) | Pocas partidas dicen poco: evita recomendaciones por suerte. |
 | No usar APIs ofuscadas ni saltarse protecciones | Respetar a las fuentes de datos. |
-| No automatizar decisiones de juego en versiones compartidas | Normas de Riot (ver ROADMAP). |
+| Decisiones de juego automáticas: opcionales y sin pisar la elección del jugador | Normas de Riot (ver ROADMAP): Nachero marca, el jugador decide y se confirma lo marcado. |

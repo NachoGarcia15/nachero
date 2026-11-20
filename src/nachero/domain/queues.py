@@ -3,7 +3,8 @@
 Entrada: la sesion de `/lol-gameflow/v1/session` (o un dict vacio si no se pudo leer).
 - "draft": Grieta con draft (ranked solo/flex, normal draft, Clash): todo como siempre.
 - "blind": Grieta sin draft (a ciegas, personalizadas, Practice Tool): sin bans ni rival
-  visible; el rol es tu rol principal.
+  visible; el rol es tu rol principal. Una personalizada con bans (`has_bans`) se trata como
+  un draft.
 - "other": ARAM, Arena, URF y demas modos: no se recomienda ni se toca el cliente.
 - "unknown": no se pudo leer la cola; se recomienda como en la Grieta.
 """

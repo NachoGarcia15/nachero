@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from conftest import FakeLola, all_roles
+from conftest import CHAMPS, FakeLola, all_roles
 from nachero.app import server
 from nachero.app.draft import Draft
 from nachero.app.state import APP, CTX, OPTS
@@ -452,8 +452,6 @@ def slow_lola(tmp_path, delay=0.3):
 
 
 def test_tick_no_espera_a_la_red(auto, tmp_path):
-    from conftest import CHAMPS
-
     lcu = SlowClient(session(ban=True), CHAMPS)
     champs = Champs(lcu)
     champs.preload()
@@ -509,3 +507,31 @@ def test_sesion_atrasada_no_pisa_lo_que_acaba_de_marcar_el_jugador(champs, auto)
     lcu.player_marks(1, 8)
     out = d.tick(vieja, True, pickable=set(), bannable=set())
     assert lcu.patches == [] and out["choose"]["by"] == "player" and out["choose"]["marked"] == 8
+
+
+def test_bannable_menos_uno_en_bans(champs, auto):
+    """Captura real: en BAN_PICK el cliente devuelve bannable = [-1]; antes dejaba fuera todos los bans."""
+    s = soloq("PLANNING")
+    lcu = Client(s)
+    reales = list(CHAMPS)
+
+    def get(path, timeout=None):
+        if path.endswith("bannable-champion-ids"):
+            return reales if lcu.s["timer"]["phase"] == "PLANNING" else [-1]
+        if path.endswith("pickable-champion-ids"):
+            return reales
+        return Client.get(lcu, path, timeout)
+
+    lcu.get = get
+    d = Draft(lcu, champs, engine(champs))
+    antes = d.tick(lcu.s, True)["ban_suggestions"]
+    lcu.s["timer"]["phase"] = "BAN_PICK"
+    for a in lcu.s["actions"][0]:
+        a["isInProgress"] = True
+    out = d.tick(lcu.s, True)
+    assert out["my_turn"] == "ban" and out["ban_suggestions"] == antes != []
+    assert out["status"][0]["msg"].startswith(f"Te toca banear: {antes[0]['name']} · ")
+    # sin lista válida previa (Nachero abierto ya en BAN_PICK): no se filtra
+    d2 = Draft(lcu, champs, engine(champs))
+    assert d2.tick(lcu.s, True)["ban_suggestions"]
+    assert d2.valid_ids("bannable", [-1, 0, True, "7"]) == set()

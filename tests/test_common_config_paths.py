@@ -41,7 +41,7 @@ def test_deep_merge_conserva_claves_nuevas():
     [
         ({"auto_hover_pick": False}, ["auto_hover_pick"]),
         ({"auto_hover_pick": "no"}, []),
-        ({"auto_ban": True}, []),  # ya no existe: los bans solo se recomiendan
+        ({"auto_ban": True}, ["auto_ban"]),
         ({"lock_when_seconds_left": 5}, ["lock_when_seconds_left"]),
         ({"lock_when_seconds_left": 99}, []),
         ({"lock_when_seconds_left": True}, []),

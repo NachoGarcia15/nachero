@@ -157,6 +157,9 @@ QUEUE_LOG = {
 }
 
 
+SLOW_TICK = 3.0  # s: un análisis de la champ select más lento que esto se apunta en el registro
+
+
 def queue_message(queue: dict, session: dict | None) -> tuple[str, str]:
     """Mensaje del registro para la cola: una personalizada con bans se trata como un draft."""
     if queue["kind"] == "blind" and has_bans(session or {}):
@@ -378,7 +381,9 @@ def run_session():
     roles = ", ".join(f"{ROLE_ES[r]} {n}" for r, n in sorted(player.role_games.items(), key=lambda x: -x[1]))
     log(f"Listo · rol principal {ROLE_ES[main]} · {len(player.games)} partidas analizadas ({roles or 'ninguna'})", "ok")
 
-    draft = Draft(lcu, champs, engine, RuneImporter(src))
+    runes = RuneImporter(src)
+    runes.preload()  # catálogo de runas en segundo plano: el bucle no lo espera
+    draft = Draft(lcu, champs, engine, runes)
     CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
     demo = None  # se crea al abrir la demo (por --demo o desde el panel)
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
@@ -493,7 +498,12 @@ def run_session():
                                 # con la sesión, para saber si la personalizada tiene bans
                                 queue_logged = True
                                 log(*queue_message(queue, s))
+                            t0 = time.time()
                             d = champ_select_view(draft, s, acting, queue)
+                            slow = time.time() - t0
+                            if slow > SLOW_TICK:  # para localizar esperas en el cliente real
+                                parts = " · ".join(f"{k} {v:.1f} s" for k, v in draft.timings.items() if v >= 0.5)
+                                log(f"Selección lenta: {slow:.1f} s en analizar ({parts or 'sin detalle'})", "warn")
                     with LOCK:
                         APP["draft"] = d
             except Exception as e:

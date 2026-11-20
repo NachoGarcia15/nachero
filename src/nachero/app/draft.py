@@ -1,5 +1,6 @@
 """Logica de la seleccion de campeon en soloq: lee la sesion del cliente, recomienda y (en modo activo) actua."""
 
+import time
 import webbrowser
 
 from nachero.app.state import SPELL_IDS, TIMER_ES, log
@@ -26,6 +27,7 @@ class Draft:
         self.hovered: dict[int, int] = {}
         self.choice: dict[int, int] = {}
         self.confirmed: set[int] = set()
+        self.timings: dict[str, float] = {}  # cuánto tarda cada parte del último tick (registro)
         self.context = None  # rol, aliados y rivales del último tick (para «Evaluar cualquier campeón»)
 
     def note(self, msg, kind="action"):
@@ -36,6 +38,15 @@ class Draft:
     def tick(self, s, acting, pickable=None, bannable=None, queue=None):
         """Recomienda (y en modo activo actua) en la champ select `s`. `queue` es el tipo de cola
         de `domain.queues.classify`; si falta, se trata como un draft de la Grieta."""
+        clock = time.perf_counter()
+        self.timings = {}
+
+        def lap(part):
+            nonlocal clock
+            now = time.perf_counter()
+            self.timings[part] = self.timings.get(part, 0.0) + now - clock
+            clock = now
+
         ch, eng = self.champs, self.engine
         queue = queue or {}
         # a ciegas (sin bans): nadie ve los picks del otro, asi que no hay riesgo de counter
@@ -113,6 +124,7 @@ class Draft:
                     )
                 )
         self.context = {"role": role, "allies": allies, "enemy_ids": enemy_ids, "enemy_left_after": enemy_left_after}
+        lap("sesión")
         picks, ctx = eng.picks(
             role, unavailable, pickable, allies, enemy_ids, enemy_left_after=enemy_left_after, include=[locked]
         )
@@ -147,6 +159,7 @@ class Draft:
             bans = [b for b in eng.bans(role, picks, blocked) if not bannable or b["id"] in bannable][:5]
         status = []
 
+        lap("picks y bans")
         # hechizos
         sp = [SPELL_IDS[x] for x in CFG["spells_by_role"].get(role, []) if x in SPELL_IDS]
         if CFG["auto_spells"] and not self.spells_set and len(sp) == 2:
@@ -188,6 +201,7 @@ class Draft:
         self.last_best = best["id"] if best else None
 
         # runas: la recomendada para el campeon confirmado (o vista previa del recomendado)
+        lap("marcar")
         runes_info = self.handle_runes(locked or (best["id"] if best else None), role, bool(locked), acting, status)
 
         # coachless
@@ -199,6 +213,7 @@ class Draft:
                 webbrowser.open(coach)
                 self.note(f"Abierta la build de {ch.name(my_pick['championId'])} en Coachless")
 
+        lap("runas")
         for _kind, msg in status:
             self.note(("Observando · " if not acting else "") + msg, "hint")
 

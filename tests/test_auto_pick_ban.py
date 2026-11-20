@@ -523,6 +523,27 @@ def test_tick_no_espera_a_la_red(auto, tmp_path):
     assert main not in lcu.calls and main not in lola.net  # nada de red en el hilo del bucle
     ban = out["ban_suggestions"][0]["id"]
     assert (9, {"championId": ban}) in lcu.patches  # el ban se marca ya, sin esperar a los matchups
+    assert {"picks y bans", "marcar", "runas"} <= set(d.timings)  # para el aviso de selección lenta
+
+
+def test_catalogo_de_runas_en_segundo_plano():
+    from nachero.app.runes import RuneImporter
+
+    class SlowCatalog:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, path, timeout=None):
+            self.calls.append(threading.current_thread())
+            time.sleep(0.3)
+            return {"styles": []} if path.endswith("perkstyles.json") else []
+
+    cat = SlowCatalog()
+    runes = RuneImporter(cat)
+    runes.preload()
+    t = time.time()
+    assert runes.describe({"primary": [8112], "secondary": [8139]}) is None  # aún llegando: no espera
+    assert time.time() - t < 0.1 and threading.current_thread() not in cat.calls
 
 
 def test_intencion_del_jugador_en_planificacion_es_su_eleccion(champs, auto, monkeypatch):

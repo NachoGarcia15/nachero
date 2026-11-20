@@ -77,7 +77,7 @@ def config_file() -> Path:
 
 # Perfil por cuenta: historial, maestría y rango de cada cuenta (puuid) en profiles/<puuid>.
 # Sin perfil (aún sin cliente y sin ninguno guardado), en la carpeta de datos como antes.
-PROFILE_FILES = ("history_cache.json", "player_cache.json")
+PROFILE_FILES = ("history_cache.json", "player_cache.json", "predictions.json")
 _PROFILE: dict[str, str | None] = {"id": None}
 _PROFILE_ID = re.compile(r"[A-Za-z0-9_-]{1,100}")
 
@@ -139,6 +139,11 @@ def history_file() -> Path:
 
 def player_file() -> Path:
     return data_dir() / "player_cache.json"
+
+
+def predictions_file() -> Path:
+    """Picks confirmados con su WR estimado y el resultado, para la calibración (#9)."""
+    return data_dir() / "predictions.json"
 
 
 def cache_dir() -> Path:

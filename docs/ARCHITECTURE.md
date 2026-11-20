@@ -30,6 +30,7 @@ src/nachero/
              queues.py   tipo de cola: draft, a ciegas o fuera de la Grieta
              tasks.py    registro de tareas: qué hace la app y su progreso (n de m)
              stats.py    interfaz de las fuentes de estadísticas (StatsProvider) y cadena de respaldo
+             calibration.py ¿acierta Nachero?: registro de picks, resultado y calibración
   app/       Orquestación
              state.py    estado compartido (APP, TASKS), log
              draft.py    champ select de soloq (lee sesión, recomienda, actúa)

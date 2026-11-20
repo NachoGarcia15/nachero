@@ -78,9 +78,21 @@ def team_profile(members, champs):
     return p
 
 
-def comp_summary(ids, champs):
-    t = team_profile([(c, 1) for c in ids], champs)
-    return {"n": t["n"], "ap": round(t["ap"]), "ad": round(t["ad"]), "front": round(t["front"]), "cc": round(t["cc"])}
+def comp_summary(ids, champs, hovers=()):
+    """Recuento de la composición. `hovers`: campeones solo marcados, que cuentan como estimación
+    (`est` dice cuántos son). `phys`: % del daño del equipo que es físico (None sin campeones)."""
+    hovers = [c for c in hovers if c and c not in ids]
+    t = team_profile([(c, 1) for c in [*ids, *hovers]], champs)
+    dmg = t["apd"] + t["add"]
+    return {
+        "n": t["n"],
+        "ap": round(t["ap"]),
+        "ad": round(t["ad"]),
+        "front": round(t["front"]),
+        "cc": round(t["cc"]),
+        "est": len(hovers),
+        "phys": round(100 * t["add"] / dmg) if dmg else None,
+    }
 
 
 def comp_notes(ally, enemy):

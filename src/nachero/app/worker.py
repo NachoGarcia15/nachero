@@ -373,6 +373,7 @@ def run_session():
     src = lcu if online else CDragon()
     TASKS.start("champions", detail="Del cliente" if online else "De CommunityDragon")
     champs = Champs(src)
+    champs.preload()  # fichas en segundo plano: el bucle no espera al cliente por ellas
     if not champs.by_id:
         with LOCK:
             APP["issue"] = "no_champions"

@@ -20,6 +20,17 @@ TOGGLES = [
     "open_coachless_on_lock",
 ]
 WEIGHT_KEYS = ("pool", "meta", "matchup", "comp")
+MAX_CHAMP_LIST = 40  # campeones en pool_bonus y never_pick
+PRACTICE_BONUS = 1.5  # puntos de WR de «lo estoy practicando» en la configuración guiada
+
+
+def _champ_names(v) -> list[str] | None:
+    """Lista de nombres de campeón válida (sin repetir), o None."""
+    if not isinstance(v, list) or len(v) > MAX_CHAMP_LIST:
+        return None
+    if not all(isinstance(n, str) and 0 < len(n.strip()) <= 30 for n in v):
+        return None
+    return list(dict.fromkeys(n.strip() for n in v))
 
 
 def deep_merge(base: dict, over: dict) -> dict:
@@ -77,6 +88,20 @@ def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
         elif k == "main_role" and v in ("auto", *ROLES):
             cfg[k] = v
             changed.append("rol principal " + ("automático" if v == "auto" else v))
+        elif k == "secondary_role" and v in ("none", *ROLES):
+            cfg[k] = v
+            changed.append("rol secundario " + ("ninguno" if v == "none" else v))
+        elif k == "never_pick" and _champ_names(v) is not None:
+            cfg[k] = _champ_names(v)
+            changed.append("campeones que nunca juegas")
+        elif k == "pool_bonus" and isinstance(v, dict) and _champ_names(list(v)) is not None:
+            ok = all(isinstance(b, (int, float)) and not isinstance(b, bool) and -5 <= b <= 5 for b in v.values())
+            if ok:
+                cfg[k] = {n.strip(): round(float(b), 2) for n, b in v.items() if b}
+                changed.append("campeones con puntos extra")
+        elif k == "setup_done" and isinstance(v, bool):
+            cfg[k] = v
+            changed.append("configuración guiada" + (" hecha" if v else " por hacer"))
         elif k == "weights" and isinstance(v, dict):
             for wk, wv in v.items():
                 if wk in WEIGHT_KEYS and isinstance(wv, (int, float)) and not isinstance(wv, bool) and 0 <= wv <= 2:

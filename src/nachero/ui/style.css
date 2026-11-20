@@ -759,3 +759,23 @@ td.ch span small { display: block; color: var(--text-3); font-size: 11.5px; font
   .wl-bar .stack .base { width: 60%; }
   .wl-dots button { transition: none; }
 }
+
+/* configuración guiada */
+.setup-step h2 { margin: 10px 0 4px; font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+.setup-sub { margin: 0 0 18px; color: var(--text-2); }
+.setup-field { display: grid; gap: 8px; margin-bottom: 18px; }
+.setup-field b { font-size: 13px; color: var(--text-2); font-weight: 500; }
+.setup-field small { color: var(--text-3); font-size: 12.5px; }
+.setup-field .seg { flex-wrap: wrap; width: fit-content; max-width: 100%; }
+.setup-note { margin: 4px 0 8px; color: var(--text-3); font-size: 12.5px; }
+.setup-note b { color: var(--text-2); font-weight: 500; }
+.picker input { width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--bg); color: var(--text); font: inherit; }
+.picker input:focus { outline: none; border-color: var(--accent); }
+.chips-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; margin: 10px 0; align-items: center; font-size: 13px; }
+.champ-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--surface-3); font-size: 13px; }
+.champ-chip button { border: 0; background: none; color: var(--text-3); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 5px; border-radius: 50%; }
+.champ-chip button:hover { color: var(--text); }
+.setup-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
+.setup-sug small { color: var(--text-3); font-size: 12.5px; margin-right: 2px; }
+.chip-btn { border: 1px dashed var(--line-2); background: none; color: var(--text-2); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; }
+.chip-btn:hover { color: var(--text); border-color: var(--accent); }

@@ -85,6 +85,9 @@ entra en una partida (`state.demo_must_stop`).
 
 - Los datos del usuario (ajustes, historial, maestría, cachés, logs) viven en
   `%APPDATA%\nachero` (o `NACHERO_HOME`), nunca en el repositorio.
+- Historial, maestría y rango van por cuenta en `profiles/<puuid>` (`paths.use_profile`, al
+  conectar con `/lol-summoner/v1/current-summoner`); sin cliente, el último perfil (`last.json`).
+  Los ajustes son comunes a todas las cuentas.
 - No se envía nada del usuario a ningún sitio. Solo se descargan estadísticas públicas.
 - Las fuentes externas se piden con caché y ~1,5 s entre peticiones.
 

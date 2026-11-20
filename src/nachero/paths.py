@@ -9,7 +9,10 @@ caches, logs) viven fuera, en una carpeta propia:
 Se puede cambiar con la variable de entorno NACHERO_HOME (util para pruebas).
 """
 
+import contextlib
+import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -72,12 +75,70 @@ def config_file() -> Path:
     return user_dir() / "config.json"
 
 
+# Perfil por cuenta: historial, maestría y rango de cada cuenta (puuid) en profiles/<puuid>.
+# Sin perfil (aún sin cliente y sin ninguno guardado), en la carpeta de datos como antes.
+PROFILE_FILES = ("history_cache.json", "player_cache.json")
+_PROFILE: dict[str, str | None] = {"id": None}
+_PROFILE_ID = re.compile(r"[A-Za-z0-9_-]{1,100}")
+
+
+def profiles_dir() -> Path:
+    return user_dir() / "profiles"
+
+
+def profile_id() -> str | None:
+    """Perfil en uso, o None."""
+    return _PROFILE["id"]
+
+
+def data_dir() -> Path:
+    """Carpeta de los datos de la cuenta en uso."""
+    pid = _PROFILE["id"]
+    if not pid:
+        return user_dir()
+    d = profiles_dir() / pid
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def use_profile(pid: str | None) -> list[str]:
+    """Usa el perfil de la cuenta `pid` (su puuid) y lo recuerda para cuando no haya cliente.
+
+    La primera vez que se usa un perfil, si aún no hay ninguno, se queda con el historial y la
+    maestría guardados por versiones anteriores (de antes de los perfiles). Devuelve lo movido."""
+    if not pid or not _PROFILE_ID.fullmatch(pid):
+        _PROFILE["id"] = None
+        return []
+    first = not profiles_dir().is_dir() or not any(profiles_dir().iterdir())
+    _PROFILE["id"] = pid
+    d = data_dir()
+    moved = []
+    if first:
+        for name in PROFILE_FILES:
+            old = user_dir() / name
+            if old.is_file() and not (d / name).exists():
+                shutil.move(str(old), str(d / name))
+                moved.append(name)
+    with contextlib.suppress(OSError):
+        (profiles_dir() / "last.json").write_text(json.dumps({"id": pid}), encoding="utf-8")
+    return moved
+
+
+def last_profile() -> str | None:
+    """El último perfil usado (para seguir sin cliente con sus datos)."""
+    try:
+        pid = json.loads((profiles_dir() / "last.json").read_text(encoding="utf-8")).get("id")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return pid if isinstance(pid, str) and _PROFILE_ID.fullmatch(pid) and (profiles_dir() / pid).is_dir() else None
+
+
 def history_file() -> Path:
-    return user_dir() / "history_cache.json"
+    return data_dir() / "history_cache.json"
 
 
 def player_file() -> Path:
-    return user_dir() / "player_cache.json"
+    return data_dir() / "player_cache.json"
 
 
 def cache_dir() -> Path:
@@ -104,8 +165,8 @@ def log_dir() -> Path:
 
 LEGACY = {
     "config.json": config_file,
-    "history_cache.json": history_file,
-    "player_cache.json": player_file,
+    "history_cache.json": lambda: user_dir() / "history_cache.json",  # luego pasan a su perfil
+    "player_cache.json": lambda: user_dir() / "player_cache.json",
     "lolalytics_cache.json": lambda: cache_dir() / "lolalytics_cache.json",
     "gol_cache.json": lambda: cache_dir() / "gol_cache.json",
 }

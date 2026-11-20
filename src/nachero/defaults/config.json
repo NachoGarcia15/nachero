@@ -45,6 +45,10 @@
   "pick_mode": "pool",
   "_main_role_info": "Rol para las recomendaciones fuera de la champ select: \"auto\" (el que mas juegas) o top, jungle, middle, bottom, utility. En la champ select manda el rol que te asigna el cliente.",
   "main_role": "auto",
+  "_secondary_role_info": "Tu segundo rol: \"none\" o top, jungle, middle, bottom, utility. Lo eliges en la configuración guiada.",
+  "secondary_role": "none",
+  "_setup_done_info": "true cuando has hecho la configuración guiada (roles y campeones). Se repite desde Ajustes.",
+  "setup_done": false,
   "weights": {
     "_info": "Multiplicadores (0-2) de cada parte de la recomendacion.",
     "pool": 1.0,
@@ -57,7 +61,7 @@
     "carry_weight": 1.0,
     "utility_weight": 0.2
   },
-  "_pool_bonus_info": "Puntos de WR extra (o negativos) para campeones concretos, p. ej. uno que estas practicando.",
+  "_pool_bonus_info": "Puntos de WR extra (o negativos, de -5 a 5) para campeones concretos, p. ej. uno que estas practicando. En la configuración guiada, «practicando» suma 1,5.",
   "pool_bonus": {},
   "never_pick": [],
   "roles": {

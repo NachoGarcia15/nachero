@@ -151,6 +151,11 @@ class Handler(BaseHTTPRequestHandler):
                 "pick_mode": CFG.get("pick_mode", "pool"),
                 "runes_source": CFG.get("runes_source", "pick"),
                 "main_role": CFG.get("main_role", "auto"),
+                "secondary_role": CFG.get("secondary_role", "none"),
+                "setup_done": bool(CFG.get("setup_done", False)),
+                "pool_bonus": CFG.get("pool_bonus", {}),
+                "never_pick": CFG.get("never_pick", []),
+                "practice_bonus": config.PRACTICE_BONUS,
             }
             st["settings"]["welcome_seen"] = bool(CFG.get("welcome_seen", False))
             st["version"] = __version__

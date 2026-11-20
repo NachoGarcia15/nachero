@@ -44,7 +44,9 @@ TIMER_ES = {
 
 LOCK = threading.RLock()
 TASKS = Tasks()  # qué está haciendo la app (pantalla de carga e indicador de la barra)
-OPTS = {"demo": False, "window": False}  # window: el panel está en la ventana de la app
+# window: el panel está en la ventana de la app. demo_ui: la demo se abrió desde el panel (se
+# cierra sola al empezar una champ select de verdad); demo_since: cuándo, para empezarla de cero.
+OPTS: dict = {"demo": False, "window": False, "demo_ui": False, "demo_since": 0.0}
 APP: dict = {
     "mode": "observe",
     "connected": False,
@@ -88,3 +90,17 @@ def log(msg: str, kind: str = "info") -> None:
     with contextlib.suppress(OSError, ValueError, AttributeError):
         print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
     logger.log(logging.WARNING if kind == "warn" else logging.INFO, "%s", msg)
+
+
+def set_demo(on: bool, from_ui: bool = True) -> None:
+    """Abre o cierra la champ select de demo sin reiniciar. Nunca toca el cliente."""
+    with LOCK:
+        OPTS["demo"] = APP["demo"] = on
+        OPTS["demo_ui"] = on and from_ui
+        if on:
+            OPTS["demo_since"] = time.time()
+
+
+def demo_must_stop(real_phase) -> bool:
+    """La demo abierta desde el panel se cierra si empieza una partida de verdad."""
+    return bool(OPTS["demo"] and OPTS["demo_ui"] and real_phase in ("ReadyCheck", "ChampSelect", "InProgress"))

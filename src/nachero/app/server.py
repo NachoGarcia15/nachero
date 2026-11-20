@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from nachero import __version__, config, paths
-from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log
+from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log, set_demo
 from nachero.app.status import diagnostics, empty_states
 from nachero.app.worker import evaluate, gol, load_tournament, refresh_tiers
 from nachero.config import CFG, TOGGLES
@@ -75,6 +75,28 @@ def choose_request(body: dict) -> tuple[int, dict]:
     return (200, {"ok": True, "name": msg}) if ok else (409, {"error": msg})
 
 
+def welcome_request(body: dict) -> tuple[int, dict]:
+    """`POST /api/welcome {"seen": true}`: bienvenida vista; `false` la vuelve a mostrar."""
+    seen = body.get("seen", True)
+    if not isinstance(seen, bool):
+        return 400, {"error": "seen"}
+    if CFG.get("welcome_seen") != seen:
+        CFG["welcome_seen"] = seen
+        config.save(CFG)
+    return 200, {"ok": True}
+
+
+def demo_request(body: dict) -> tuple[int, dict]:
+    """`POST /api/demo {"on": true}`: champ select de demo sin reiniciar y sin tocar el cliente."""
+    on = body.get("on")
+    if not isinstance(on, bool):
+        return 400, {"error": "on"}
+    if on != bool(OPTS["demo"]):
+        set_demo(on)
+        log("Demo abierta: champ select simulada, no toca el cliente" if on else "Demo cerrada", "ok")
+    return 200, {"ok": True}
+
+
 def private_words() -> tuple[str, ...]:
     """Textos que no deben salir en un diagnóstico: el usuario del sistema y su carpeta."""
     words = [Path.home().name]
@@ -130,6 +152,9 @@ class Handler(BaseHTTPRequestHandler):
                 "runes_source": CFG.get("runes_source", "pick"),
                 "main_role": CFG.get("main_role", "auto"),
             }
+            st["settings"]["welcome_seen"] = bool(CFG.get("welcome_seen", False))
+            st["version"] = __version__
+            st["demo_ui"] = OPTS["demo_ui"]
             st["modes"] = mode_help(CFG)
             st["game_decisions"] = list(GAME_DECISIONS)
             return self.send(200, st)
@@ -217,6 +242,10 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 log(f"Simulador: fallo ({e.__class__.__name__}: {e})", "warn")
                 return self.send(500, {"error": str(e)})
+        if self.path == "/api/welcome":
+            return self.send(*welcome_request(body))
+        if self.path == "/api/demo":
+            return self.send(*demo_request(body))
         if self.path == "/api/draft/choose":
             code, out = choose_request(body)
             return self.send(code, out)

@@ -1,6 +1,8 @@
 {
   "_info": "Interruptores y pesos se cambian en vivo desde el panel. El resto se aplica al reiniciar Nachero.",
   "start_mode": "observe",
+  "_welcome_seen_info": "true cuando ya has visto la bienvenida (se vuelve a ver desde «?» en la barra).",
+  "welcome_seen": false,
   "ui_port": 8765,
   "auto_accept": true,
   "accept_delay_seconds": [

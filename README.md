@@ -70,6 +70,15 @@ Si Nachero ya está abierto en ese puerto, volver a ejecutarlo trae su ventana a
 su panel en el navegador si va sin ventana). En otro puerto (`--port`) se abre una copia aparte.
 Desde un terminal, la consola muestra la actividad; `Ctrl+C` cierra Nachero.
 
+## Primer arranque
+Al abrir Nachero por primera vez sale una **bienvenida** de cuatro pantallas (se puede saltar):
+qué hace, cómo decide, qué toca en el cliente y qué más tiene. Se vuelve a ver desde **«?»** en la
+barra superior, donde también está la versión y el aviso de Riot.
+
+**Probar con una partida de demo** (en la pantalla de espera o en «?») abre una selección de
+campeón simulada con tus datos reales, sin reiniciar y sin tocar el cliente. Se cierra con
+«Salir de la demo» o sola si empieza una partida de verdad. `--demo` hace lo mismo al arrancar.
+
 ## Modos
 - **Pausado**: no analiza ni actúa: ni recomienda ni toca el cliente.
 - **Observar** (el modo con el que arranca): recomienda y dice qué haría, sin tocar el cliente

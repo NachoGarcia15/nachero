@@ -250,6 +250,7 @@ function comp(c) {
 const PART_LABELS = [
   ["you", "Tú con él"], ["meta", "Fuerza en el parche"], ["lane", "Rival de línea"], ["enemies", "Resto del rival"],
   ["allies", "Encaje con tu equipo"], ["vs_comp", "Contra su composición"], ["risk", "Riesgo de counter"],
+  ["ease", "Fácil de jugar"],
 ];
 const MU_PARTS = ["lane", "enemies", "risk"];
 
@@ -258,6 +259,7 @@ function parts(p, d) {
     if (k === "you") return d.mode === "pool";
     if (k === "risk") return !d.lane_known && d.enemy_left_after > 0;
     if (k === "vs_comp") return Math.abs(p.parts.vs_comp) >= 0.05;
+    if (k === "ease") return p.parts.ease !== undefined; // solo en autofill
     return true;
   });
   return `<div class="parts">${show.map(([k, label]) => {
@@ -406,6 +408,7 @@ function renderDraft([d, idle, s]) {
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
       ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? (d.my_turn === "ban" ? "bánealo tú en el cliente o aquí" : "hazlo tú") : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
       ${chooser(d.choose)}
+      ${roleFitLine(d)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${d.focus === "ban" ? banHero(d.ban_suggestions[0], best) : best ? `
       <article class="hero">
@@ -470,6 +473,17 @@ function renderDraft([d, idle, s]) {
   </div>`;
   bindModeSwitch(el);
   el.querySelectorAll(".choose button").forEach((b) => (b.onclick = () => choose(d.choose.kind, Number(b.dataset.id))));
+}
+
+/* Autofill o rol secundario: por qué la recomendación cambia. */
+function roleFitLine(d) {
+  const f = d.role_fit;
+  if (!f || d.blind) return "";
+  if (f.kind === "autofill") {
+    return `<p class="rolefit autofill"><b>Autofill</b> · vas de ${esc(d.role_es)} y apenas lo juegas (${f.games} partida${f.games === 1 ? "" : "s"}). Priorizo campeones fáciles, fuertes en el parche y con poco riesgo de counter.</p>`;
+  }
+  if (f.kind === "secondary") return `<p class="rolefit">${esc(d.role_es)} es tu rol secundario.</p>`;
+  return "";
 }
 
 /* Mejores opciones de tu turno: un clic las marca en el cliente y cuenta como elección tuya. */

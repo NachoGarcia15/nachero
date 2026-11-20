@@ -117,7 +117,7 @@ pero **la última palabra es tuya**:
 - **Pick**: Nachero marca su recomendación **una vez** (solo la cambia si otro se lleva ese
   campeón). A falta de `lock_when_seconds_left` segundos (8 por defecto) confirma **lo que esté
   marcado**: lo suyo si no has tocado nada, o el campeón que hayas marcado tú.
-- **Ban**: solo marca. Al empezar tu turno marca el ban recomendado (sin repetir el que ya haya
+- **Ban**: solo marca. Al empezar la fase de bans (no en la planificación) marca el ban recomendado (sin repetir el que ya haya
   marcado un aliado) y **no lo confirma**: lo banea el cliente al acabar el tiempo. Si marcas
   otro, se banea el tuyo.
 - **Si marcas otro campeón** (en el cliente o en el panel), Nachero no lo vuelve a cambiar en ese

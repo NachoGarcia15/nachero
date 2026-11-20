@@ -31,6 +31,9 @@
       <button data-mode="observe" role="radio">Observar</button>
       <button data-mode="active" role="radio">Activo</button>
     </div>
+    <button class="icon-btn" id="open-about" aria-label="Acerca de Nachero" title="Qué es Nachero">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 17h.01"/></svg>
+    </button>
     <button class="icon-btn" id="open-settings" aria-label="Ajustes">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
     </button>
@@ -38,7 +41,7 @@
 </header>
 
 <div class="demo-banner warn" id="platform" hidden></div>
-<div class="demo-banner" id="demo" hidden>Modo demo · draft simulado con tus datos reales. No se toca el cliente.</div>
+<div class="demo-banner" id="demo" hidden><span>Modo demo · draft simulado con tus datos reales. No se toca el cliente.</span><button class="btn" id="demo-exit" hidden>Salir de la demo</button></div>
 
 <main>
   <section id="view-draft" class="view"><div id="draft-main"></div><div id="eval-draft" class="eval"></div></section>
@@ -72,6 +75,88 @@
     <div id="datainfo" class="datainfo"></div>
   </div>
 </aside>
+
+<!-- Bienvenida (primer arranque y desde «?»): una idea por pantalla, se puede saltar -->
+<div class="overlay welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="wl-title" hidden>
+  <div class="wl-card" tabindex="-1">
+    <div class="wl-top">
+      <span class="brand"><img src="/icon.svg" alt="" width="20" height="20">Nachero</span>
+      <button class="wl-skip" id="wl-skip">Saltar</button>
+    </div>
+
+    <section class="wl-step" data-title="Qué hace">
+      <div class="wl-visual wl-cs" aria-hidden="true">
+        <div class="col ally"><i></i><i></i><i class="me"></i><i></i><i></i></div>
+        <div class="rec"><small>Mejor pick para ti</small><b>Taliyah</b><span>54,3 %</span></div>
+        <div class="col enemy"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <h2>Qué hace</h2>
+      <p>Lee tu selección de campeón y te recomienda <b>picks y bans</b> con datos <b>Master+</b> y tu historial.</p>
+      <button class="btn" data-demo>Verlo en una partida de demo</button>
+    </section>
+
+    <section class="wl-step" data-title="Cómo decide" hidden>
+      <div class="wl-visual wl-bar" aria-hidden="true">
+        <div class="stack"><i class="base"></i><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div>
+        <div class="legend">
+          <span class="s1">Parche <b>+1,8</b></span><span class="s2">Tú con él <b>+1,2</b></span>
+          <span class="s3">Matchups <b>+0,9</b></span><span class="s4">Tu equipo <b>+0,4</b></span>
+        </div>
+        <div class="total">50 % + partes = <b>54,3 %</b> estimado</div>
+      </div>
+      <h2>Cómo decide</h2>
+      <p>Todo se mide en <b>puntos de winrate</b> y se suma. Gana el campeón con más WR estimado, y ves por qué.</p>
+    </section>
+
+    <section class="wl-step" data-title="Qué toca y qué no" hidden>
+      <div class="wl-visual wl-modes" aria-hidden="true">
+        <div class="m"><b>Observar</b><small>Recomienda. No toca el cliente.</small></div>
+        <div class="m on"><b>Activo</b><small>Acepta la partida, pone hechizos e importa runas.</small></div>
+      </div>
+      <h2>Qué toca y qué no</h2>
+      <p><b>Nunca decide por ti.</b> Marcar y confirmar tu pick o ban vienen apagados; si los enciendes, lo que marques tú manda.</p>
+    </section>
+
+    <section class="wl-step" data-title="Y además" hidden>
+      <div class="wl-visual wl-more" aria-hidden="true">
+        <div><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><b>Tu pool</b><small>Cómo rindes con cada campeón</small></div>
+        <div><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 4.4-3.4 8-8 9-4.6-1-8-4.6-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg><b>Simulador pro</b><small>Drafts con datos de torneos</small></div>
+        <div><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg><b>Runas</b><small>Las de Master+, al confirmar</small></div>
+      </div>
+      <h2>Y además</h2>
+      <p>Mira tu pool, ensaya drafts de competitivo e importa runas sin tocar tus páginas.</p>
+    </section>
+
+    <div class="wl-nav">
+      <button class="btn" id="wl-prev">Anterior</button>
+      <div class="wl-dots" id="wl-dots"></div>
+      <button class="btn primary" id="wl-next">Siguiente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Acerca de: la misma explicación, siempre a mano -->
+<div class="overlay" id="about" role="dialog" aria-modal="true" aria-labelledby="about-title" hidden>
+  <div class="about-card" tabindex="-1">
+    <div class="wl-top">
+      <span class="brand"><img src="/icon.svg" alt="" width="20" height="20"><span id="about-title">Acerca de Nachero</span></span>
+      <button class="icon-btn" id="close-about" aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <ul class="about-list">
+      <li><b>Qué hace</b>Lee tu selección de campeón y recomienda picks y bans con datos Master+ y tu historial.</li>
+      <li><b>Cómo decide</b>Suma puntos de winrate: fuerza en el parche, tú con el campeón, matchups y encaje con tu equipo.</li>
+      <li><b>Qué toca y qué no</b>En Observar no toca el cliente. En Activo, lo que enciendas en Ajustes, y nunca pisa lo que marques tú.</li>
+    </ul>
+    <p class="about-version">Versión <span id="about-version"></span> · gratis · tus datos se quedan en tu PC</p>
+    <p class="about-legal" id="about-legal"></p>
+    <div class="about-actions">
+      <button class="btn" data-demo>Probar con una partida de demo</button>
+      <button class="btn primary" id="about-welcome">Ver la bienvenida otra vez</button>
+    </div>
+  </div>
+</div>
 
 <script src="/app.js"></script>
 <script src="/pro.js"></script>

@@ -140,7 +140,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   recomendado y lo banea el cliente al acabar el tiempo (antes se confirmaba a los 1,5–3 s y, en
   soloq, no llegaba a aplicarse). Si marcas otro, se banea el tuyo. Tampoco bloquea el bucle con
   una espera.
+- El ban se marca al empezar la fase de bans (`BAN_PICK`), no en la planificación: ahí el cliente
+  ya da el ban como «en curso» pero ignora lo que se marque sin dar error, y el ban se quedaba
+  vacío. Si tras marcar la acción sigue vacía, no cuenta como hecho y se reintenta (también en
+  el pick); el registro dice «Ban marcado» solo cuando el cliente ya lo muestra.
 - En soloq (los 10 banean a la vez) no repite el ban que ya ha marcado un aliado.
+- Una personalizada con bans dice en el registro «con bans, recomiendo como en un draft» en
+  lugar de «sin bans».
 - Si el campeón marcado se lo lleva otro, vuelve a marcar la recomendación.
 - Mensajes nuevos en el panel y el registro: «Marcado X · se confirmará a falta de N s»,
   «Marcado X · lo banea el cliente al acabar el tiempo» y «Has elegido X: se confirmará X».

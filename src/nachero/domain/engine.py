@@ -399,45 +399,56 @@ class Engine:
         }
         return row
 
-    def bans(self, role, my_top, blocked):
-        """my_top: lista de picks recomendados (ya ordenada). blocked: ids que no se pueden/quieren banear."""
+    def bans(self, role, my_top, blocked, allies=()):
+        """Bans recomendados. my_top: tus picks recomendados (el primero, el que juegas); allies:
+        [(cid, rol, peso)] de tus aliados (elegidos 1, marcados 0,5). Prioriza a los que countean a
+        tu pick y a tus aliados (matchups en caché; sin ellos, solo la fuerza en el parche) y la
+        fuerza en el parche en tu línea. blocked: ids que no se pueden/quieren banear."""
         t = self.lola.tier(role)
         if not t:
             return []
-        weights = [0.5, 0.3, 0.2]
-        counter_map = defaultdict(float)
+        # a quién proteger: tu pick pesa más; cada aliado, según si ya eligió o solo marca
+        targets = [(p["id"], role, w, f"{p['name']} (tu pick)" if k == 0 else p["name"])
+                   for k, (w, p) in enumerate(zip([0.6, 0.25, 0.15], my_top[:3], strict=False))]  # fmt: skip
+        targets += [(cid, r, 0.4 * w, self.champs.name(cid)) for cid, r, w in allies if r in ROLES]
+        counter_map: dict = defaultdict(float)  # (línea, cid rival) -> puntos
         counter_who = defaultdict(list)
-        for wgt, p in zip(weights, my_top[:3], strict=False):
-            rows = self.lola.counters(p["id"], role) or {}
+        for cid, lane, wgt, who in targets:
+            # solo caché: el bucle de la champ select no espera a la red
+            rows = (self.lola.matchups(cid, lane, fetch=False) or {}).get(lane, {})
             for e, row in rows.items():
-                counter_map[e] += wgt * -shrink(row["d2"], row["n"], 250)
-                if row["d2"] <= -2:
-                    counter_who[e].append((p["name"], round(row["d2"], 1)))
-        out = []
-        for cid, c in t["champs"].items():
-            icid = int(cid)
-            if icid in blocked or c["games"] < 1000:
-                continue
-            presence = c["pr"] / 100
-            strength = shrink(c["wr"] - t["avg"], c["games"], 1500)
-            value = presence * (0.4 * strength + counter_map.get(cid, 0.0)) * 100
-            if value <= 0:
-                continue
-            reasons = []
-            if counter_who.get(cid):
-                reasons.append("counterea a " + ", ".join(f"{n} ({d:+.1f})" for n, d in counter_who[cid][:2]))
-            if strength >= 1:
-                reasons.append(f"{c['wr']:.1f}% WR en Master+")
-            reasons.append(f"{c['pr']:.1f}% pick · {c['br']:.0f}% ban")
-            out.append(
-                {
+                counter_map[(lane, e)] += wgt * -shrink(row["d2"], row["n"], 250)
+                if row["d2"] <= -1.5 and who not in counter_who[e]:
+                    counter_who[e].append(who)
+        best: dict = {}
+        for lane in dict.fromkeys([role] + [lane for lane, _ in counter_map]):
+            lt = t if lane == role else self.lola.tier(lane)
+            for cid, c in ((lt or {}).get("champs") or {}).items():
+                icid = int(cid)
+                if icid in blocked or c["games"] < 1000:
+                    continue
+                counter = counter_map.get((lane, cid), 0.0)
+                if lane != role and counter <= 0:
+                    continue  # de otra línea, solo si countea a un aliado
+                presence = c["pr"] / 100
+                strength = shrink(c["wr"] - (lt or {}).get("avg", 50.0), c["games"], 1500)
+                value = presence * (0.4 * strength + counter) * 100
+                if value <= 0 or value <= best.get(icid, {}).get("value", 0):
+                    continue
+                reasons = []
+                if counter_who.get(cid):
+                    reasons.append("countea a " + " y a ".join(counter_who[cid][:3]))
+                if strength >= 1:
+                    reasons.append(f"{c['wr']:.1f}% WR en Master+")
+                reasons.append(f"{c['pr']:.1f}% pick · {c['br']:.0f}% ban")
+                best[icid] = {
                     "id": icid,
                     "name": self.champs.name(icid),
                     "value": round(value, 2),
                     "reasons": reasons,
                     "tier": TIER(c),
                 }
-            )
+        out = list(best.values())
         prio = {self.champs.id(n): i for i, n in enumerate(self.cfg.get("ban_priority", {}).get(role, []))}
         for b in out:
             if b["id"] in prio:

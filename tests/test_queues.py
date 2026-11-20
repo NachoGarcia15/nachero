@@ -92,6 +92,10 @@ class FakeLCU:
     def req(self, method, path, body=None):
         self.calls.append((method, path))
 
+    def raw(self, method, path, body=None, timeout=5):
+        self.req(method, path, body)
+        return b""
+
 
 @pytest.fixture
 def activo(monkeypatch):
@@ -144,3 +148,14 @@ def test_cola_desconocida_recomienda_como_en_la_grieta(champs, activo):
     d = Draft(FakeLCU(), champs, _engine(champs, [_game("jungle")] * 5))
     out = champ_select_view(d, session("top"), False, classify(None))
     assert out["role"] == "top" and not out["blind"]
+
+
+def test_mensaje_de_cola_personalizada_con_bans():
+    from nachero.app.worker import queue_message
+
+    q = {"kind": "blind", "id": 3100, "name": "Personalizada"}
+    con = {"actions": [[{"type": "ban"}], [{"type": "pick"}]]}
+    sin = {"actions": [[{"type": "pick"}]]}
+    assert queue_message(q, con) == ("Cola: Personalizada · con bans, recomiendo como en un draft", "info")
+    assert queue_message(q, sin)[0] == "Cola: Personalizada · sin bans, recomiendo para tu rol principal"
+    assert queue_message({"kind": "draft", "id": 420, "name": "Solo"}, con)[0] == "Cola: Solo"

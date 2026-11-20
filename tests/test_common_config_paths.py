@@ -39,8 +39,9 @@ def test_deep_merge_conserva_claves_nuevas():
 @pytest.mark.parametrize(
     ("body", "esperado"),
     [
-        ({"auto_ban": False}, ["auto_ban"]),
-        ({"auto_ban": "no"}, []),
+        ({"auto_hover_pick": False}, ["auto_hover_pick"]),
+        ({"auto_hover_pick": "no"}, []),
+        ({"auto_ban": True}, ["auto_ban"]),
         ({"lock_when_seconds_left": 5}, ["lock_when_seconds_left"]),
         ({"lock_when_seconds_left": 99}, []),
         ({"lock_when_seconds_left": True}, []),

@@ -18,7 +18,7 @@ from nachero.domain.common import tier_name as TIER
 from nachero.domain.engine import Engine
 from nachero.domain.player import Player
 from nachero.domain.pro import ProEngine
-from nachero.domain.queues import classify
+from nachero.domain.queues import classify, has_bans
 from nachero.jsonio import read_json, write_json
 from nachero.sources.champions import Champs
 from nachero.sources.golgg import GolGG
@@ -125,6 +125,17 @@ QUEUE_LOG = {
     "other": ("{name}: Nachero solo recomienda en la Grieta del Invocador; no toco nada", "hint"),
     "unknown": ("No he podido leer el tipo de cola: recomiendo como en la Grieta", "warn"),
 }
+
+
+SLOW_TICK = 3.0  # s: un análisis de la champ select más lento que esto se apunta en el registro
+
+
+def queue_message(queue: dict, session: dict | None) -> tuple[str, str]:
+    """Mensaje del registro para la cola: una personalizada con bans se trata como un draft."""
+    if queue["kind"] == "blind" and has_bans(session or {}):
+        return f"Cola: {queue['name']} · con bans, recomiendo como en un draft", "info"
+    msg, kind = QUEUE_LOG[queue["kind"]]
+    return msg.format(name=queue["name"]), kind
 
 
 def read_queue(lcu):
@@ -264,6 +275,7 @@ def run_session():
     src = lcu if online else CDragon()
     TASKS.start("champions", detail="Del cliente" if online else "De CommunityDragon")
     champs = Champs(src)
+    champs.preload()  # fichas en segundo plano: el bucle no espera al cliente por ellas
     if not champs.by_id:
         with LOCK:
             APP["issue"] = "no_champions"
@@ -313,12 +325,14 @@ def run_session():
     roles = ", ".join(f"{ROLE_ES[r]} {n}" for r, n in sorted(player.role_games.items(), key=lambda x: -x[1]))
     log(f"Listo · rol principal {ROLE_ES[main]} · {len(player.games)} partidas analizadas ({roles or 'ninguna'})", "ok")
 
-    draft = Draft(lcu, champs, engine, RuneImporter(src))
+    runes = RuneImporter(src)
+    runes.preload()  # catálogo de runas en segundo plano: el bucle no lo espera
+    draft = Draft(lcu, champs, engine, runes)
     CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
     demo = Demo(champs) if OPTS["demo"] else None
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
-    queue, queue_tries = None, 0  # tipo de cola de la champ select actual
+    queue, queue_tries, queue_logged = None, 0, False  # tipo de cola de la champ select actual
     while True:
         mode = APP["mode"]
         if not online:
@@ -346,7 +360,7 @@ def run_session():
             log(f"Fase: {PHASE_ES.get(phase, phase)}")
             if phase == "ChampSelect":
                 draft.reset()
-                queue, queue_tries = None, 0
+                queue, queue_tries, queue_logged = None, 0, False
             if phase in ("EndOfGame", "PreEndOfGame"):
                 TASKS.start("history", detail="Partida nueva: actualizando…")
                 games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
@@ -414,13 +428,19 @@ def run_session():
                             # tres intentos; si el cliente no la da, se recomienda como en la Grieta
                             queue_tries += 1
                             queue = read_queue(lcu) or (classify(None) if queue_tries >= 3 else None)
-                            if queue:
-                                msg, kind = QUEUE_LOG[queue["kind"]]
-                                log(msg.format(name=queue["name"]), kind)
                         d = None
                         if queue:
                             s = lcu.get("/lol-champ-select/v1/session")
+                            if not queue_logged and isinstance(s, dict):
+                                # con la sesión, para saber si la personalizada tiene bans
+                                queue_logged = True
+                                log(*queue_message(queue, s))
+                            t0 = time.time()
                             d = champ_select_view(draft, s, acting, queue)
+                            slow = time.time() - t0
+                            if slow > SLOW_TICK:  # para localizar esperas en el cliente real
+                                parts = " · ".join(f"{k} {v:.1f} s" for k, v in draft.timings.items() if v >= 0.5)
+                                log(f"Selección lenta: {slow:.1f} s en analizar ({parts or 'sin detalle'})", "warn")
                     with LOCK:
                         APP["draft"] = d
             except Exception as e:

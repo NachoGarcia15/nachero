@@ -75,14 +75,29 @@ Desde un terminal, la consola muestra la actividad; `Ctrl+C` cierra Nachero.
 - **Observar** (el modo con el que arranca): recomienda y dice qué haría, sin tocar el cliente
   (solo lee la selección de campeón y tu historial). No acepta la partida: para eso, pasa a **Activo**.
 - **Activo**: actúa según los interruptores del panel de ajustes (aceptar partida, hechizos,
-  importar runas, abrir Coachless y, si los activas, banear, marcar pick y confirmar pick).
+  importar runas, abrir Coachless y, si los activas, marcar el ban, marcar pick y confirmar pick).
 
 El panel explica cada modo bajo la barra superior y en Ajustes, con lo que tocará en el cliente
 según tus interruptores.
 
-**Banear, marcar pick y confirmar pick vienen desactivados**: deciden por ti, y las normas de Riot
-no aceptan apps que tomen decisiones de juego por el jugador. Si ya los tenías activados, Nachero
-respeta tus ajustes guardados.
+**Banear, marcar pick y confirmar pick vienen desactivados**: las normas de Riot no aceptan apps
+que tomen decisiones de juego por el jugador. Si los activas, siguen la recomendación de Nachero,
+pero **la última palabra es tuya**:
+- **Pick**: Nachero marca su recomendación **una vez** (solo la cambia si otro se lleva ese
+  campeón). A falta de `lock_when_seconds_left` segundos (8 por defecto) confirma **lo que esté
+  marcado**: lo suyo si no has tocado nada, o el campeón que hayas marcado tú.
+- **Ban**: la recomendación tiene en cuenta tu pick recomendado y los de tus aliados: prioriza a
+  quien los countea y a los fuertes del parche, y no repite lo que ya han marcado o baneado tus
+  aliados. Con «Banear», en la fase de bans (no en la planificación) Nachero **marca** el primero
+  y **no lo confirma**: lo banea el cliente al acabar el tiempo. Si marcas otro, se banea el tuyo.
+- **Si marcas otro campeón** (en el cliente o en el panel), Nachero no lo vuelve a cambiar en ese
+  turno, aunque el cliente tarde en reflejar tu cambio.
+- **Desde el panel**: en tu turno salen las 5 mejores opciones de pick o de ban; un clic la marca
+  en el cliente y cuenta como elección tuya. Solo en modo Activo.
+- El pick se confirma unos segundos antes del final, no a cero: si no da tiempo, en ranked se
+  esquiva.
+
+Si ya los tenías activados, Nachero respeta tus ajustes guardados.
 
 ## Roles
 En la selección de campeón recomienda para el rol que te asigna el cliente, sea cual sea.

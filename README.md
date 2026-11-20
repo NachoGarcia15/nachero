@@ -123,6 +123,14 @@ pero **la última palabra es tuya**:
 
 Si ya los tenías activados, Nachero respeta tus ajustes guardados.
 
+## Otros modos
+Fuera de la Grieta (Arena, URF y demás) Nachero no recomienda ni toca el cliente: sus datos son
+de soloq Master+. **En ARAM** solo hace una cosa, con «Importar runas» activado y en modo Activo:
+crea la página «Nachero · Campeón ARAM» con las runas de ARAM de Lolalytics del campeón que te
+toque, y la cambia si cambias de campeón (reroll o banquillo), sin dejar páginas sueltas. Ni
+picks, ni bans, ni hechizos. Coachless no se abre en ARAM: no se puede saber si tiene página de
+ARAM sin leer su web, y sus condiciones no lo permiten.
+
 ## Roles
 En la selección de campeón recomienda para el rol que te asigna el cliente, sea cual sea.
 Fuera de ella (y en colas sin roles, como Practice Tool) usa tu rol principal: por defecto el que

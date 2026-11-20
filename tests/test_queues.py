@@ -66,7 +66,8 @@ def test_clasifica_la_cola(f, kind, name):
 )
 def test_clasifica_sesiones_reales_del_cliente(fichero, kind, qid, name):
     real = json.loads((DATA / fichero).read_text(encoding="utf-8"))
-    assert classify(real) == {"kind": kind, "id": qid, "name": name}
+    esperado = {"kind": kind, "id": qid, "name": name} | ({"aram": True} if "aram" in fichero else {})
+    assert classify(real) == esperado
 
 
 @pytest.mark.parametrize("f", [None, {}, {"gameData": {}}, "texto", {"gameData": {"queue": {"id": -1}}}])
@@ -115,7 +116,7 @@ def test_fuera_de_la_grieta_no_recomienda_ni_actua(champs, activo):
     lcu = FakeLCU()
     d = Draft(lcu, champs, _engine(champs, [_game("jungle")] * 5))
     out = champ_select_view(d, session(""), True, classify(flow(450, 12, "ARAM")))
-    assert out == {"unsupported": True, "queue": "ARAM"}
+    assert out == {"unsupported": True, "queue": "ARAM", "aram": {"champ": None, "runes": None}}
     assert lcu.calls == []  # ni Smite + Flash, ni marcar pick
 
 

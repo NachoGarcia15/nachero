@@ -148,9 +148,13 @@ def read_queue(lcu):
 
 
 def champ_select_view(draft, s, acting, queue):
-    """Lo que muestra el panel en la champ select: fuera de la Grieta, solo el aviso (sin actuar)."""
+    """Lo que muestra el panel en la champ select: fuera de la Grieta, solo el aviso (sin actuar).
+    En ARAM, además, las runas de ARAM del campeón que te toque."""
     if queue["kind"] == "other":
-        return {"unsupported": True, "queue": queue["name"]}
+        out = {"unsupported": True, "queue": queue["name"]}
+        if queue.get("aram") and s:
+            out["aram"] = draft.aram_tick(s, acting)
+        return out
     return draft.tick(s, acting, queue=queue) if s else None
 
 

@@ -15,6 +15,7 @@ import urllib.request
 from nachero.jsonio import read_json
 
 LOLA_LANE = {"top": "top", "jungle": "jungle", "middle": "middle", "bottom": "bottom", "utility": "support"}
+ARAM = "aram"  # «rol» de las builds de ARAM en la caché (cid:aram): solo runas, sin matchups
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) nachero/2.0 (uso personal)"
 
 
@@ -132,7 +133,7 @@ class Lolalytics:
 
     def runes(self, cid, role):
         """Paginas de runas recomendadas {"pick": {...}, "win": {...}} (puede estar vacio si hay pocos datos).
-        None si aun no esta descargado: lo pide en segundo plano."""
+        None si aun no esta descargado: lo pide en segundo plano. `role` "aram": las de ARAM."""
         with self.lock:
             c = self.cache["builds"].get(f"{cid}:{role}")
         if not self._fresh(c):
@@ -167,8 +168,15 @@ class Lolalytics:
                 )
                 if not slug:
                     raise ValueError("sin slug")
-                url = f"https://lolalytics.com/lol/{slug}/build/?lane={LOLA_LANE[role]}&tier={self.tier_name}"
-                lanes, slugs, runes = parse_build(self._fetch(url))
+                if role == ARAM:  # build de ARAM: mismo estado qwik, sin tablas por línea
+                    lanes, slugs, runes = (
+                        {},
+                        {},
+                        parse_runes(self._fetch(f"https://lolalytics.com/lol/{slug}/aram/build/")),
+                    )
+                else:
+                    url = f"https://lolalytics.com/lol/{slug}/build/?lane={LOLA_LANE[role]}&tier={self.tier_name}"
+                    lanes, slugs, runes = parse_build(self._fetch(url))
                 with self.lock:
                     if slugs:
                         self.cache["slugs"].update(slugs)
@@ -245,6 +253,13 @@ def _runes(objs, ref):
         if out:
             return out
     return {}
+
+
+def parse_runes(html):
+    """Solo las runas recomendadas de una página de build (la de ARAM no tiene matchups por línea).
+    {"pick": {...}, "win": {...}}, o vacío si no las trae."""
+    objs, ref = _qwik(html)
+    return _runes(objs, ref)
 
 
 def parse_build(html):

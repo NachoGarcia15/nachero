@@ -5,7 +5,8 @@ Entrada: la sesion de `/lol-gameflow/v1/session` (o un dict vacio si no se pudo 
 - "blind": Grieta sin draft (a ciegas, personalizadas, Practice Tool): sin bans ni rival
   visible; el rol es tu rol principal. Una personalizada con bans (`has_bans`) se trata como
   un draft.
-- "other": ARAM, Arena, URF y demas modos: no se recomienda ni se toca el cliente.
+- "other": ARAM, Arena, URF y demas modos: no se recomienda ni se toca el cliente. En ARAM
+  ("aram": True) solo se importan las runas de ARAM del campeon que te toque.
 - "unknown": no se pudo leer la cola; se recomienda como en la Grieta.
 """
 
@@ -71,7 +72,10 @@ def classify(flow: dict | None) -> dict:
         kind = "draft"
     else:
         kind = "blind"
-    return {"kind": kind, "id": qid, "name": name}
+    out = {"kind": kind, "id": qid, "name": name}
+    if mode == "ARAM":  # ARAM por cola, Clash de ARAM y personalizadas: solo runas de ARAM (#42)
+        out["aram"] = True
+    return out
 
 
 def has_bans(session: dict) -> bool:

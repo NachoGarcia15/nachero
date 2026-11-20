@@ -81,7 +81,8 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 - No abrir ventanas de prueba si el usuario está en partida (`League of Legends.exe`).
 - La API local tarda a veces más de 5 s (historial): usa timeouts largos y no bloquees el bucle.
 - Tipo de cola (`domain/queues.py`): fuera de la Grieta (ARAM, Arena, URF…) no se recomienda ni
-  se toca el cliente; a ciegas y Practice Tool, rol principal y sin bans.
+  se toca el cliente, salvo en ARAM las runas de ARAM (`Draft.aram_tick`); a ciegas y Practice
+  Tool, rol principal y sin bans.
 - Conexión al cliente: línea de comandos de `LeagueClientUx.exe` y, si no se puede leer (cliente
   como administrador), el `lockfile` de la carpeta del juego.
 - Crear la sala de Practice Tool por la API falla (`INVALID_LOBBY`): pide al usuario que la abra.

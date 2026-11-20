@@ -20,7 +20,7 @@ fijada #28. Estrategia de datos (Lolalytics ahora, API de Riot después): `docs/
 .venv\Scripts\python -m ruff format src tests run.py scripts
 .venv\Scripts\python -m mypy
 .venv\Scripts\python -m pytest
-python run.py [--demo] [--observe] [--port 8766] [--browser | --no-browser] [--profile]
+python run.py [--demo] [--observe] [--tray] [--port 8766] [--browser | --no-browser] [--profile]
 .venv\Scripts\python scripts/build_exe.py      # dist/nachero.exe (pip install -e ".[build]")
 ```
 Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .venv` y

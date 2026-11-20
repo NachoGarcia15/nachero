@@ -19,6 +19,8 @@ TOGGLES = [
     "import_runes",
     "open_coachless_on_lock",
 ]
+# Interruptores de la app (no de la partida): se cambian en Ajustes → App
+APP_TOGGLES = ["close_to_tray", "start_with_windows"]
 WEIGHT_KEYS = ("pool", "meta", "matchup", "comp")
 MAX_CHAMP_LIST = 40  # campeones en pool_bonus y never_pick
 PRACTICE_BONUS = 1.5  # puntos de WR de «lo estoy practicando» en la configuración guiada
@@ -73,7 +75,7 @@ def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
     """Valida y aplica cambios del panel. Devuelve la lista de cambios aceptados."""
     changed = []
     for k, v in body.items():
-        if k in TOGGLES and isinstance(v, bool):
+        if k in (*TOGGLES, *APP_TOGGLES) and isinstance(v, bool):
             cfg[k] = v
             changed.append(k)
         elif k == "lock_when_seconds_left" and isinstance(v, (int, float)) and not isinstance(v, bool) and 1 <= v <= 30:

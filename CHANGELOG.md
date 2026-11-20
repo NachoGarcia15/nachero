@@ -3,6 +3,20 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.17.0] - 2026-11-19
+
+### Añadido
+- **Bandeja del sistema** (Windows): icono de Nachero con menú (Abrir, Activo, Observar, Pausado y
+  Salir). Cerrar la ventana la deja en la bandeja y Nachero sigue aceptando partidas y leyendo la
+  selección; la primera vez lo avisa con un bocadillo. Ajuste «Cerrar deja Nachero en la bandeja»
+  para que cerrar salga del todo. Sin dependencias nuevas (Win32 con ctypes).
+- **Abrir al iniciar Windows** (desactivado por defecto): arranca en la bandeja, sin ventana.
+  Opción `--tray` para lo mismo a mano.
+- Abrir Nachero otra vez con la ventana en la bandeja la vuelve a mostrar.
+- **Aviso de nueva versión** si el ajuste `update_url` apunta a un `latest.json` público
+  (`{"version", "url", "notes"}`): banner con «Descargar». Vacío por defecto, porque con el
+  repositorio privado no hay un canal público todavía (#26).
+
 ## [0.16.0] - 2026-11-19
 
 ### Añadido

@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 from nachero import __version__, config, paths
+from nachero.app import desktop
 from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log, set_demo
 from nachero.app.status import diagnostics, empty_states
 from nachero.app.worker import evaluate, gol, load_tournament, refresh_tiers
@@ -97,6 +98,15 @@ def demo_request(body: dict) -> tuple[int, dict]:
     return 200, {"ok": True}
 
 
+def autostart_change(body: dict) -> str | None:
+    """Aplica «Abrir al iniciar Windows» en el registro antes de guardarlo. Devuelve el error."""
+    on = body.get("start_with_windows")
+    if not isinstance(on, bool) or on == bool(CFG.get("start_with_windows")):
+        return None
+    problem = desktop.set_autostart(on)
+    return f"No se ha podido cambiar el inicio con Windows: {problem}" if problem else None
+
+
 def private_words() -> tuple[str, ...]:
     """Textos que no deben salir en un diagnóstico: el usuario del sistema y su carpeta."""
     words = [Path.home().name]
@@ -156,6 +166,8 @@ class Handler(BaseHTTPRequestHandler):
                 "pool_bonus": CFG.get("pool_bonus", {}),
                 "never_pick": CFG.get("never_pick", []),
                 "practice_bonus": config.PRACTICE_BONUS,
+                "close_to_tray": bool(CFG.get("close_to_tray", True)),
+                "start_with_windows": bool(CFG.get("start_with_windows", False)),
             }
             st["settings"]["welcome_seen"] = bool(CFG.get("welcome_seen", False))
             st["version"] = __version__
@@ -226,7 +238,16 @@ class Handler(BaseHTTPRequestHandler):
                 APP["mode"] = body["mode"]
             log("Modo " + {"paused": "pausado", "observe": "observar", "active": "activo"}[body["mode"]], "ok")
             return self.send(200, {"ok": True})
+        if self.path == "/api/show":  # otro Nachero pide mostrar la ventana (p. ej. desde la bandeja)
+            show = OPTS.get("show_window")
+            if not show:
+                return self.send(409, {"ok": False})
+            show()
+            return self.send(200, {"ok": True})
         if self.path == "/api/settings":
+            problem = autostart_change(body)
+            if problem:
+                return self.send(409, {"error": problem})
             changed = config.apply_settings(CFG, body)
             if changed:
                 config.save(CFG)

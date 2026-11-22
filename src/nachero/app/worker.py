@@ -410,7 +410,9 @@ def game_view(engine, champs, items, flow, champ_select=None, puuid=None, role=N
     for team in (rep["ally"], rep["enemy"]):
         for p in team:
             p["spells"] = [items.brief(s, "spell") for s in p["spells"]]
-    return {**rep, "build": build, "coachless": coach, "queue": queue.get("name", "")}
+    # sin el catálogo todavía, los nombres son números: se vuelve a calcular en unos segundos
+    names = items.ready() if hasattr(items, "ready") else True
+    return {**rep, "build": build, "coachless": coach, "queue": queue.get("name", ""), "names_ready": names}
 
 
 # ---------------------------------------------------------------- bucle principal
@@ -617,6 +619,7 @@ def run_session():
     draft = Draft(lcu, champs, engine, runes)
     CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
     items = CTX["items"] = Items(src)  # objetos y hechizos de la vista «En partida»
+    items.preload()
     last_cs, last_game = None, 0.0  # última champ select real (para «En partida») y su último cálculo
     demo = None  # se crea al abrir la demo (por --demo o desde el panel)
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
@@ -763,7 +766,7 @@ def run_session():
                         APP["draft"] = d
                 elif phase in IN_GAME and online and not OPTS["demo"]:
                     g = APP.get("game")
-                    pending = not g or not g.get("loaded") or g.get("build_pending")
+                    pending = not g or not g.get("loaded") or g.get("build_pending") or not g.get("names_ready")
                     if time.time() - last_game > (GAME_REFRESH if pending else 60):
                         last_game = time.time()
                         flow = lcu.get("/lol-gameflow/v1/session", timeout=10)

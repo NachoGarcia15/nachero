@@ -307,6 +307,23 @@ def test_items_del_cliente_en_segundo_plano():
     assert items.icon("item", 3020) == "/x.png"  # el servidor espera al catálogo
     assert items.brief(3020) == {"id": 3020, "name": "Botas"}
     assert items.brief(1) == {"id": 1, "name": "1"}
+    assert not items.ready()  # sin catálogo de hechizos en este doble
+
+
+def test_items_precarga_los_dos_catalogos():
+    from nachero.sources.items import Items
+
+    class Src:
+        def get(self, path, timeout=5):
+            return [{"id": 4, "name": "Destello", "iconPath": "/f.png"}]
+
+    items = Items(Src())
+    items.preload()
+    for _ in range(200):
+        if items.ready():
+            break
+        __import__("time").sleep(0.01)
+    assert items.ready() and items.brief(4, "spell")["name"] == "Destello"
 
 
 def test_panel_tiene_la_vista_en_partida():

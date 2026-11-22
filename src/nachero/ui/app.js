@@ -550,7 +550,7 @@ function gameSlot(p, side) {
   return `<div class="slot gslot picked ${p.me ? "me" : ""}">
     <img class="tile" src="${img("tile", p.id)}" alt="">
     <div class="nm">${esc(p.name)}<span class="sub">${p.me ? "Tú · " : ""}${esc(p.role_es)}${side === "enemy" ? " · estimado" : ""}</span></div>
-    <div class="gs-side"><span class="spells">${spellImgs(p.spells)}</span><span class="c ${p.loaded ? tone(p.score) : "muted"}" title="${esc(scoreTip(p))}">${p.loaded ? signed(p.score) : "…"}</span></div>
+    <div class="gs-side"><span class="gspells">${spellImgs(p.spells)}</span><span class="c ${p.loaded ? tone(p.score) : "muted"}" title="${esc(scoreTip(p))}">${p.loaded ? signed(p.score) : "…"}</span></div>
   </div>`;
 }
 
@@ -587,9 +587,9 @@ function buildCard(g, s) {
     <div class="brow"><span class="lbl">Inicio</span><span class="its">${b.start.map((x) => itemImg(x)).join("") || "—"}</span></div>
     <div class="brow"><span class="lbl">Núcleo</span><span class="its">${b.core.map((x) => itemImg(x)).join("")}</span>${b.core_wr != null ? `<small class="muted">${f1(b.core_wr)} % · ${f0(b.core_n || 0)} partidas</small>` : ""}</div>
     ${b.boots ? `<div class="brow"><span class="lbl">Botas</span><span class="its">${itemImg(b.boots)}</span><small class="muted">${esc(b.boots.name)}</small></div>` : ""}
-    ${b.slots.map((sl) => `<div class="brow"><span class="lbl">${sl.slot}.º objeto</span><span class="its opts">${sl.items.map((x) => `<span class="opt">${itemImg(x)}<small class="${x.wr != null ? tone(x.wr - 50, 1) : "muted"}">${x.wr != null ? f1(x.wr) + " %" : ""}</small></span>`).join("")}</span></div>`).join("")}
+    ${b.slots.map((sl) => `<div class="brow"><span class="lbl">${sl.slot}.º objeto</span><span class="its opts">${sl.items.map((x) => `<span class="gopt">${itemImg(x)}<small class="${x.wr != null ? tone(x.wr - 50, 1) : "muted"}">${x.wr != null ? f1(x.wr) + " %" : ""}</small></span>`).join("")}</span></div>`).join("")}
     ${b.alt_core.length ? `<div class="brow alt"><span class="lbl">Otro núcleo</span><span class="its">${b.alt_core.map((x) => itemImg(x)).join("")}</span>${b.alt_core_wr != null ? `<small class="muted">${f1(b.alt_core_wr)} %</small>` : ""}</div>` : ""}
-    ${b.skills ? `<div class="brow"><span class="lbl">Habilidades</span><span class="sk-prio">${[...b.skills].map((k) => `<b class="k k${k}">${k}</b>`).join("<i>›</i>")}</span>${b.spells.length ? `<span class="spells">${spellImgs(b.spells)}</span>` : ""}</div>` : ""}
+    ${b.skills ? `<div class="brow"><span class="lbl">Habilidades</span><span class="sk-prio">${[...b.skills].map((k) => `<b class="k k${k}">${k}</b>`).join("<i>›</i>")}</span>${b.spells.length ? `<span class="gspells">${spellImgs(b.spells)}</span>` : ""}</div>` : ""}
     ${skillOrder(b.order)}
     ${coach}
   </div>`;
@@ -611,9 +611,10 @@ function renderGame(el, g, s) {
       <article class="hero gadv">
         <div class="hero-body">
           <div class="eyebrow">Ventaja de draft${hint("Cada campeón se puntúa con el motor del draft (fuerza en el parche, matchups, encaje, sinergias y composición), sin tu parte personal. La media de cada equipo es su WR estimado con ese draft; ventaja = (media de tu equipo − media del rival) / 2, así los dos WR suman 100.", "start")}</div>
-          <div class="est"><span class="num ${pending ? "muted" : tone(adv)}">${signed(adv)}</span><small>puntos de WR${pending ? " · calculando matchups…" : ""}</small></div>
+          ${g.enemy.length ? `<div class="est"><span class="num ${pending ? "muted" : tone(adv)}">${signed(adv)}</span><small>puntos de WR${pending ? " · calculando matchups…" : ""}</small></div>
           <div class="advbar" title="WR estimado de tu equipo ${f1(t.est)} %"><i class="ally" style="width:${Math.max(5, Math.min(95, t.est))}%"></i></div>
-          <div class="dmglbl"><span>Tu equipo ${f1(t.est)} %</span><span>Rival ${f1(100 - t.est)} %</span></div>
+          <div class="dmglbl"><span>Tu equipo ${f1(t.est)} %</span><span>Rival ${f1(100 - t.est)} %</span></div>`
+          : `<p class="muted">Sin rivales en esta partida: no hay ventaja que calcular.</p>`}
         </div>
       </article>
       ${buildCard(g, s)}

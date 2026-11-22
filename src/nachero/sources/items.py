@@ -37,6 +37,15 @@ class Items:
                 self.data[kind] = table
             self.loading.discard(kind)
 
+    def preload(self) -> None:
+        """Pide los catálogos en segundo plano para tener los nombres al empezar la partida."""
+        for kind in self.PATHS:
+            self._table(kind)
+
+    def ready(self) -> bool:
+        with self.lock:
+            return all(k in self.data for k in self.PATHS)
+
     def brief(self, iid, kind="item") -> dict:
         """{id, name}; sin el catálogo todavía, el nombre es el número (el panel pinta el icono)."""
         row = self._table(kind).get(iid) or {}

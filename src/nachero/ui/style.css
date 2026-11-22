@@ -297,7 +297,7 @@ main { flex: 1 0 auto; width: 100%; max-width: 1320px; margin: 0 auto; padding: 
 .gslot { grid-template-columns: 44px minmax(0, 1fr) auto; }
 .gs-side { display: grid; justify-items: end; gap: 4px; }
 .gs-side .c { font: 500 12.5px/1 var(--mono); }
-.spells { display: inline-flex; gap: 3px; }
+.gspells { display: inline-flex; gap: 3px; }
 .spell { width: 18px; height: 18px; border-radius: 4px; background: var(--surface-2); }
 .gadv { min-height: 0; }
 .gadv .hero-body { max-width: none; }
@@ -320,8 +320,8 @@ main { flex: 1 0 auto; width: 100%; max-width: 1320px; margin: 0 auto; padding: 
 .its { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .item { width: 30px; height: 30px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); }
 .its.opts { gap: 12px; }
-.opt { display: inline-flex; align-items: center; gap: 5px; }
-.opt small { font: 500 11.5px/1 var(--mono); }
+.gopt { display: inline-flex; align-items: center; gap: 5px; }
+.gopt small { font: 500 11.5px/1 var(--mono); }
 .sk-prio { display: inline-flex; align-items: center; gap: 6px; }
 .sk-prio i { color: var(--text-3); font-style: normal; }
 .k { display: inline-grid; place-items: center; font: 600 11.5px/1 var(--mono); }

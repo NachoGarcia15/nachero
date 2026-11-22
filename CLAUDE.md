@@ -14,6 +14,8 @@ fijada #28. Estrategia de datos (Lolalytics ahora, API de Riot después): `docs/
 - Escribe en español: responde en español; la UI y los comentarios del código también.
 - Jugador Master en EUW, main jungla; pool actual Taliyah, Zaahen, Naafiri, Qiyana, Graves.
 - Quiere los cambios probados en el cliente real y explicados con brevedad.
+- Objetivo: hoy uso personal; en el futuro, **versión pública y monetizable**. Diseña todo para
+  que valga en público (fuentes y normas de Riot en `docs/DATOS.md` y `docs/ROADMAP.md`).
 
 ## Comandos
 ```
@@ -56,8 +58,15 @@ Desde Git Bash: `.venv/Scripts/python`. Si `.venv` no existe: `python -m venv .v
 - Fuentes de datos: respetar `robots.txt` y condiciones, con caché y ~1,5 s entre peticiones.
   - **Coachless**: prohibido leer sus datos automáticamente (condiciones). Solo se abre su página.
   - **Lolalytics**: sin API pública; se lee el estado `qwik/json` incrustado en sus páginas
-    (`parse_build`). No usar sus endpoints ofuscados.
-  - **gol.gg**: `/champion/` permitido; el filtro de rol va por POST con cookie de sesión.
+    (`parse_build`). No usar sus endpoints ofuscados (`a1.lolalytics.com/mega`, de donde salen
+    sus sinergias) ni pedir acceso a ellos. Solo uso personal: en público, datos propios.
+  - **gol.gg**: `/champion/` permitido; el filtro de rol va por POST con cookie de sesión. Solo uso
+    personal: lo sustituye Leaguepedia (#80).
+  - **Leaguepedia** (API Cargo, CC BY-SA con atribución): competitivo válido en público. El lado
+    azul sale de `ScoreboardGames`, no del `Team1` de `PicksAndBansS7`.
+  - **API de Riot**: solo en el recolector, con la clave en `RIOT_API_KEY`; nunca en la app.
+- Draft: varias opciones con sus motivos, nunca una sola respuesta (Riot pide diversidad de
+  decisiones). Predicciones del rival solo con lo visible; no detectar dúos.
 - Normas de Riot: una decisión de juego automática (auto-ban, auto-marcar, auto-confirmar) solo
   se permite si sigue la lógica de la app, es opcional (desactivada por defecto) y nunca pisa la
   selección del jugador: Nachero marca, el jugador puede cambiarlo, y se confirma lo marcado.

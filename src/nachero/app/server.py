@@ -19,6 +19,7 @@ from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, log, set_de
 from nachero.app.status import diagnostics, empty_states
 from nachero.app.worker import evaluate, gol, load_tournament, refresh_tiers
 from nachero.config import CFG, TOGGLES
+from nachero.domain import blind as BL
 from nachero.domain import calibration
 from nachero.domain.common import ROLES
 from nachero.domain.policy import GAME_DECISIONS, mode_help
@@ -76,6 +77,23 @@ def choose_request(body: dict) -> tuple[int, dict]:
         return 409, {"error": "No estás en la selección de campeón"}
     ok, msg = draft.choose(kind, cid)
     return (200, {"ok": True, "name": msg}) if ok else (409, {"error": msg})
+
+
+def swap_request(body: dict) -> tuple[int, dict]:
+    """`POST /api/draft/swap {"op": "request"|"accept"|"decline"|"cancel", "id": 3}`: intercambio de
+    orden de pick con un aliado (#74). Siempre a petición del jugador, nunca automático."""
+    op, sid = body.get("op"), body.get("id")
+    if op not in ("request", "accept", "decline", "cancel") or not isinstance(sid, int) or isinstance(sid, bool):
+        return 400, {"error": "intercambio no válido"}
+    draft = CTX.get("draft")
+    with LOCK:
+        mode, phase = APP.get("mode"), APP.get("phase")
+    if mode != "active" or OPTS["demo"]:
+        return 409, {"error": "Pasa a modo Activo para pedir el cambio desde el panel"}
+    if phase != "ChampSelect" or draft is None:
+        return 409, {"error": "No estás en la selección de campeón"}
+    ok, msg = draft.swap(op, sid)
+    return (200, {"ok": True, "msg": msg}) if ok else (409, {"error": msg})
 
 
 def welcome_request(body: dict) -> tuple[int, dict]:
@@ -177,6 +195,8 @@ class Handler(BaseHTTPRequestHandler):
                 "spells": list(config.SPELLS),
                 "close_to_tray": bool(CFG.get("close_to_tray", True)),
                 "start_with_windows": bool(CFG.get("start_with_windows", False)),
+                "blind": {k: v for k, v in BL.settings(CFG).items() if k in config.BLIND_KEYS},
+                "build_tier": CFG.get("build_tier", "emerald_plus"),
             }
             st["settings"]["welcome_seen"] = bool(CFG.get("welcome_seen", False))
             st["version"] = __version__
@@ -210,7 +230,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, out)
         if path == "/api/calibration":  # ¿acierta Nachero? (#9)
             recs = read_json(paths.predictions_file(), [])
-            return self.send(200, calibration.report(recs if isinstance(recs, list) else []))
+            eta = BL.settings(CFG)["counter_rate"]
+            return self.send(200, calibration.report(recs if isinstance(recs, list) else [], eta))
         if path == "/api/champions":
             champs = CTX.get("champs")
             if not champs:
@@ -291,6 +312,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/draft/choose":
             code, out = choose_request(body)
             return self.send(code, out)
+        if self.path == "/api/draft/swap":
+            return self.send(*swap_request(body))
         if self.path == "/api/refresh":
             lola, patch = CTX.get("lola"), CTX.get("patch")
             if lola and patch:

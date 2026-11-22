@@ -5,17 +5,21 @@ import webbrowser
 
 from nachero.app.state import SPELL_IDS, TIMER_ES, log
 from nachero.config import CFG
+from nachero.domain import blind as BL
 from nachero.domain import calibration
+from nachero.domain import pool as POOL
 from nachero.domain import runes as R
+from nachero.domain import swaps as SW
 from nachero.domain import tags as T
 from nachero.domain.common import ROLE_ES, ROLE_SHORT
-from nachero.domain.engine import comp_notes, comp_summary
+from nachero.domain.engine import ban_context, comp_notes, comp_summary
 from nachero.domain.queues import has_bans
 
 
 class Draft:
     def __init__(self, lcu, champs, engine, runes=None):
         self.lcu, self.champs, self.engine, self.runes = lcu, champs, engine, runes
+        self.pool_plans: dict = {}  # plan de Tu pool por rol (#75), lo pone el bucle
         self.reset()
 
     def reset(self) -> None:
@@ -38,6 +42,8 @@ class Draft:
         self.last_top: dict | None = None
         self.record: dict | None = None
         self.recorded = False
+        self.record_ready = False  # con el orden de picks completo (#71)
+        self.pre: dict = {}  # tu situación en el último tick antes de confirmar (hueco, riesgo)
 
     def note(self, msg, kind="action"):
         if msg not in self.seen:
@@ -109,35 +115,43 @@ class Draft:
             if m["cellId"] != me
         ]
         allies = [(c, w) for c, w in allies if c]
-        # picks rivales que quedan despues de tu turno (para el riesgo de counter)
+        # orden de picks: picks rivales sin hacer y los que quedan despues de tu turno (riesgo de counter)
+        order = BL.pick_order(s["actions"])
+        enemy_open = 0 if blind else (
+            sum(1 for p in order if not p["ally"] and not p["completed"]) if order else 5 - len(enemy_ids)
+        )  # fmt: skip
         enemy_left_after = 0 if blind else 5 - len(enemy_ids)
-        if my_pick and not blind:
-            my_group = next(
-                (
-                    gi
-                    for gi, grp in enumerate(s["actions"])
-                    if any(a is my_pick or a.get("id") == my_pick.get("id") for a in grp)
-                ),
-                None,
-            )
-            if my_group is not None:
-                enemy_left_after = (
-                    0
-                    if my_pick["completed"]
-                    else sum(
-                        1
-                        for gi, grp in enumerate(s["actions"])
-                        if gi > my_group
-                        for a in grp
-                        if a["type"] == "pick" and not a.get("isAllyAction") and not a["completed"]
-                    )
-                )
-        self.context = {"role": role, "allies": allies, "enemy_ids": enemy_ids, "enemy_left_after": enemy_left_after}
+        if my_pick and not blind and order:
+            enemy_left_after = 0 if my_pick["completed"] else BL.enemy_after(order, me)
+        # rol de tus aliados (el cliente lo da en ranked): sinergias por pareja de roles
+        ally_roles = {
+            (m["championId"] or m.get("championPickIntent") or 0): m.get("assignedPosition")
+            for m in s["myTeam"]
+            if m["cellId"] != me and m.get("assignedPosition") and (m["championId"] or m.get("championPickIntent"))
+        }
+        self.context = {
+            "role": role,
+            "allies": allies,
+            "enemy_ids": enemy_ids,
+            "enemy_left_after": enemy_left_after,
+            "unavailable": sorted(unavailable),
+            "ally_roles": ally_roles,
+        }
         lap("sesión")
         picks, ctx = eng.picks(
-            role, unavailable, pickable, allies, enemy_ids, enemy_left_after=enemy_left_after, include=[locked]
-        )
+            role, unavailable, pickable, allies, enemy_ids, enemy_left_after=enemy_left_after, include=[locked],
+            enemy_open=enemy_open, ally_roles=ally_roles,
+        )  # fmt: skip
         enemy_roles = ctx["enemy_roles"]
+        probs = ctx["enemy_role_probs"]
+        if not locked:  # para la calibración: tu situación justo antes de confirmar
+            self.pre = {
+                "after": enemy_left_after,
+                "open": enemy_open,
+                "probs": probs,
+                "gone": set(unavailable),
+                "lane_p": ctx["lane_p"],
+            }
         # «Tu equipo» en el panel: contigo y con lo marcado (como estimación) hasta que se confirme
         mine_now = my_pick.get("championId") if my_pick else None
         ally = comp_summary(
@@ -159,7 +173,22 @@ class Draft:
             # para medir si acierta: tu campeón, su WR estimado y lo que recomendaba (sin demo)
             self.recorded = True
             fit = ctx.get("role_fit") or {}
-            self.record = calibration.make_record(time.time() * 1000, queue, role, mine, self.last_top, fit.get("kind"))
+            self.record = calibration.make_record(
+                time.time() * 1000, queue, role, mine, self.last_top, fit.get("kind"),
+                order=self.order_info(mine["id"], role, order, me),
+            )  # fmt: skip
+        if self.record and not self.record_ready and order and all(p["completed"] for p in order):
+            # champ select terminada: quién eligió antes y después de ti (#71)
+            mine_p = next((p for p in order if p["ally"] and p["cell"] == me), None)
+            if mine_p:
+                enemies = [p for p in order if not p["ally"] and p["cid"]]
+                self.record = calibration.finish_order(
+                    self.record,
+                    [p["cid"] for p in enemies if p["group"] < mine_p["group"]],
+                    [p["cid"] for p in enemies if p["group"] > mine_p["group"]],
+                    enemy_roles,
+                )
+            self.record_ready = True
         # en soloq todos banean a la vez: no repetir el ban que ya ha marcado un aliado
         ally_ban_intent = {
             a["championId"]
@@ -189,8 +218,21 @@ class Draft:
                 for m in s["myTeam"]
                 if m["cellId"] != me
             ]  # fmt: skip
-            ally_roles = [(c, r, w) for c, r, w in ally_roles if c and r]
-            bans = [b for b in eng.bans(role, top, blocked, ally_roles) if not bannable or b["id"] in bannable][:5]
+            # con qué probabilidad el rival de línea de cada uno elige después (#73)
+            after_p = {
+                m["cellId"]: (BL.enemy_after(order, m["cellId"]) / enemy_open if enemy_open and order else 1.0)
+                for m in s["myTeam"]
+            }
+            ally_bans = [
+                (c, r, w, after_p.get(m["cellId"], 1.0))
+                for (c, r, w), m in zip(ally_roles, [m for m in s["myTeam"] if m["cellId"] != me], strict=True)
+                if c and r
+            ]
+            my_after = None if blind else after_p.get(me, 1.0)
+            bans = [
+                b for b in eng.bans(role, top, blocked, ally_bans, my_after=my_after)
+                if not bannable or b["id"] in bannable
+            ][:5]  # fmt: skip
         status = []
 
         lap("picks y bans")
@@ -289,6 +331,15 @@ class Draft:
                     "lane_opp": bool(cid) and r == role,
                 }
             )
+        # intercambio de orden de pick (#74) y qué toca según tu hueco (#75)
+        swap = None
+        slot_line = ""
+        if not blind and order and my_pick and not my_pick["completed"]:
+            swap = self.swap_advice(s, order, role, me, (my_pick or {}).get("championId") or (best or {}).get("id"),
+                                    probs, enemy_open, unavailable, acting)  # fmt: skip
+            slot_line = POOL.slot_line(
+                BL.ally_slot(order, me), ctx["lane_after"], ctx["lane_p"], self.pool_plans.get(role)
+            )
         my_turn = None
         if my_ban and my_ban["isInProgress"]:
             my_turn = "ban"
@@ -315,6 +366,12 @@ class Draft:
             "hero": mine or best,
             "locked": bool(mine),
             "ban_suggestions": bans,
+            "ban_context": ban_context(None if blind else (my_after if my_ban else None)),
+            "swap": swap,
+            "slot_line": slot_line,
+            "lane_p": ctx["lane_p"],
+            "risk_open": ctx["risk_open"],
+            "enemy_open": enemy_open,
             "status": [{"kind": k, "msg": m} for k, m in status],
             "coachless": coach,
             "runes": runes_info,
@@ -488,9 +545,80 @@ class Draft:
         return True, name
 
     def pop_record(self) -> dict | None:
-        """El registro de calibración pendiente de guardar (una vez por champ select)."""
+        """El registro de calibración pendiente de guardar (una vez por champ select), cuando ya se
+        sabe quién eligió antes y después de ti. Si se esquiva antes, no se guarda."""
+        if not self.record_ready:
+            return None
         rec, self.record = self.record, None
         return rec
+
+    def order_info(self, cid, role, order, me) -> dict:
+        """Tu hueco y tu riesgo de counter al elegir (#71), con la situación del tick anterior."""
+        pre, eng = self.pre or {}, self.engine
+        aprobs = BL.after_probs(pre.get("probs", {}), pre.get("after", 0), pre.get("open", 0))
+        gone = pre.get("gone", set())
+        br = eng.blind_risk(cid, role, aprobs, gone)
+        lane = eng.blind_risk(cid, role, {role: 1.0}, gone, eta=1.0)
+        return {
+            "slot": BL.ally_slot(order, me),
+            "after": pre.get("after"),
+            "lane_p": pre.get("lane_p"),
+            "p_counter": round(br["p"], 3) if br["loaded"] else None,
+            "lane_loss": round(-lane["risk"], 2) if lane["loaded"] else None,
+        }
+
+    def swap_advice(self, s, order, role, me, my_cid, probs, enemy_open, gone, acting):
+        """Consejo de intercambio de orden de pick con un aliado (#74): solo aconseja; proponer,
+        aceptar o rechazar es un clic del jugador en el panel."""
+        if not my_cid:
+            return None
+        eng, ch = self.engine, self.champs
+
+        def loss(cid, r, after):
+            res = eng.blind_risk(cid, r, BL.after_probs(probs, after, enemy_open), gone)
+            return -res["risk"], res["p"]
+
+        allies = []
+        for m in s["myTeam"]:
+            pos = m.get("assignedPosition") or ""
+            pa = next((p for p in order if p["ally"] and p["cell"] == m["cellId"]), None)
+            if m["cellId"] == me or not pos or not pa or pa["completed"]:
+                continue
+            allies.append(
+                {
+                    "cell": m["cellId"],
+                    "cid": m.get("championPickIntent") or 0,
+                    "role": pos,
+                    "after": BL.enemy_after(order, m["cellId"]),
+                    "name": f"tu {ROLE_ES.get(pos, pos)}",
+                    "slot": BL.ally_slot(order, m["cellId"]),
+                }
+            )
+        me_d = {"cell": me, "cid": my_cid, "role": role, "after": BL.enemy_after(order, me)}
+        adv = SW.advise(me_d, allies, loss, s.get("pickOrderSwaps") or [], eng.bl["swap_min_gain"])
+        if not adv:
+            return None
+        ally_name = ch.name(adv["ally_cid"]) if adv["ally_cid"] else ""
+        return {
+            **adv,
+            "text": SW.message(adv, ch.name(my_cid), ally_name),
+            "chat": SW.chat_line(adv, ch.name(my_cid), ally_name),
+            "ally": adv["ally"],
+            "can_act": bool(acting and adv.get("swap_id") is not None),
+        }
+
+    def swap(self, op, swap_id):
+        """Pide, acepta o rechaza un intercambio de orden de pick (clic del jugador en el panel).
+        Devuelve (ok, mensaje)."""
+        if op not in ("request", "accept", "decline", "cancel"):
+            return False, "Operación no válida"
+        ok = self.lcu.raw("POST", f"/lol-champ-select/v1/session/swaps/{swap_id}/{op}") is not None
+        verb = {"request": "Cambio pedido", "accept": "Cambio aceptado", "decline": "Cambio rechazado",
+                "cancel": "Petición cancelada"}[op]  # fmt: skip
+        if ok:
+            self.note(f"{verb} desde el panel")
+            return True, verb
+        return False, "El cliente no deja hacer el cambio"
 
     ARAM_SETTLE = 1.5  # segundos con el mismo campeón antes de importar (reroll, banquillo)
 

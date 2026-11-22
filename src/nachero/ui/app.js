@@ -6,6 +6,7 @@ const img = (kind, id) => `/api/img/${kind}/${id}`;
 const nf1 = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf0 = new Intl.NumberFormat("es-ES");
 const f1 = (v) => nf1.format(v);
+const f0 = (v) => nf0.format(Math.round(v));
 const signed = (v) => (v > 0 ? "+" : v < 0 ? "−" : "±") + nf1.format(Math.abs(v));
 const tone = (v, eps = 0.25) => (v > eps ? "pos" : v < -eps ? "neg" : "muted");
 const memo = {};
@@ -265,15 +266,16 @@ function comp(c) {
 
 const PART_LABELS = [
   ["you", "Tú con él"], ["meta", "Fuerza en el parche"], ["lane", "Rival de línea"], ["enemies", "Resto del rival"],
-  ["allies", "Encaje con tu equipo"], ["vs_comp", "Contra su composición"], ["risk", "Riesgo de counter"],
-  ["ease", "Fácil de jugar"],
+  ["allies", "Encaje con tu equipo"], ["synergy", "Sinergias medidas"], ["vs_comp", "Contra su composición"],
+  ["risk", "Riesgo de counter"], ["ease", "Fácil de jugar"],
 ];
 const MU_PARTS = ["lane", "enemies", "risk"];
 
 function parts(p, d) {
   const show = PART_LABELS.filter(([k]) => {
     if (k === "you") return d.mode === "pool";
-    if (k === "risk") return !d.lane_known && d.enemy_left_after > 0;
+    if (k === "risk") return d.risk_open ?? (!d.lane_known && d.enemy_left_after > 0);
+    if (k === "synergy") return p.parts.synergy !== undefined; // solo con datos propios
     if (k === "vs_comp") return Math.abs(p.parts.vs_comp) >= 0.05;
     if (k === "ease") return p.parts.ease !== undefined; // solo en autofill
     return true;
@@ -305,6 +307,34 @@ function roleChips(p) {
   return `${cat}<span class="chip conf-${esc(p.confidence)}" title="${esc(CONF_HELP[p.confidence] || "")} ${n}${p.role_pct ? ` (${f1(p.role_pct)} % de sus partidas)` : ""}.">Confianza ${esc((p.confidence_es || "").toLowerCase())}</span>`;
 }
 
+/* Blindability (#72): seguro a ciegas, intermedio o mejor de counter, con su probabilidad. */
+// El número del chip: probabilidad de que tu rival de línea tenga un counter en su pool si eliges
+// el primero (sin η): es lo que da la etiqueta. Lo de ahora (con η) va en el título.
+const BLIND_HELP = {
+  safe: "Spread bajo: casi nadie le hace counter. Bueno si eliges antes que tu rival de línea.",
+  flex: "Ni muy seguro a ciegas ni de counter.",
+  counter: "Spread alto: sus peores matchups son malos, pero los mejores muy buenos. Guárdalo para cuando veas a tu rival.",
+};
+function blindChip(p, short) {
+  const b = p.blind;
+  if (!b || !b.label) return "";
+  const now = b.p != null ? ` Ahora: ${f1(b.p)} % de que tu rival de línea te countee (si elige después, con su pool medio).` : "";
+  const tip = `${BLIND_HELP[b.label]} Si eligieras el primero: un ${f0(b.p_pool ?? 0)} % de que tu rival de línea tenga un counter en su pool y un ${f1(b.p_blind)} % de que además lo elija (no siempre lo hacen).${b.spread != null ? ` Spread contra su línea: ${f1(b.spread)} pp.` : ""}${now}`;
+  const txt = short ? b.label_es : `${b.label_es} · ${f0(b.p_pool ?? 0)} %`;
+  return `<span class="chip bl-${esc(b.label)}" title="${esc(tip)}">${esc(txt)}</span>`;
+}
+
+function riskLine(p) {
+  if (!p.risk_items || !p.risk_items.length) return "";
+  return `<div class="mus risk"><span class="muted" title="Los rivales que más pueden counterearte si eligen después de ti: presencia × probabilidad de ser counter (d2 encogido por muestra).">Te pueden counterear:</span>${p.risk_items.map((m) => `<span>${esc(m.name)} <i>${ROLE_TAG[m.role] || ""}</i> <span class="num neg">${f1(m.pct)} %</span></span>`).join("")}</div>`;
+}
+
+function muTitle(m) {
+  const ci = m.ci != null ? ` ± ${f1(m.ci)}` : "";
+  const role = m.p_role != null && m.p_role < 0.95 ? ` · juega ${ROLE_NAME[m.role] || m.role} con un ${f0(100 * m.p_role)} %` : "";
+  return `d2 ${signed(m.d2)}${ci} pp (${nf0.format(m.n)} partidas) · encogido: ${signed(m.post ?? m.d2)}${role}${m.noise ? " · dentro del ruido" : ""}`;
+}
+
 function matchupLine(p) {
   if (!p.matchups_loaded) {
     const t = taskOf(STATE, "matchups");
@@ -313,12 +343,9 @@ function matchupLine(p) {
   }
   if (p.matchups.length) {
     const other = p.matchups_other_role ? `<span class="muted other-note" title="Sin matchups de este rol: se usan los de su rol principal, con la mitad de peso.">* datos de otro rol</span>` : "";
-    return `<div class="mus">${p.matchups.slice(0, 5).map((m) => `<span class="${m.lane ? "lane" : ""}${m.other_role ? " other" : ""}">${esc(m.name)} <i>${ROLE_TAG[m.role] || ""}</i> <span class="num ${tone(m.d2, 0.9)}">${signed(m.d2)}</span>${m.other_role ? "*" : ""}</span>`).join("")}${other}</div>`;
+    return `<div class="mus">${p.matchups.slice(0, 5).map((m) => `<span class="${m.lane ? "lane" : ""}${m.other_role ? " other" : ""}${m.noise ? " noise" : ""}" title="${esc(muTitle(m))}">${esc(m.name)} <i>${ROLE_TAG[m.role] || ""}</i> <span class="num ${m.noise ? "muted" : tone(m.d2, 0.9)}">${signed(m.d2)}</span>${m.other_role ? "*" : ""}</span>`).join("")}${other}</div>${riskLine(p)}`;
   }
-  if (p.risk_items && p.risk_items.length) {
-    return `<div class="mus"><span class="muted">Le pueden counterear:</span>${p.risk_items.map((m) => `<span>${esc(m.name)} <span class="num ${tone(m.d2, 0.9)}">${signed(m.d2)}</span></span>`).join("")}</div>`;
-  }
-  return "";
+  return riskLine(p);
 }
 
 const RUNES_STATE = {
@@ -435,6 +462,8 @@ function renderDraft([d, idle, s]) {
       ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? (d.my_turn === "ban" ? "bánealo tú en el cliente o aquí" : "hazlo tú") : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
       ${chooser(d.choose)}
       ${roleFitLine(d)}
+      ${d.slot_line ? `<p class="info-line slotline">${esc(d.slot_line)}</p>` : ""}
+      ${swapBox(d.swap)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${d.focus === "ban" ? banHero(d.ban_suggestions[0], best) : best ? `
       <article class="hero">
@@ -443,7 +472,7 @@ function renderDraft([d, idle, s]) {
           <div class="eyebrow">${d.locked ? "Tu pick confirmado" : "Mejor pick para " + esc(d.role_es)}${d.mode === "meta" ? " · sin tu pool" : ""}</div>
           ${dataLine(s.data)}
           <h1>${esc(best.name)}</h1>
-          <div class="chips">${roleChips(best)}</div>
+          <div class="chips">${blindChip(best)}${roleChips(best)}</div>
           <div class="est"><span class="num">${f1(best.est)}%</span><small>WR estimado</small></div>
           ${parts(best, d)}
           ${matchupLine(best)}
@@ -462,7 +491,7 @@ function renderDraft([d, idle, s]) {
             return `
           <div class="row">
             <span class="i">${i + (d.locked ? 1 : 2)}</span><img src="${img("tile", p.id)}" alt="">
-            <div class="nm" title="${esc(subline(p))}"><span class="nm1">${esc(p.name)}${tierPill(p.tier)}</span><small>${esc(expText(p))}${p.confidence ? `<span class="sep">·</span>${confText(p)}` : ""}</small></div>
+            <div class="nm" title="${esc(subline(p))}"><span class="nm1">${esc(p.name)}${tierPill(p.tier)}${blindChip(p, true)}</span><small>${esc(expText(p))}${p.confidence ? `<span class="sep">·</span>${confText(p)}` : ""}</small></div>
             ${d.mode === "pool" ? `<span class="c ${tone(p.parts.you)}">${signed(p.parts.you)}</span>` : ""}
             <span class="c ${tone(p.parts.meta)}">${signed(p.parts.meta)}</span>
             <span class="c ${p.matchups_loaded ? tone(rival) : "muted"}">${p.matchups_loaded ? signed(rival) : "…"}</span>
@@ -474,7 +503,7 @@ function renderDraft([d, idle, s]) {
 
       <div class="block ${d.ban_suggestions.length ? "split" : ""}">
         ${d.ban_suggestions.length ? `<div>
-          <div class="block-head"><h3>Bans</h3><span>según tu pool</span></div>
+          <div class="block-head"><h3>Bans</h3><span>${esc(d.ban_context || "según tu pool")}</span></div>
           <div class="bans-list">${d.ban_suggestions.slice(0, 4).map((b, i) => `
             <div class="ban ${i === 0 ? "top" : ""}"><img src="${img("tile", b.id)}" alt=""><div><span class="nm">${esc(b.name)}</span><small>${esc(b.reasons.join(" · "))}</small></div></div>`).join("")}
           </div>
@@ -499,6 +528,45 @@ function renderDraft([d, idle, s]) {
   </div>`;
   bindModeSwitch(el);
   el.querySelectorAll(".choose button").forEach((b) => (b.onclick = () => choose(d.choose.kind, Number(b.dataset.id))));
+  el.querySelectorAll(".swap [data-op]").forEach((b) => (b.onclick = () => swapOp(b.dataset.op, Number(b.dataset.id))));
+  const chat = el.querySelector(".swap [data-chat]");
+  if (chat) chat.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(d.swap.chat); SWAP_MSG = { text: "Copiado: pégalo en el chat", err: false, until: Date.now() + 3000 }; delete memo.draft; poll(); };
+}
+
+/* Intercambio de orden de pick (#74): el campeón, no el rol. Solo aconseja: pedir, aceptar o
+   rechazar es un clic tuyo (y en modo Activo). */
+let SWAP_MSG = null;
+function swapBox(w) {
+  if (!w) return "";
+  const msg = SWAP_MSG && SWAP_MSG.until > Date.now() ? `<span class="who ${SWAP_MSG.err ? "err" : ""}">${esc(SWAP_MSG.text)}</span>` : "";
+  let btns = "";
+  if (w.kind === "incoming" && w.swap_id != null) {
+    const dis = w.can_act ? "" : "disabled title=\"Pasa a modo Activo para responder desde aquí\"";
+    btns = `<button data-op="accept" data-id="${w.swap_id}" class="${w.verdict === "accept" ? "on" : ""}" ${dis}>Aceptar</button><button data-op="decline" data-id="${w.swap_id}" class="${w.verdict === "decline" ? "on" : ""}" ${dis}>Rechazar</button>`;
+  } else if (w.verdict === "propose" && w.swap_id != null) {
+    const dis = w.can_act ? "" : "disabled title=\"Pasa a modo Activo para pedirlo desde aquí\"";
+    btns = `<button data-op="request" data-id="${w.swap_id}" ${dis}>Proponer cambio</button>`;
+  } else if (w.verdict === "sent" && w.swap_id != null) {
+    btns = `<button data-op="cancel" data-id="${w.swap_id}" ${w.can_act ? "" : "disabled"}>Cancelar petición</button>`;
+  }
+  const chat = w.chat ? `<button data-chat="1" class="ghost">Copiar mensaje</button>` : "";
+  return `<div class="swap ${esc(w.kind)} ${esc(w.verdict)}" role="status"><span class="lbl">Orden de pick</span><p>${esc(w.text)} <small class="muted">El equipo gana ${f1(w.gain)} pp.</small></p><div class="btns">${btns}${chat}${msg}</div></div>`;
+}
+
+async function swapOp(op, id) {
+  let text = "", err = false;
+  try {
+    const r = await fetch("/api/draft/swap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op, id }) });
+    const out = await r.json();
+    err = !r.ok;
+    text = r.ok ? out.msg : out.error || "No se ha podido";
+  } catch (_) {
+    err = true;
+    text = "Nachero no responde";
+  }
+  SWAP_MSG = { text, err, until: Date.now() + 4000 };
+  delete memo.draft;
+  poll();
 }
 
 /* Autofill o rol secundario: por qué la recomendación cambia. */
@@ -666,8 +734,21 @@ function roleSwitch(idle, chosen) {
 /* ------------------------------------------------------------------ pool */
 const POOL_COLS = [
   ["name", "Campeón"], ["role", "Rol"], ["games", "Partidas"], ["wr", "WR"], ["exp", "Experiencia"],
-  ["you", "Tú"], ["tier", "Tier"], ["meta", "Meta"], ["meta_games", "Confianza"], ["est", "Estimado"],
+  ["you", "Tú"], ["tier", "Tier"], ["meta", "Meta"], ["blind_p", "A ciegas"], ["meta_games", "Confianza"], ["est", "Estimado"],
 ];
+
+/* Plan de tu pool (#75): seguros a ciegas para cuando eliges antes que tu rival y counters para
+   cuando ya lo ves. */
+function poolPlan(plans) {
+  const list = Object.values(plans || {}).filter((p) => p && (p.text || p.size_mastery));
+  if (!list.length) return "";
+  return `<div class="pool-plans">${list.map((p) => `<div class="pool-plan ${p.missing.length ? "warn" : ""}">
+    <div class="pp-head"><b>${esc(p.role_es)}</b><span class="muted" title="Campeones que suman el 80 % de tus puntos de maestría (todos los roles) y de tus partidas en el rol. Un rival medio: ${p.avg_size}.">Tu pool: ${p.size_role || "—"} en el rol · ${p.size_mastery || "—"} por maestría</span></div>
+    <p>${esc(p.text)}</p>
+    ${p.safe.length || p.counter.length ? `<div class="chips">${p.safe.map((n) => `<span class="chip bl-safe">${esc(n)}</span>`).join("")}${p.counter.map((n) => `<span class="chip bl-counter">${esc(n)}</span>`).join("")}</div>` : ""}
+    ${p.suggest.length ? `<p class="muted">Seguros a ciegas del parche para probar: ${p.suggest.map((x) => `<b>${esc(x.name)}</b> (${f0(x.p_pool)} %)`).join(", ")}.</p>` : ""}
+  </div>`).join("")}</div>`;
+}
 
 // El cliente solo da tus ultimas 200 partidas de cualquier cola: explica por que el pool
 // puede sumar menos partidas que las victorias y derrotas de la cabecera.
@@ -693,7 +774,8 @@ function renderPool(rows) {
   const count = (k) => rows.filter((r) => r.role_key === k).length;
   if (POOL_ROLE !== "all" && !ROLE_NAME[POOL_ROLE]) POOL_ROLE = "all";  // filtro guardado de una versión anterior
   const q = POOL_Q.trim().toLowerCase();
-  const list = rows.filter((r) => (POOL_ROLE === "all" || r.role_key === POOL_ROLE) && (!q || r.name.toLowerCase().includes(q)));
+  const list = rows.filter((r) => (POOL_ROLE === "all" || r.role_key === POOL_ROLE) && (!q || r.name.toLowerCase().includes(q)))
+    .map((r) => ({ ...r, blind_p: r.blind ? r.blind.p_blind : null }));
   const maxExp = Math.max(1, ...rows.map((r) => r.exp || 0));
   const k = POOL_SORT.key;
   list.sort((a, b) => {
@@ -706,6 +788,7 @@ function renderPool(rows) {
       <div class="pool-tools"><label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" id="pool-q" placeholder="Buscar campeón…" aria-label="Buscar campeón en tu pool" autocomplete="off" value="${esc(POOL_Q)}"></label>
       <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos <small>${rows.length}</small></button>${ROLE_BTNS.map(([r, t]) => `<button data-r="${r}" class="${POOL_ROLE === r ? "on" : ""}" ${count(r) ? "" : "disabled"}>${t} <small>${count(r)}</small></button>`).join("")}</div></div>
     </div>
+    ${poolPlan(STATE.pool_plans)}
     <div class="tablewrap"><table>
       <thead><tr>${POOL_COLS.map(([key, label]) => `<th data-k="${key}" class="${key === k ? "sorted" : ""}">${label}${key === k ? (POOL_SORT.dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead>
       <tbody>${list.map((r) => `<tr>
@@ -717,6 +800,7 @@ function renderPool(rows) {
         <td class="${tone(r.you)}">${signed(r.you)}</td>
         <td>${r.tier ? `<span class="tier pill ${tierClass(r.tier)}">${esc(r.tier)}</span>` : `<span class="tier">—</span>`}</td>
         <td class="${tone(r.meta)}">${signed(r.meta)}</td>
+        <td>${r.blind && r.blind.label ? blindChip(r) : `<span class="muted" title="Calculando con sus matchups…">…</span>`}</td>
         <td><span class="chip conf-${esc(r.confidence)}" title="${nf0.format(r.meta_games || 0)} partidas en este rol en Master+">${esc(r.confidence_es || "—")}</span></td>
         <td><b>${f1(r.est)}%</b></td></tr>`).join("") || `<tr><td colspan="${POOL_COLS.length}" class="none">Ningún campeón con «${esc(POOL_Q)}»</td></tr>`}</tbody>
     </table></div>`;
@@ -921,7 +1005,7 @@ const TOGGLES = [
   ["auto_hover_pick", "Marcar pick", "Marca tu mejor campeón y lo actualiza con el draft. Si marcas otro (en el cliente o aquí), deja de cambiarlo."],
   ["auto_lock_pick", "Confirmar pick", "Confirma lo que esté marcado al final de tu turno: tu elección o, si no tocas nada, la de Nachero."],
   ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],
-  ["import_runes", "Importar runas", "Al confirmar, crea la página «Nachero» con las runas de Lolalytics Master+. Nunca toca tus páginas."],
+  ["import_runes", "Importar runas", "Al confirmar, crea la página «Nachero» con las runas de Lolalytics (de la liga de los matchups: Esmeralda+ por defecto). Nunca toca tus páginas."],
   ["open_coachless_on_lock", "Abrir Coachless", "La build del campeón confirmado, en tu navegador."],
 ];
 const APP_TOGGLES = [
@@ -946,7 +1030,7 @@ function renderSettings(st) {
       ${k === "auto_lock_pick" ? `<div class="secs">Cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}"> s</div>` : ""}</div>
       <label class="sw"><input type="checkbox" data-k="${k}" ${st[k] ? "checked" : ""} aria-label="${t}"><span></span></label></div>`).join("");
   $("#toggles").insertAdjacentHTML("beforeend", `
-    <div class="opt"><div class="tx"><b>Página de runas</b><small>Cuál importar de Lolalytics Master+.</small>
+    <div class="opt"><div class="tx"><b>Página de runas</b><small>Cuál importar de Lolalytics (liga de los matchups).</small>
       <div class="seg seg-sm runesrc" role="radiogroup" aria-label="Página de runas">
         <button data-src="pick" class="${st.runes_source !== "win" ? "on" : ""}">Más popular</button>
         <button data-src="win" class="${st.runes_source === "win" ? "on" : ""}">Mayor WR</button></div></div></div>`);
@@ -965,6 +1049,7 @@ function renderSettings(st) {
     poll();
   }));
 
+  renderBlindSettings(st);
   const w = st.weights || {};
   $("#weights").innerHTML = WEIGHTS.map(([k, t, d]) => `
     <div class="weight"><label for="w-${k}">${t}<span class="num" id="wv-${k}">${f1(w[k] ?? 1)}×</span></label><small>${d}</small>
@@ -974,6 +1059,33 @@ function renderSettings(st) {
     r.oninput = () => ($("#wv-" + k).textContent = f1(Number(r.value)) + "×");
     r.onchange = () => post("/api/settings", { weights: { [k]: Number(r.value) } });
   });
+}
+
+/* Blindability (#68): cuánto counterea el rival, su pool medio, modelo de matchups y liga. */
+function renderBlindSettings(st) {
+  const b = st.blind || {};
+  const size = (b.pool_size || {}).middle ?? 7;
+  const eta = b.counter_rate ?? 0.5;
+  const model = b.matchup_model || "measured";
+  const tier = st.build_tier || "emerald_plus";
+  $("#blind-settings").innerHTML = `
+    <div class="weight"><label for="bl-eta">Cuánto counterea el rival (η)<span class="num" id="blv-eta">${f0(100 * eta)} %</span></label>
+      <small>De las veces que tu rival de línea elige después de ti, cuántas coge su mejor respuesta. En soloq no siempre: «¿Acierta Nachero?» lo mide con tus partidas. Los de otras líneas eligen para la suya: cuentan poco.</small>
+      <input type="range" id="bl-eta" min="0" max="1" step="0.05" value="${eta}"></div>
+    <div class="weight"><label for="bl-size">Pool medio de un rival<span class="num" id="blv-size">${size}</span></label>
+      <small>Campeones con los que puede responderte (los que suman el 80 % de su maestría; en mid, 7 de media). Nunca se mira quién es.</small>
+      <input type="range" id="bl-size" min="1" max="15" step="1" value="${size}"></div>
+    <div class="opt"><div class="tx"><b>Modelo de matchups</b><small>${model === "measured" ? "Medido: cada matchup se encoge según sus partidas y cuánto importa esa pareja de líneas (recomendado)." : "Clásico: encogimiento fijo y pesos por línea a mano."}</small>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Modelo de matchups"><button data-model="measured" class="${model === "measured" ? "on" : ""}">Medido</button><button data-model="classic" class="${model === "classic" ? "on" : ""}">Clásico</button></div></div></div>
+    <div class="opt"><div class="tx"><b>Liga de los matchups</b><small>Esmeralda+ da unas 5 veces más partidas por matchup (en Master+ de un parche casi todo es ruido). La fuerza en el parche sigue siendo Master+. Se aplica al reiniciar.</small>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Liga de los matchups">${[["emerald_plus", "Esmeralda+"], ["diamond_plus", "Diamante+"], ["master_plus", "Master+"]].map(([k, n]) => `<button data-tier="${k}" class="${tier === k ? "on" : ""}">${n}</button>`).join("")}</div></div></div>`;
+  const eR = $("#bl-eta"), sR = $("#bl-size");
+  eR.oninput = () => ($("#blv-eta").textContent = f0(100 * Number(eR.value)) + " %");
+  eR.onchange = () => post("/api/settings", { blind: { counter_rate: Number(eR.value) } });
+  sR.oninput = () => ($("#blv-size").textContent = sR.value);
+  sR.onchange = () => post("/api/settings", { blind: { pool_size: Number(sR.value) } });
+  document.querySelectorAll("#blind-settings [data-model]").forEach((x) => (x.onclick = () => post("/api/settings", { blind: { matchup_model: x.dataset.model } })));
+  document.querySelectorAll("#blind-settings [data-tier]").forEach((x) => (x.onclick = () => post("/api/settings", { build_tier: x.dataset.tier })));
 }
 
 /* ------------------------------------------------------------------ más ajustes (#5) */
@@ -1061,7 +1173,25 @@ function bindMore(st) {
 
 /* ------------------------------------------------------------------ ¿acierta Nachero? (#9) */
 const PART_NAMES = { you: "Tú con él", meta: "Fuerza en el parche", lane: "Rival de línea", enemies: "Resto del rival",
-  allies: "Encaje con tu equipo", vs_comp: "Contra su composición", risk: "Riesgo de counter", ease: "Fácil de jugar" };
+  allies: "Encaje con tu equipo", synergy: "Sinergias medidas", vs_comp: "Contra su composición", risk: "Riesgo de counter", ease: "Fácil de jugar" };
+
+/* A ciegas o de counter (#71): con el orden de picks real de tus partidas y la posición de cada
+   rival al acabar. */
+function orderCalibration(o) {
+  if (!o) return "";
+  const g = (x) => x.n ? `<b>${f1(x.wr)} %</b> en ${x.n}${x.d2 != null ? ` · matchup medio ${signed(x.d2)}` : ""}` : "—";
+  const pc = o.p_counter || {};
+  const eta = o.eta || {};
+  const roles = o.roles || {};
+  const any = o.blind.n || o.counter.n || roles.n;
+  if (!any) return `<p class="cal-sum">A ciegas o de counter: aún sin partidas con el orden de picks (se apunta desde esta versión).</p>`;
+  return `<div class="cal-order">
+    <p class="cal-sum">Tu rival de línea eligió después (a ciegas): ${g(o.blind)} · eligió antes (de counter): ${g(o.counter)}</p>
+    ${pc.n ? `<p class="cal-sum">Probabilidad de counter prevista <b>${f1(pc.pred)} %</b> · te counterearon de verdad <b>${f1(pc.obs)} %</b> (${pc.n} partidas a ciegas)</p>` : ""}
+    <p class="cal-sum" title="Cuánto counterea de verdad el rival que elige después: −d2 medio de tus matchups a ciegas entre la pérdida esperada si siempre counterease. Con pocas partidas se mezcla con el valor de Ajustes.">η medido: <b>${eta.raw != null ? f1(eta.raw) : "—"}</b> en ${eta.n || 0} partidas → valor sugerido <b>${f1(eta.value)}</b></p>
+    ${roles.n ? `<p class="cal-sum">Roles rivales estimados que acertaron: <b>${roles.pct} %</b> (${roles.n} partidas)</p>` : ""}
+  </div>`;
+}
 let CALIB_AT = 0;
 
 async function loadCalibration(force) {
@@ -1092,6 +1222,7 @@ function renderCalibration(c) {
     <p class="cal-sum">${c.n} partidas · estimado medio <b>${f1(c.est)} %</b> · WR real <b>${f1(c.wr)} %</b>${c.pending ? ` · ${c.pending} por apuntar` : ""}</p>
     <div class="cal"><div class="cal-row head"><span>WR estimado</span><span>Partidas</span><span></span><span>Estimado</span><span>Real</span></div>${rows}</div>
     <p class="cal-sum">Siguiendo la recomendación: ${c.followed.n ? `<b>${f1(c.followed.wr)} %</b> en ${c.followed.n}` : "—"} · jugando otro: ${c.other.n ? `<b>${f1(c.other.wr)} %</b> en ${c.other.n}` : "—"}</p>
+    ${orderCalibration(c.order)}
     ${parts ? `<p class="cal-sum">Cuánto separa cada parte las victorias de las derrotas (media en victorias − en derrotas):</p><div class="chips">${parts}</div>` : ""}
     <p class="foot">Si en un tramo ganas mucho menos de lo estimado, Nachero se pasa de optimista ahí. Una parte con diferencia cercana a 0 apenas predice: puedes bajar su peso en Ajustes.</p>`;
 }
@@ -1226,7 +1357,7 @@ document.addEventListener("keydown", (e) => {
 const FLOW = [
   ["Lee tu selección", "Tu rol, tu equipo y el rival, en directo."],
   ["Recomienda picks y bans", "Con datos Master+ y tu historial."],
-  ["Prepara tus runas", "Las de Master+, al confirmar tu pick."],
+  ["Prepara tus runas", "Las de Lolalytics, al confirmar tu pick."],
 ];
 function flow(live) {
   return `<ol class="flow ${live}" aria-label="Cómo funciona">${FLOW.map(([b, s], i) => `<li class="${i === 0 ? "now" : ""}" title="${esc(s)}"><i>${i + 1}</i>${b}</li>`).join("")}</ol>`;
@@ -1373,7 +1504,7 @@ async function poll() {
       games: s.games, phase_es: s.offline ? "Cliente cerrado" : s.phase_es, pick_mode: s.settings.pick_mode,
       empty: empty.draft, platform: s.platform,
       data: s.data && { source: s.data.source, patch: s.data.patch, tier: s.data.tier, stale: s.data.stale, updated: s.data.updated && Math.floor(s.data.updated / 60) } }], ([d, idle, k]) => renderDraft([d, idle, { ...k, data: s.data }]));
-    once("pool", [s.pool, empty.pool, s.pool && s.pool.length ? null : [pg.current, taskOf(s, pg.current)]], () => renderPool(s.pool));
+    once("pool", [s.pool, s.pool_plans, empty.pool, s.pool && s.pool.length ? null : [pg.current, taskOf(s, pg.current)]], () => renderPool(s.pool));
     once("log", s.log, renderLog);
     once("settings", s.settings, renderSettings);
     once("profile", [s.settings, s.profile], () => renderProfile(s.settings, s.profile));

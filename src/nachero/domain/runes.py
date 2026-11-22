@@ -6,7 +6,7 @@ La rama principal y la secundaria se deducen del catalogo (perkstyles.json).
 
 PAGE_PREFIX = "Nachero"
 OLD_PAGE_PREFIXES = ("draftbot",)  # paginas creadas con el nombre antiguo de la app
-SOURCE_ES = {"pick": "la más popular en Master+", "win": "la de mayor WR en Master+"}
+SOURCE_ES = {"pick": "la más popular", "win": "la de mayor WR"}
 
 
 def is_shard(perk_id: int) -> bool:

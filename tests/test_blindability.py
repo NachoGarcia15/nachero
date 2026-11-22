@@ -180,7 +180,8 @@ def test_matchup_contra_un_flex_se_reparte(champs):
 
 # ------------------------------------------------------------------ riesgo de counter (#72)
 def risky_rows(sigma_lane, others=0.6):
-    return {r: table(sigma_lane if r == "jungle" else others, seed=hash(r) % 100, start=100 + 100 * i)
+    # semilla fija por línea: hash(r) cambia en cada ejecución (PYTHONHASHSEED) y el test era intermitente
+    return {r: table(sigma_lane if r == "jungle" else others, seed=i + 1, start=100 + 100 * i)
             for i, r in enumerate(ROLES)}  # fmt: skip
 
 
@@ -198,12 +199,15 @@ def test_el_counter_viene_sobre_todo_de_tu_rival_de_linea(champs):
     e = eng(champs, {(1, "jungle"): risky_rows(1.2, others=1.2)})
     solo_lane = e.blind_risk(1, "jungle", {"jungle": 1.0})
     todas = e.blind_risk(1, "jungle", dict.fromkeys(ROLES, 1.0))
-    assert todas["risk"] < solo_lane["risk"] < 0 and todas["p"] == solo_lane["p"]
-    # cada línea ajena pesa mucho menos que la tuya (sin contar su media, que aquí es azar de la tabla)
-    for r in ("top", "middle", "bottom", "utility"):
+    lanes = e.lola.matchups(1, "jungle")
+    otras = ("top", "middle", "bottom", "utility")
+    medias = {r: e._role_stats(1, "jungle", r, lanes[r], lanes, ())[1] for r in otras}
+    # las otras líneas suman pérdida a la tuya (sin su media, que aquí es azar de la tabla)
+    assert todas["risk"] - sum(medias.values()) < solo_lane["risk"] < 0 and todas["p"] == solo_lane["p"]
+    # cada línea ajena pesa mucho menos que la tuya
+    for r in otras:
         otra = e.blind_risk(1, "jungle", {r: 1.0})
-        media = e._role_stats(1, "jungle", r, e.lola.matchups(1, "jungle")[r], e.lola.matchups(1, "jungle"), ())[1]
-        assert abs(otra["risk"] - media) < abs(solo_lane["risk"]) / 3
+        assert abs(otra["risk"] - medias[r]) < abs(solo_lane["risk"]) / 3
     # con η cruzado 1 (simulador pro) las otras líneas pesan como la tuya
     pro = e.blind_risk(1, "jungle", dict.fromkeys(ROLES, 1.0), eta=1.0, eta_cross=1.0)["risk"]
     assert pro < todas["risk"] * 2

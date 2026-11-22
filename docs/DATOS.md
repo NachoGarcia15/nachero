@@ -24,7 +24,9 @@ versión pública y por qué.
 | Competitivo (prioridad, picks, bans, WR, roles) | — | gol.gg, hasta que lo sustituya Leaguepedia (#80) |
 
 Los datos propios ya se pueden usar (`stats_mode` automático), pero solo si `stats_url` apunta a
-los archivos publicados (#20). Sin eso, todo lo de soloq sale de Lolalytics.
+los archivos publicados (#20). Sin eso, todo lo de soloq sale de Lolalytics. Con datos propios, la
+liga es la misma `build_tier` (Esmeralda+ por defecto) para todo: fuerza, matchups, runas y
+sinergias salen del archivo `<parche>/<región>/<liga>.json.gz` de esa liga (#86).
 
 ## Opciones
 
@@ -74,8 +76,11 @@ Las mismas medidas se calculan con los datos propios (#85):
    - Riot permite la clave personal para un proyecto propio o un grupo pequeño sin publicar la
      app.
    - Límite: 100 peticiones / 2 min, unas 72.000 al día.
-   - Hoy solo lee Master+. Para tener volumen en matchups y sinergias hacen falta Esmeralda+ y
-     Diamante+ (#86): en Master+ y un solo parche, la mediana es de 5–50 partidas por matchup.
+   - Lee Master+, Diamante+ o Esmeralda+ (`--league`, #86). En Master+ y un solo parche, la
+     mediana es de 5–50 partidas por matchup: para matchups y sinergias hace falta Esmeralda+.
+     Medido en EUW (`docs/RECOLECTOR.md`): ~46.000 partidas al día, ~480.000 por parche, con una
+     mediana de ~260 partidas por matchup y ~60 % de parejas de sinergia con 200 o más. Lo que
+     limita son las peticiones: Diamante+ da el mismo volumen que Esmeralda+.
    - Se publican archivos agregados por parche, región y liga (#18, #19, #20). Antes de cambiar
      la fuente por defecto se validan frente a Lolalytics (#21).
 3. **Fase 3**: con el prototipo funcionando, pedir la **clave de producción** (#23). Empieza en
@@ -124,6 +129,10 @@ cubren lo que le falte (`ChainStats`). El panel dice de cuál salen los datos.
 - `"remote"`: los **datos propios publicados** (#20). La app lee `index.json` de `stats_url`, baja
   el archivo del parche actual y el del anterior (`ETag`, cada hora) a `cache/stats/` y los usa como
   `"local"`. Ver `docs/RECOLECTOR.md` para publicarlos.
+
+En `"local"` y `"remote"`, la región es `stats_region` (`euw1`) y la liga, `build_tier`
+(`emerald_plus` por defecto, como las páginas de build de Lolalytics). El antiguo `stats_league`
+ya no se usa.
 
 Lo normal es elegir la fuente con `stats_mode` (Ajustes → Datos): **automática** (propios si los
 hay del parche y la liga; si no, Lolalytics, y el panel lo dice), **propia** o **Lolalytics**.

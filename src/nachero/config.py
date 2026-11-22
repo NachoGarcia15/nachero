@@ -32,7 +32,9 @@ STYLE_DEFAULTS = {"carry_weight": 1.0, "utility_weight": 0.2}
 PRACTICE_BONUS = 1.5  # puntos de WR de «lo estoy practicando» en la configuración guiada
 # Blindability (#68): lo que se puede cambiar desde el panel (el resto, en config.json)
 BLIND_KEYS = ("counter_rate", "pool_size", "matchup_model", "safe_pct", "counter_pct")
-BUILD_TIERS = ("emerald_plus", "diamond_plus", "master_plus")  # liga de las páginas de matchups y runas
+# Liga de las páginas de matchups y runas de Lolalytics y de los datos propios (#86)
+BUILD_TIERS = ("emerald_plus", "diamond_plus", "master_plus")
+LEAGUE_NAMES = {"emerald_plus": "Esmeralda+", "diamond_plus": "Diamante+", "master_plus": "Master+"}
 
 
 def _number(v, lo: float, hi: float) -> bool:

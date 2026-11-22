@@ -14,7 +14,7 @@ from nachero.app.runes import RuneImporter
 from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, demo_must_stop, log, set_demo
 from nachero.clients.cdragon import CDragon, latest_patch
 from nachero.clients.lcu import LCU
-from nachero.config import CFG
+from nachero.config import BUILD_TIERS, CFG, LEAGUE_NAMES
 from nachero.domain import blind as BL
 from nachero.domain import calibration
 from nachero.domain import pool as POOL
@@ -234,13 +234,24 @@ def data_status(lola, patch, gol_src=None, now=None):
         "games": st.get("games", 0),
         "counters": st.get("builds", 0),
         "pending": len(lola.pending),
-        "tier": "Master+",
+        "tier": stats_league_name(lola),
         "source": source_of(lola),
         "stale": stale,
         "warnings": source_warnings(lola, gol_src),
         "pro": gol_src.updated() if gol_src is not None else None,
         "fallback": fallback_note(lola, patch),
     }
+
+
+def stats_league_name(lola) -> str:
+    """Liga de las tier lists que se usan (para el panel): la de los datos propios si mandan ellos;
+    Lolalytics da la fuerza en el parche en Master+."""
+    for p in getattr(lola, "providers", None) or [lola]:
+        tier = getattr(p, "tier", None)
+        if tier and any(tier(r) for r in ROLES):
+            league = p.data.get("league") if isinstance(p, LocalStats) else None
+            return LEAGUE_NAMES.get(league or "", "Master+")
+    return "Master+"
 
 
 def fallback_note(lola, patch) -> str | None:
@@ -278,12 +289,20 @@ def stats_file() -> Path:
     return Path(custom) if custom else paths.user_dir() / "stats" / "nachero-stats.json"
 
 
+def own_league() -> str:
+    """Liga de los datos propios: `build_tier`, la misma que la de las páginas de build de Lolalytics."""
+    tier = CFG.get("build_tier")
+    return tier if tier in BUILD_TIERS else "emerald_plus"
+
+
 def build_stats(champs):
     """Fuentes de estadísticas según `stats_sources` (ver domain/stats.py). Sin ninguna válida,
     Lolalytics, como siempre."""
     names = source_names()
     providers = []
-    region, league = CFG.get("stats_region", "euw1"), CFG.get("stats_league", "master_plus")
+    # la liga de los datos propios es la de los matchups (`build_tier`, Esmeralda+ por defecto): la
+    # muestra con volumen para matchups y sinergias (#86)
+    region, league = CFG.get("stats_region", "euw1"), own_league()
     for name in dict.fromkeys(names):
         if name == "lolalytics":
             lola = Lolalytics(str(paths.cache_dir()), log, build_tier=CFG.get("build_tier"))

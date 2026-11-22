@@ -219,7 +219,8 @@ def derive(doc: dict, prev: dict | None = None) -> dict:
         avg = sum(r["wr"] * r["games"] for r in rows.values()) / games if games else 50.0
         for cid, (rank, tier) in _tiers(rows, avg).items():
             rows[cid]["rank"], rows[cid]["tier"] = rank, tier
-        out_roles[role] = {"avg": round(avg, 2), "games": games // 10, "champs": rows}
+        # partidas con este rol: cada una pone dos campeones en él (uno por equipo)
+        out_roles[role] = {"avg": round(avg, 2), "games": games // 2, "champs": rows}
 
     def strength(cid, role):
         r = out_roles.get(role, {}).get("champs", {}).get(cid)

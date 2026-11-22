@@ -18,6 +18,10 @@ PLATFORM_ROUTING = {"euw1": "europe", "eun1": "europe", "tr1": "europe", "ru": "
                     "kr": "asia", "jp1": "asia", "oc1": "sea", "sg2": "sea", "tw2": "sea", "vn2": "sea"}  # fmt: skip
 PERSONAL_LIMITS = ((20, 1.0), (100, 120.0))
 APEX = ("challengerleagues", "grandmasterleagues", "masterleagues")
+DIVISIONS = ("I", "II", "III", "IV")
+PAGE = 205  # jugadores por página de league-v4 /entries
+# Ligas de la muestra: los apex y, por debajo, estas ligas con sus cuatro divisiones
+LEAGUES = {"master_plus": (), "diamond_plus": ("DIAMOND",), "emerald_plus": ("DIAMOND", "EMERALD")}
 
 
 class RiotError(Exception):
@@ -103,6 +107,12 @@ class Riot:
             data = self.get(self.platform, f"/lol/league/v4/{league}/by-queue/{queue}") or {}
             out += [e["puuid"] for e in data.get("entries", []) if e.get("puuid")]
         return list(dict.fromkeys(out))
+
+    def entries_puuids(self, tier: str, division: str, page: int = 1, queue: str = "RANKED_SOLO_5x5") -> list[str]:
+        """Una página (hasta 205) de jugadores de una división por debajo de Master (sus puuid, sin
+        guardar nombres). Pasada la última página, la API devuelve una lista vacía."""
+        data = self.get(self.platform, f"/lol/league/v4/entries/{queue}/{tier}/{division}", {"page": page}) or []
+        return [e["puuid"] for e in data if isinstance(e, dict) and e.get("puuid")]
 
     # -- match-v5
     def match_ids(self, puuid: str, queue: int = 420, start_time: int | None = None, count: int = 100) -> list[str]:

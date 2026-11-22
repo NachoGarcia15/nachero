@@ -201,4 +201,6 @@ class LocalStats:
 
     def stats(self):
         roles = self.data.get("roles") or {}
-        return {"games": sum(t.get("games", 0) for t in roles.values()), "builds": len(self.data.get("matchups") or {})}
+        # cada partida sale en las cinco líneas: el total es el de la línea con más
+        return {"games": max((t.get("games", 0) for t in roles.values()), default=0),
+                "builds": len(self.data.get("matchups") or {})}  # fmt: skip

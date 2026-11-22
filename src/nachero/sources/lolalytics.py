@@ -95,7 +95,7 @@ class Lolalytics:
                         "t": time.time(),
                         "patch": patch,
                         "avg": d.get("avgWr", 50.0),
-                        "games": sum(c["games"] for c in champs.values()) // 10,
+                        "games": role_games(champs),
                         "champs": champs,
                     }
                 self.health.ok("tiers")
@@ -125,7 +125,9 @@ class Lolalytics:
         with self.lock:
             tiers = self.cache.get("tiers", {})
             return {
-                "games": sum(v.get("games", 0) for v in tiers.values()),
+                # cada partida sale en las cinco líneas: el total es el de la línea con más (se
+                # calcula de los campeones: la caché anterior a 0.30 guardaba 1/10 por línea)
+                "games": max((role_games(v.get("champs") or {}) for v in tiers.values()), default=0),
                 "builds": len(self.cache.get("builds", {})),
             }
 
@@ -213,6 +215,11 @@ class Lolalytics:
 
 
 ROLE_OF_LANE = {v: k for k, v in LOLA_LANE.items()}
+
+
+def role_games(champs: dict) -> int:
+    """Partidas con este rol: cada una pone dos campeones en él (uno por equipo)."""
+    return sum(c.get("games", 0) for c in champs.values()) // 2
 
 
 def parse_tier(d):

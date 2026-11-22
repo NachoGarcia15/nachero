@@ -240,6 +240,23 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/evaluate":
             code, body = evaluate_request(self.path.split("?", 1)[1] if "?" in self.path else "")
             return self.send(code, body)
+        m = re.match(r"^/api/img/(item|spell)/(\d+)$", path)
+        if m:  # iconos de objetos y hechizos de la vista «En partida» (#88)
+            kind, iid = m.group(1), int(m.group(2))
+            key = (kind, iid)
+            if key not in self.img_cache:
+                items, src = CTX.get("items"), CTX.get("src")
+                data = None
+                if items and src:
+                    try:
+                        p = items.icon(kind, iid)
+                        data = src.raw("GET", p, timeout=20) if p else None
+                    except Exception:
+                        data = None
+                if data is None:
+                    return self.send(404, {"error": "no image"})
+                self.img_cache[key] = data
+            return self.send(200, self.img_cache[key], "image/png", cache=True)
         m = re.match(r"^/api/img/(tile|splash|icon)/(\d+)$", path)
         if m:
             kind, cid = m.group(1), int(m.group(2))

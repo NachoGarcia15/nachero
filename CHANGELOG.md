@@ -3,6 +3,22 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.31.0] - 2026-11-22
+
+Vista **«En partida»** (#88): al cargar la partida, la ventana de Nachero enseña los drafts, su
+puntuación y tu build. Solo lo que ya ves en la pantalla de carga y nunca dentro del juego.
+
+### Añadido
+- **Drafts de los dos equipos** con campeón, rol y hechizos. Los roles rivales se estiman por sus
+  campeones (no se leen del cliente); ni nombres, ni rangos, ni historiales de otros jugadores.
+- **Ventaja de draft** en puntos de WR: cada campeón se puntúa con el motor del draft (fuerza,
+  matchups, encaje, sinergias y composición, sin tu parte personal) y la ventaja es
+  (media de tu equipo − media del rival) / 2. Matchup de cada línea y notas de composición.
+- **Build recomendada** para tu campeón y rol: inicio, núcleo, botas, varias opciones para el 4.º,
+  5.º y 6.º objeto con su WR, y prioridad y orden de habilidades. Sale de las páginas de
+  Lolalytics que ya se descargan (sin peticiones nuevas) y va detrás de la interfaz de fuentes
+  (`StatsProvider.build`), lista para los datos propios. Coachless, solo como enlace.
+
 ## [0.30.0] - 2026-11-22
 
 Datos propios con volumen: el recolector lee también Diamante y Esmeralda (#86).

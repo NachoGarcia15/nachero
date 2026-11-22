@@ -432,7 +432,7 @@ function appear(el) {
 function renderDraft([d, idle, s]) {
   const el = $("#draft-main");
   // Sin selección de campeón, dos columnas: picks a ciegas y, al lado, evaluar y el estado.
-  const idleNow = !(s.empty && s.empty !== "loading") && !s.loading && !d;
+  const idleNow = !(s.empty && s.empty !== "loading") && !s.loading && !d && !s.game;
   $("#view-draft").classList.toggle("is-idle", idleNow);
   if (!idleNow) $("#draft-status").innerHTML = "";
   if (s.empty && s.empty !== "loading") { rotateTips(false); el.innerHTML = emptyState(s.empty, s); return; }
@@ -441,6 +441,7 @@ function renderDraft([d, idle, s]) {
   if (s.loading) return renderBoot(el, s);
   rotateTips(false);
   if (el.querySelector(".boot")) appear(el);
+  if (!d && s.game) return renderGame(el, s.game, s);
   if (!d) return renderIdle(el, idle, s);
   if (d.unsupported) return renderUnsupported(el, d);
 
@@ -531,6 +532,109 @@ function renderDraft([d, idle, s]) {
   el.querySelectorAll(".swap [data-op]").forEach((b) => (b.onclick = () => swapOp(b.dataset.op, Number(b.dataset.id))));
   const chat = el.querySelector(".swap [data-chat]");
   if (chat) chat.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(d.swap.chat); SWAP_MSG = { text: "Copiado: pégalo en el chat", err: false, until: Date.now() + 3000 }; delete memo.draft; poll(); };
+}
+
+/* ------------------------------------------------------------------ en partida (#88) */
+/* Solo lo que ya se ve en la pantalla de carga: campeones, hechizos y roles (los rivales, estimados).
+   Puntos de winrate como en el draft; la build, con varias opciones por hueco. */
+const GAME_PARTS = [["meta", "Fuerza"], ["lane", "Línea"], ["enemies", "Resto del rival"], ["allies", "Encaje"], ["synergy", "Sinergias"], ["vs_comp", "Contra su comp"]];
+const itemImg = (it, cls = "item") => it ? `<img class="${cls}" src="${img("item", it.id)}" title="${esc(it.name)}" alt="${esc(it.name)}">` : "";
+const spellImgs = (sp) => (sp || []).map((x) => `<img class="spell" src="${img("spell", x.id)}" title="${esc(x.name)}" alt="${esc(x.name)}">`).join("");
+
+function scoreTip(p) {
+  const parts = GAME_PARTS.filter(([k]) => p.parts[k] !== undefined && Math.abs(p.parts[k]) >= 0.05).map(([k, l]) => `${l} ${signed(p.parts[k])}`);
+  return `Puntuación de draft ${signed(p.score)}: ${parts.join(" · ") || "sin datos todavía"}`;
+}
+
+function gameSlot(p, side) {
+  return `<div class="slot gslot picked ${p.me ? "me" : ""}">
+    <img class="tile" src="${img("tile", p.id)}" alt="">
+    <div class="nm">${esc(p.name)}<span class="sub">${p.me ? "Tú · " : ""}${esc(p.role_es)}${side === "enemy" ? " · estimado" : ""}</span></div>
+    <div class="gs-side"><span class="spells">${spellImgs(p.spells)}</span><span class="c ${p.loaded ? tone(p.score) : "muted"}" title="${esc(scoreTip(p))}">${p.loaded ? signed(p.score) : "…"}</span></div>
+  </div>`;
+}
+
+function laneRows(lanes) {
+  if (!lanes.length) return `<p class="empty">Sin parejas de línea (faltan campeones).</p>`;
+  return `<div class="glanes">${lanes.map((l) => {
+    const v = l.post;
+    const tag = v == null ? (l.loaded ? "sin datos" : "…") : signed(v);
+    return `<div class="glane ${l.ally.me ? "me" : ""}">
+      <span class="rt">${esc(l.role_short)}</span>
+      <span class="a"><img src="${img("tile", l.ally.id)}" alt="">${esc(l.ally.name)}</span>
+      <span class="v ${v == null ? "muted" : tone(v)}" title="Delta 2 del matchup, encogido según sus partidas (puntos de WR para tu lado)">${tag}</span>
+      <span class="e">${esc(l.enemy.name)}<img src="${img("tile", l.enemy.id)}" alt=""></span>
+    </div>`; }).join("")}</div>`;
+}
+
+function skillOrder(order) {
+  if (!order) return "";
+  return `<div class="sk-order" title="Orden de habilidades nivel a nivel">${[...order].map((k, i) => `<span class="k k${k}"><small>${i + 1}</small>${k}</span>`).join("")}</div>`;
+}
+
+function buildCard(g, s) {
+  const me = g.me;
+  if (!me) return "";
+  const b = g.build;
+  const coach = g.coachless ? `<a class="coach ghost" href="${esc(g.coachless)}" target="_blank" rel="noopener">Ver build en Coachless</a>` : "";
+  if (!b) {
+    return `<div class="block gbuild"><div class="block-head"><h3>Build de ${esc(me.name)} · ${esc(me.role_es)}</h3></div>
+      <p class="empty">${g.build_pending ? "Cargando la build…" : "Sin build para este campeón en este rol."}</p>${coach}</div>`;
+  }
+  const which = b.which === "win" ? "la más ganadora" : "la más jugada";
+  return `<div class="block gbuild">
+    <div class="block-head"><h3>Build de ${esc(me.name)} · ${esc(me.role_es)}${hint(`Objetos de ${which} (se cambia en Ajustes con la fuente de las runas). Del 4.º objeto en adelante, varias opciones con su WR: elige según la partida.`, "start")}</h3>${dataLine(s.data)}</div>
+    <div class="brow"><span class="lbl">Inicio</span><span class="its">${b.start.map((x) => itemImg(x)).join("") || "—"}</span></div>
+    <div class="brow"><span class="lbl">Núcleo</span><span class="its">${b.core.map((x) => itemImg(x)).join("")}</span>${b.core_wr != null ? `<small class="muted">${f1(b.core_wr)} % · ${f0(b.core_n || 0)} partidas</small>` : ""}</div>
+    ${b.boots ? `<div class="brow"><span class="lbl">Botas</span><span class="its">${itemImg(b.boots)}</span><small class="muted">${esc(b.boots.name)}</small></div>` : ""}
+    ${b.slots.map((sl) => `<div class="brow"><span class="lbl">${sl.slot}.º objeto</span><span class="its opts">${sl.items.map((x) => `<span class="opt">${itemImg(x)}<small class="${x.wr != null ? tone(x.wr - 50, 1) : "muted"}">${x.wr != null ? f1(x.wr) + " %" : ""}</small></span>`).join("")}</span></div>`).join("")}
+    ${b.alt_core.length ? `<div class="brow alt"><span class="lbl">Otro núcleo</span><span class="its">${b.alt_core.map((x) => itemImg(x)).join("")}</span>${b.alt_core_wr != null ? `<small class="muted">${f1(b.alt_core_wr)} %</small>` : ""}</div>` : ""}
+    ${b.skills ? `<div class="brow"><span class="lbl">Habilidades</span><span class="sk-prio">${[...b.skills].map((k) => `<b class="k k${k}">${k}</b>`).join("<i>›</i>")}</span>${b.spells.length ? `<span class="spells">${spellImgs(b.spells)}</span>` : ""}</div>` : ""}
+    ${skillOrder(b.order)}
+    ${coach}
+  </div>`;
+}
+
+function renderGame(el, g, s) {
+  const t = g.team;
+  const adv = t.advantage;
+  const pending = !g.loaded;
+  el.innerHTML = `<div class="cs game">
+    <div class="team ally">
+      <div class="team-head"><h2>Tu equipo</h2><span class="${tone(t.ally)}">${signed(t.ally)}</span></div>
+      <div class="slots">${g.ally.map((p) => gameSlot(p, "ally")).join("")}</div>
+      ${comp(g.ally_comp)}
+    </div>
+
+    <div class="center">
+      <div class="phase-line"><span class="ph"><b>En partida</b>${g.queue ? " · " + esc(g.queue) : ""} · roles rivales estimados por sus campeones</span></div>
+      <article class="hero gadv">
+        <div class="hero-body">
+          <div class="eyebrow">Ventaja de draft${hint("Cada campeón se puntúa con el motor del draft (fuerza en el parche, matchups, encaje, sinergias y composición), sin tu parte personal. La media de cada equipo es su WR estimado con ese draft; ventaja = (media de tu equipo − media del rival) / 2, así los dos WR suman 100.", "start")}</div>
+          <div class="est"><span class="num ${pending ? "muted" : tone(adv)}">${signed(adv)}</span><small>puntos de WR${pending ? " · calculando matchups…" : ""}</small></div>
+          <div class="advbar" title="WR estimado de tu equipo ${f1(t.est)} %"><i class="ally" style="width:${Math.max(5, Math.min(95, t.est))}%"></i></div>
+          <div class="dmglbl"><span>Tu equipo ${f1(t.est)} %</span><span>Rival ${f1(100 - t.est)} %</span></div>
+        </div>
+      </article>
+      ${buildCard(g, s)}
+      <div class="block split">
+        <div>
+          <div class="block-head"><h3>Líneas${hint("Matchup de cada línea desde tu lado, en puntos de WR (delta 2 encogido por sus partidas). El rol de cada rival es una estimación por su campeón.", "start")}</h3></div>
+          ${laneRows(g.lanes)}
+        </div>
+        <div>
+          <div class="block-head"><h3>Composición</h3></div>
+          <div class="notes">${g.notes.length ? g.notes.map((n) => `<p>${esc(n)}</p>`).join("") : `<p class="empty">Nada que destacar.</p>`}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="team enemy">
+      <div class="team-head"><h2>Rival</h2><span class="${tone(t.enemy)}">${signed(t.enemy)}</span></div>
+      <div class="slots">${g.enemy.map((p) => gameSlot(p, "enemy")).join("") || `<p class="empty">Sin rivales a la vista.</p>`}</div>
+      ${g.enemy.length ? comp(g.enemy_comp) : ""}
+    </div>
+  </div>`;
 }
 
 /* Intercambio de orden de pick (#74): el campeón, no el rol. Solo aconseja: pedir, aceptar o
@@ -1499,7 +1603,7 @@ async function poll() {
     if (s.settings && s.settings.welcome_seen === false && !WELCOME.shown) openWelcome();
     const empty = s.empty || {};
     const pg = s.progress || {};
-    once("draft", [s.draft, s.idle, { connected: s.connected, offline: s.offline, loading: s.loading, mode: s.mode,
+    once("draft", [s.draft, s.idle, { game: s.game, connected: s.connected, offline: s.offline, loading: s.loading, mode: s.mode,
       tasks: s.loading ? s.tasks : null, progress: s.loading ? pg : null, booting: pg.booting, active_summary: ((s.modes || {}).active || {}).summary, main_role: (s.settings || {}).main_role,
       games: s.games, phase_es: s.offline ? "Cliente cerrado" : s.phase_es, pick_mode: s.settings.pick_mode,
       empty: empty.draft, platform: s.platform,

@@ -11,7 +11,8 @@ calcula `sources/dataset.py`) y también este formato ya calculado, el que usa e
                            "champs": {"163": {"wr": 53.1, "games": 900, "pr": 4.2, "br": 1.0,
                                               "tier": 3, "rank": 12, "pct": 51.0}}}},
       "matchups": {"163:jungle": {"jungle": {"64": {"wr": 51.0, "d1": 1.2, "d2": 0.8, "pr": 9.0, "n": 300}}}},
-      "runes": {"163:jungle": {"pick": {"pri": [...4], "sec": [...2], "mod": [...3]}}}
+      "runes": {"163:jungle": {"pick": {"pri": [...4], "sec": [...2], "mod": [...3]}}},
+      "builds": {"163:jungle": {"pick": {"start": [...], "core": [...], "boots": 3020, ...}}}
     }
 
 No descarga nada: lo que no está en el archivo, no está.
@@ -188,6 +189,10 @@ class LocalStats:
 
     def runes(self, cid, role):
         return (self.data.get("runes") or {}).get(f"{cid}:{role}")
+
+    def build(self, cid, role):
+        """Build recomendada (#88, formato en `domain/stats.py`), o None si el archivo no la trae."""
+        return (self.data.get("builds") or {}).get(f"{cid}:{role}")
 
     def synergies(self, cid, role):
         """Dúos con este campeón (esquema 1): {"<cid>:<rol>": {"wr", "n"}}, o None."""

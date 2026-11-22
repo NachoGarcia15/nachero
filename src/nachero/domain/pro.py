@@ -8,6 +8,9 @@ Conceptos aplicados (draft profesional):
   - Composicion cohesionada con condicion de victoria (engage/dive, outrange, proteger) y siempre algo de engage.
   - Matchups favorables (datos Master+ de Lolalytics como aproximacion; en pro las muestras son pequenas).
   - Counter a la composicion rival en los ultimos picks, sin sacrificar la linea.
+  - Blindability (#76): aqui hay informacion completa, asi que la logica de los videos se aplica
+    sin recortes: el rival siempre busca su mejor respuesta (η = 1) entre todo lo viable (pool
+    amplio) y los roles se conocen. Pronto, campeones de spread bajo; al final, los de spread alto.
   - Denegar: quitar al rival un pick que le encaja.
   - Bans: no banear lo que vas a coger; en la segunda ronda, banear los roles que le faltan al rival
     y los counters de tus picks.
@@ -16,6 +19,7 @@ Conceptos aplicados (draft profesional):
 import itertools
 import math
 
+from nachero.domain import blind as BL
 from nachero.domain import roles as R
 from nachero.domain import tags as T
 from nachero.domain.common import ROLE_SHORT, ROLES, norm
@@ -56,6 +60,11 @@ def parse_fixed(raw):
         if v in ROLES:
             out[cid] = v
     return out
+
+
+PRO_POOL = 10  # en competitivo el rival puede elegir casi cualquier respuesta viable
+PRO_RISK = 0.4  # peso del riesgo de counter frente a la prioridad (los datos son de soloq)
+PRO_CROSS = 0.2  # en competitivo se elige también contra otras líneas, más que en soloq
 
 
 # ---------------------------------------------------------------- motor
@@ -233,6 +242,11 @@ class ProEngine:
         enemy_roles = {c: r for c, r in roles[other].items()}
         first_rotation = step < 12
         left_after = self.enemy_left_in_role(step, other)
+        used = {c for t in teams.values() for k in ("bans", "picks") for c in t.get(k, []) if c}
+        # roles rivales que eligen despues: los libres, repartidos entre sus picks que quedan
+        open_n = 5 - len(theirs)
+        share = min(1.0, left_after / open_n) if open_n > 0 else 0.0
+        aprobs = {r: share if r in open_roles[other] else 0.0 for r in ROLES}
         out = []
         for cid in cands:
             feas = self.feasible(ds, cid, open_roles[side])
@@ -256,12 +270,17 @@ class ProEngine:
             why += vc_why
             lane_v, rest_v, items, loaded = self.engine.vs_enemy(cid, role, enemy_roles)
             parts["matchup"] = 0.6 * lane_v + 0.4 * rest_v  # Master+ como aproximacion
-            opp_known = role in enemy_roles.values()
-            risk, risk_items = (0.0, [])
-            if not opp_known and left_after > 0:
-                risk, risk_items = self.engine.counter_risk(cid, role, False, left_after)
-                risk *= 0.8
-            parts["risk"] = risk
+            br = self.engine.blind_risk(cid, role, aprobs, used, eta=1.0, pool=PRO_POOL, eta_cross=PRO_CROSS)
+            parts["risk"] = PRO_RISK * br["risk"]
+            risk_items = br["items"]
+            blind = self.engine.blind_summary(cid, role)
+            lab = (blind or {}).get("label")
+            if lab == "safe" and left_after > 0:
+                why.append(("+", "seguro a ciegas: buen pick temprano"))
+            elif lab == "counter" and left_after > 0:
+                why.append(("-", "de counter: mejor cuando ya veas a su rival"))
+            elif lab == "counter" and left_after == 0 and lane_v > 0.3:
+                why.append(("+", "ultimo pick: counter de spread alto"))
             deny = 0.0
             if p and self.feasible(ds, cid, open_roles[other], 0.15):
                 deny = 0.3 * 4.0 * p["prio"] / 100
@@ -283,6 +302,7 @@ class ProEngine:
                     "why": [{"sign": a, "text": b} for a, b in why][:5],
                     "matchups": items[:3],
                     "risk_items": risk_items,
+                    "blind": blind,
                     "pro": p,
                     "loaded": loaded,
                     "tags": "".join(sorted(T.tags(self.champs, cid))),
@@ -321,13 +341,15 @@ class ProEngine:
             # cuanto counterea a tus picks (desde las paginas de tus campeones)
             counter = 0.0
             for my_c, my_r in my_roles.items():
-                rows = (self.lola.matchups(my_c, my_r) or {}).get(role, {})
-                row = rows.get(str(cid))
+                lanes = self.lola.matchups(my_c, my_r) or {}
+                row = lanes.get(role, {}).get(str(cid))
                 if row and row["d2"] < 0:
-                    wgt = 1.0 if my_r == role else 0.4
-                    counter += -row["d2"] * row["n"] / (row["n"] + 250) * wgt
-                    if row["d2"] <= -2:
-                        why.append(("+", f"counterea a tu {self.champs.name(my_c)} ({row['d2']:+.1f})"))
+                    # encogido con el spread de la pareja de roles: el spread ya dice cuanto importa
+                    sig = self.engine.sigma(my_c, my_r, role, lanes)
+                    mean, _ = BL.posterior(row["d2"], row["n"], sig, row.get("wr"))
+                    counter += -mean
+                    if mean <= -1.5:
+                        why.append(("+", f"counterea a tu {self.champs.name(my_c)} ({mean:+.1f})"))
             parts["counter"] = 0.5 * counter
             if second_phase and role in open_roles[other]:
                 parts["role_need"] = 0.4

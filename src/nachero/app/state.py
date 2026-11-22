@@ -58,6 +58,7 @@ APP: dict = {
     "idle": None,
     "rank": None,
     "pool": [],
+    "pool_plans": {},  # plan de Tu pool por rol: seguros a ciegas y de counter (#75)
     "history": None,
     "log": deque(maxlen=200),
     "demo": False,

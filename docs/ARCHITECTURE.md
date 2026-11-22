@@ -27,6 +27,10 @@ src/nachero/
              roles.py    roles de cada campeón (principal, flex, ocasional, fuera de rol),
                          estimación fuera de rol y confianza
              engine.py   recomendación de picks y bans de soloq
+             blind.py    blindability: spread verdadero, encogimiento bayesiano, probabilidad
+                         de counter, roles rivales con probabilidades, orden de picks (#68)
+             swaps.py    intercambios de orden de pick: el campeón, no el rol (#74)
+             pool.py     Tu pool: seguros a ciegas y counters, y qué toca según tu hueco (#75)
              pro.py      motor del simulador de draft pro
              runes.py    validar una página de runas y pasarla al formato del cliente
              queues.py   tipo de cola: draft, a ciegas o fuera de la Grieta
@@ -66,9 +70,13 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
 3. En champ select, `draft.Draft.tick` lee la sesión, separa aliados (elegidos y marcados),
    rivales, bans y orden de picks.
 4. `engine.Engine.picks` puntúa candidatos: fuerza en el parche + tú + matchups (rival de línea
-   y resto, con roles estimados) + encaje con tu equipo + respuesta a su comp + riesgo de counter.
+   y resto, encogidos con el spread de cada pareja de roles y con el rol rival en probabilidades)
+   + encaje con tu equipo + sinergias medidas (datos propios) + respuesta a su comp + riesgo de
+   counter (blindability: tu rival de línea, si elige después, coge con η su mejor respuesta
+   entre los campeones disponibles de un pool medio). El orden de picks sale de las acciones de
+   la sesión (`blind.pick_order`): picks rivales después del tuyo y sin hacer.
 5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto countea a tu pick y a tus
-   aliados, con los matchups en caché). Con `auto_ban`, `Draft.ban_turn` marca el primero en
+   aliados, con los matchups en caché, por la probabilidad de que su rival elija después). Con `auto_ban`, `Draft.ban_turn` marca el primero en
    `BAN_PICK` (nunca lo confirma) y no pisa el que marque el jugador.
 6. En modo Activo, `Draft.turn` marca la recomendación de pick una vez por acción y confirma lo
    que esté marcado a falta de `lock_when_seconds_left` s. Si lo marcado no es lo que marcó Nachero (o
@@ -114,6 +122,7 @@ entra en una partida (`state.demo_must_stop`).
 | Instancia única por puerto | Abrir Nachero otra vez trae al frente la ventana del que ya usa el puerto (`/api/instance`); en otro puerto se puede probar una segunda copia. |
 | Todo en puntos de winrate | Las partes se pueden sumar, comparar y explicar al usuario. |
 | *Delta 2* para matchups | Mide solo la interacción; no cuenta dos veces la fuerza del campeón. |
-| Encogimiento por muestra (`shrink`) | Pocas partidas dicen poco: evita recomendaciones por suerte. |
+| Encogimiento por muestra (`shrink`) | Pocas partidas dicen poco: evita recomendaciones por suerte. En matchups, bayesiano empírico con el spread medido (`blind.py`). |
+| Blindability adaptada a soloq | Los rivales están ocultos: su pool es una media por rol, su rol va en probabilidades y solo tu rival de línea elige contra ti (η). El simulador pro usa la versión con información completa. |
 | No usar APIs ofuscadas ni saltarse protecciones | Respetar a las fuentes de datos. |
 | Decisiones de juego automáticas: opcionales y sin pisar la elección del jugador | Normas de Riot (ver ROADMAP): Nachero marca, el jugador decide y se confirma lo marcado. |

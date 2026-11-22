@@ -46,7 +46,7 @@
   },
   "open_coachless_on_lock": true,
   "import_runes": true,
-  "_runes_source_info": "Pagina de runas a importar al confirmar: \"pick\" (la mas popular en Master+) o \"win\" (la de mayor WR).",
+  "_runes_source_info": "Pagina de runas a importar al confirmar: \"pick\" (la mas popular en la liga de los matchups) o \"win\" (la de mayor WR).",
   "runes_source": "pick",
   "_pick_mode_info": "\"pool\": tu pool pesa (por defecto). \"meta\": ignora tu pool y recomienda solo por fuerza en el parche y encaje en el draft.",
   "pick_mode": "pool",
@@ -87,6 +87,26 @@
       "low": 50
     }
   },
+  "blind": {
+    "_info": "Blindability (vídeos de MachineLoLing, issue #68): threshold = pp por debajo de lo esperado para llamarlo counter; pool_size = campeones del pool medio de un rival por rol (nunca se mira quién es); counter_rate = η, fracción de veces que tu rival de línea, si elige después, counterea de verdad (se mide en «¿Acierta Nachero?»); counter_rate_cross = lo mismo para rivales de otras líneas (en soloq eligen para su línea, casi nunca contra ti); matchup_model \"measured\" (encogimiento bayesiano con el spread de cada pareja de roles) o \"classic\" (shrink fijo y pesos por línea); safe_pct/counter_pct = umbrales de las etiquetas Seguro a ciegas / Mejor de counter (probabilidad, sin η, de que tu rival de línea tenga un counter en su pool si eliges el primero); swap_min_gain = pp que tiene que ganar el equipo para sugerir un intercambio de orden.",
+    "threshold": 2.0,
+    "pool_size": {
+      "top": 7,
+      "jungle": 7,
+      "middle": 7,
+      "bottom": 7,
+      "utility": 7
+    },
+    "counter_rate": 0.5,
+    "counter_rate_by_role": {},
+    "counter_rate_cross": 0.1,
+    "matchup_model": "measured",
+    "safe_pct": 35.0,
+    "counter_pct": 65.0,
+    "swap_min_gain": 0.5
+  },
+  "_build_tier_info": "Liga de las páginas de build de Lolalytics (matchups y runas): \"emerald_plus\" (por defecto: ~5 veces más partidas por matchup; en Master+ de un parche hay 5-50 y casi todo es ruido), \"diamond_plus\" o \"master_plus\". La fuerza en el parche sigue siendo Master+. Se aplica al reiniciar.",
+  "build_tier": "emerald_plus",
   "_ban_info": "Opcional: bans que quieres priorizar por rol. El resto se calcula con datos Master+.",
   "ban_priority": {
     "jungle": [],

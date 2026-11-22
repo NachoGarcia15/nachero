@@ -367,17 +367,29 @@ def bans_for(champs, s, mu=None, top=None):
 
 
 def test_ban_segun_tu_pick_y_tus_aliados(champs, auto):
-    base = bans_for(champs, soloq())
+    # eliges el primero (B1): tu rival de línea elige después seguro, así que se protege tu pick
+    base = bans_for(champs, soloq(me=0))
     best = base["hero"]["id"]
     ids = [b["id"] for b in base["ban_suggestions"]]
     # el que menos se recomendaba banear de la jungla pasa a ser el primero si countea a tu pick
     rival = next(c for c in reversed(list(JUNGLE)) if c != best and c not in [p["id"] for p in base["picks"][:2]])
-    out = bans_for(champs, soloq(), mu={(best, "jungle"): {"jungle": {rival: -5}}})
+    # su tabla de matchups: el counter entre muchos neutros (como una página real)
+    mu = {(best, "jungle"): {"jungle": {rival: -12, **{200 + i: 0.0 for i in range(20)}}}}
+    first = soloq(me=0)
+    first["myTeam"][0]["championPickIntent"] = best  # lo tienes marcado: es tu pick
+    out = bans_for(champs, first, mu=mu)
     assert out["ban_suggestions"][0]["id"] == rival != (ids[0] if ids else None)
     assert out["ban_suggestions"][0]["reasons"][0] == f"countea a {champs.name(best)} (tu pick)"
     assert out["status"][0]["msg"] == (
         f"Te toca banear: {champs.name(rival)} · countea a {champs.name(best)} (tu pick)"
     )
+    assert out["ban_context"].startswith("eliges antes que tu rival (100 %)")
+    # eliges 4.º (solo queda un pick rival después): el mismo counter pesa poco, se banea por fuerza
+    late_s = soloq(me=3)
+    late_s["myTeam"][3]["championPickIntent"] = best
+    late = bans_for(champs, late_s, mu=mu)
+    assert late["ban_suggestions"][0]["id"] != rival
+    assert "20 %" in late["ban_context"]
     # un aliado top ya ha elegido a Marksman (4): se recomienda banear a quien le countea en top,
     # aunque sea flojo en el parche y no salga sin ese pick
     top = {10: (49, 9000, 5, 90)}

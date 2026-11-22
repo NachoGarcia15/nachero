@@ -3,6 +3,46 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.29.0] - 2026-11-22
+
+Draft con **blindability**: las ideas de los vídeos de MachineLoLing sobre quién debe elegir
+primero, adaptadas a soloq (#68).
+
+### Añadido
+- **Seguro a ciegas / Intermedio / Mejor de counter** en cada pick, en las alternativas, en Tu pool
+  y en el simulador pro: probabilidad de que tu rival de línea tenga un counter en su pool si
+  eliges el primero, con el spread verdadero del campeón (sin el ruido de las pocas partidas) (#69).
+- **Riesgo de counter nuevo** (#72): lo esperado de los rivales que eligen después de ti con los
+  campeones que siguen disponibles (sin bans ni ya elegidos). Tu rival de línea coge con
+  probabilidad η su mejor respuesta de un pool medio; los de otras líneas eligen para la suya.
+  «Te pueden counterear» enseña los rivales que más aportan.
+- **Bans según tu hueco** (#73): eligiendo el primero protegen tu pick; eligiendo el último, quitan
+  fuerza. La cabecera de bans dice cuál toca.
+- **Intercambio de orden de pick** (#74): si un aliado que elige después marca un campeón más
+  seguro a ciegas que el tuyo, Nachero sugiere el cambio (y aconseja aceptar o rechazar el que te
+  piden), con botón en modo Activo y un mensaje para copiar al chat. Nunca lo hace solo.
+- **Plan de Tu pool** (#75): tus seguros a ciegas y tus counters por rol, el tamaño de tu pool
+  (regla del 80 %) y qué te falta, con candidatos del parche. En la champ select, una línea dice
+  qué toca según tu hueco.
+- **¿Acierta Nachero?: a ciegas o de counter** (#71): se apunta el orden de picks y, al acabar la
+  partida, la posición real de cada rival. Enseña tu WR a ciegas y de counter, si la probabilidad
+  de counter acierta, η medido y cuántos roles rivales acertó Nachero.
+- **Sinergias medidas** con datos propios (#77): WR de cada dúo con tus aliados menos el esperado.
+- Ajustes **A ciegas y counters**: η, pool medio del rival, modelo de matchups y liga de las
+  páginas de matchups.
+
+### Cambiado
+- **Matchups con encogimiento bayesiano empírico** (#70): cada *delta 2* se encoge con el spread
+  medido de su pareja de roles, que sustituye a los pesos por línea a mano (el modelo clásico
+  sigue en Ajustes). Intervalo del 95 % y «dentro del ruido» al pasar el ratón por un matchup.
+- **Rol de los rivales con probabilidades** (#70): con campeones flex el matchup se reparte entre
+  sus roles posibles en vez de apostar por uno.
+- **Matchups y runas de Esmeralda+ por defecto**: unas 5 veces más partidas por matchup que
+  Master+ de un parche, donde casi todo es ruido. La fuerza en el parche sigue siendo Master+.
+- Simulador pro (#76): riesgo de counter con información completa (el rival siempre responde) y
+  bans encogidos por muestra.
+- Datos propios: el *delta 2* se calcula con el WR esperado por *odds*.
+
 ## [0.28.0] - 2026-11-20
 
 ### Cambiado

@@ -30,6 +30,9 @@ SPELLS = ("Cleanse", "Exhaust", "Flash", "Ghost", "Heal", "Smite", "Teleport", "
 STYLE_KEYS = ("carry_weight", "utility_weight")
 STYLE_DEFAULTS = {"carry_weight": 1.0, "utility_weight": 0.2}
 PRACTICE_BONUS = 1.5  # puntos de WR de «lo estoy practicando» en la configuración guiada
+# Blindability (#68): lo que se puede cambiar desde el panel (el resto, en config.json)
+BLIND_KEYS = ("counter_rate", "pool_size", "matchup_model", "safe_pct", "counter_pct")
+BUILD_TIERS = ("emerald_plus", "diamond_plus", "master_plus")  # liga de las páginas de matchups y runas
 
 
 def _number(v, lo: float, hi: float) -> bool:
@@ -143,12 +146,42 @@ def apply_settings(cfg: dict, body: dict[str, Any]) -> list[str]:
         elif k == "setup_done" and isinstance(v, bool):
             cfg[k] = v
             changed.append("configuración guiada" + (" hecha" if v else " por hacer"))
+        elif k == "blind" and isinstance(v, dict):
+            changed += _apply_blind(cfg, v)
+        elif k == "build_tier" and v in BUILD_TIERS:
+            cfg[k] = v
+            changed.append("liga de los matchups " + v)
         elif k == "weights" and isinstance(v, dict):
             for wk, wv in v.items():
                 if wk in WEIGHT_KEYS and isinstance(wv, (int, float)) and not isinstance(wv, bool) and 0 <= wv <= 2:
                     cfg.setdefault("weights", {})[wk] = round(float(wv), 2)
                     changed.append(f"peso {wk}")
     return changed
+
+
+def _apply_blind(cfg: dict, v: dict) -> list[str]:
+    """Ajustes de blindability del panel: η, pool del rival (igual en todos los roles o por rol),
+    modelo de matchups y umbrales de las etiquetas."""
+    out = []
+    b = cfg.setdefault("blind", {})
+    if _number(v.get("counter_rate"), 0, 1):
+        b["counter_rate"] = round(float(v["counter_rate"]), 2)
+        out.append("η (cuánto counterea el rival)")
+    size = v.get("pool_size")
+    if isinstance(size, (int, float)) and _number(size, 1, 20):
+        b["pool_size"] = dict.fromkeys(ROLES, int(size))
+        out.append("pool del rival")
+    elif isinstance(size, dict) and all(r in ROLES and _number(n, 1, 20) for r, n in size.items()):
+        b["pool_size"] = {**b.get("pool_size", {}), **{r: int(n) for r, n in size.items()}}
+        out.append("pool del rival")
+    if v.get("matchup_model") in ("measured", "classic"):
+        b["matchup_model"] = v["matchup_model"]
+        out.append("modelo de matchups " + ("medido" if v["matchup_model"] == "measured" else "clásico"))
+    for key in ("safe_pct", "counter_pct"):
+        if _number(v.get(key), 0, 100):
+            b[key] = round(float(v[key]), 1)
+            out.append("umbral " + ("seguro a ciegas" if key == "safe_pct" else "de counter"))
+    return out
 
 
 CFG: dict = {}

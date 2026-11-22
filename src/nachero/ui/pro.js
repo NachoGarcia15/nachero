@@ -205,7 +205,7 @@ function proSuggestions(res) {
     <button class="psug ${i === 0 ? "top" : ""}" data-id="${s.id}">
       <img src="${img("tile", s.id)}" alt="">
       <div class="body">
-        <div class="l1"><b>${esc(s.name)}</b><span class="role">${esc(s.role_short)}</span>${PRO_ROLE_CAT[s.role_cat] ? `<span class="rcat" title="En Master+ no es su rol principal">${PRO_ROLE_CAT[s.role_cat]}</span>` : ""}${s.pro ? `<span class="muted">${f1(s.pro.prio)}% prio · ${s.pro.picks}P ${s.pro.bans}B</span>` : `<span class="muted">sin datos pro</span>`}</div>
+        <div class="l1"><b>${esc(s.name)}</b><span class="role">${esc(s.role_short)}</span>${s.blind && s.blind.label ? blindChip(s, true) : ""}${PRO_ROLE_CAT[s.role_cat] ? `<span class="rcat" title="En Master+ no es su rol principal">${PRO_ROLE_CAT[s.role_cat]}</span>` : ""}${s.pro ? `<span class="muted">${f1(s.pro.prio)}% prio · ${s.pro.picks}P ${s.pro.bans}B</span>` : `<span class="muted">sin datos pro</span>`}</div>
         <div class="l2">${Object.entries(s.parts).filter(([, v]) => Math.abs(v) >= 0.05).map(([k, v]) => `<span>${PRO_PARTS[k] || k} <i class="${tone(v, 0.05)}">${signed(v)}</i></span>`).join("")}</div>
         ${s.why && s.why.length ? `<div class="l3">${s.why.map((w) => `<span class="${w.sign === "+" ? "pos" : "neg"}">${w.sign === "+" ? "+" : "−"} ${esc(w.text)}</span>`).join("")}</div>` : ""}
       </div>

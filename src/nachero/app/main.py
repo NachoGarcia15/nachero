@@ -70,7 +70,7 @@ def print_profile():
     open_profile(lcu)
     games = load_history(lcu, str(paths.history_file()), CFG["history_queues"], log)
     player = Player(games, lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20))
-    lola = Lolalytics(str(paths.cache_dir()), log)
+    lola = Lolalytics(str(paths.cache_dir()), log, build_tier=CFG.get("build_tier"))
     lola.refresh_tiers(current_patch(lcu, games))
     eng = Engine(champs, lola, player, CFG)
     for r in pool_rows(eng, champs)[:25]:

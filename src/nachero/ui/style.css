@@ -988,3 +988,36 @@ small.err { color: var(--neg); }
 @media (max-width: 760px) { .cal-row { grid-template-columns: 70px 44px 1fr 56px 56px; gap: 6px; } }
 .srcpick { display: grid; gap: 6px; margin-bottom: 12px; }
 .srcpick .seg { width: fit-content; }
+
+/* ------------------------------------------------------------------ blindability (#68) */
+.chip.bl-safe { color: var(--pos); border-color: rgba(92,195,148,.32); background: rgba(92,195,148,.06); }
+.chip.bl-flex { color: var(--text-2); }
+.chip.bl-counter { color: #f3c37a; border-color: rgba(243,195,122,.32); background: rgba(243,195,122,.06); }
+.row .nm .chip { margin-left: 6px; padding: 0 6px; font-size: 10.5px; line-height: 1.5; }
+.mus span.noise { opacity: .55; }
+.mus.risk { margin-top: 8px; }
+.slotline { color: var(--text-2); }
+.swap {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 14px; padding: 10px 12px;
+  border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface-2); font-size: 13.5px;
+}
+.swap.propose, .swap.accept { border-color: rgba(92,195,148,.3); }
+.swap.decline { border-color: rgba(240,117,122,.3); }
+.swap .lbl { font: 500 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.swap p { margin: 0; flex: 1 1 260px; }
+.swap .btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.swap button {
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line-2); background: var(--surface-3); cursor: pointer; font-size: 12.5px;
+}
+.swap button.on { border-color: var(--accent); background: var(--accent-soft); }
+.swap button:disabled { opacity: .45; cursor: default; }
+.swap button.ghost { background: none; }
+.swap .who { font-size: 12px; color: var(--text-2); }
+.swap .who.err { color: var(--neg); }
+.pool-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.pool-plan { padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface); }
+.pool-plan.warn { border-color: rgba(243,195,122,.3); }
+.pool-plan .pp-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.pool-plan p { margin: 6px 0; font-size: 13px; color: var(--text-2); }
+.pool-plan .chips { margin-top: 6px; }
+.cal-order { margin-top: 6px; }

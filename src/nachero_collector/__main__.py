@@ -7,19 +7,21 @@ import sys
 from nachero_collector import __version__
 from nachero_collector.collect import collect, publish_index
 from nachero_collector.history import import_history, season_start
-from nachero_collector.riot import Riot, RiotError
+from nachero_collector.riot import LEAGUES, Riot, RiotError
 
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="nachero_collector", description="Recolector de partidas (API de Riot).")
     p.add_argument("--version", action="version", version=f"nachero-collector {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)
-    c = sub.add_parser("recoger", help="una pasada: partidas nuevas de Master+ y conteos por parche")
+    c = sub.add_parser("recoger", help="una pasada: partidas nuevas de la liga y conteos por parche")
     c.add_argument("--out", default="data", help="carpeta de los archivos publicados (<parche>/<región>/<liga>)")
     c.add_argument("--state", default="state/collector.json", help="estado privado del recolector")
     c.add_argument("--region", default="euw1")
-    c.add_argument("--league", default="master_plus")
-    c.add_argument("--players", type=int, default=500, help="jugadores por pasada (rotan)")
+    c.add_argument(
+        "--league", default="master_plus", choices=list(LEAGUES), help="liga de la muestra (ver docs/RECOLECTOR.md)"
+    )
+    c.add_argument("--players", type=int, default=500, help="jugadores por pasada (rotan por divisiones y páginas)")
     c.add_argument("--matches", type=int, default=2000, help="partidas nuevas como mucho por pasada")
     pu = sub.add_parser("publicar", help="escribe index.json para publicar la carpeta en un sitio estático")
     pu.add_argument("--out", default="data")

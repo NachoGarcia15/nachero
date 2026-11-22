@@ -59,7 +59,7 @@ concretos, y el lector rechaza el archivo si los encuentra.
 | Campo | Qué es |
 |---|---|
 | `schema` | Versión del esquema (1). Un cambio incompatible sube el número; la app rechaza los que no conoce. |
-| `patch`, `region`, `league` | Lo mismo que la ruta del archivo. |
+| `patch`, `region`, `league` | Lo mismo que la ruta del archivo. `league`: `master_plus`, `diamond_plus` o `emerald_plus`, la liga de la muestra (cada partida cuenta en la liga de la pasada que la trajo). |
 | `generated`, `cutoff` | Cuándo se generó y hasta qué partida entra (ISO 8601, UTC). |
 | `collector` | Nombre y versión del recolector. |
 | `totals.games` | Partidas del archivo (base del pick y ban rate). |
@@ -73,7 +73,8 @@ concretos, y el lector rechaza el archivo si los encuentra.
 
 - **WR** = victorias / partidas. **Pick rate** = partidas del campeón en el rol / `totals.games`.
   **Ban rate** = `bans` / `totals.games`. **Reparto** (`pct`) = partidas en el rol / partidas del
-  campeón en todos los roles.
+  campeón en todos los roles. **Partidas del rol** = suma de las del rol / 2 (cada partida pone dos
+  campeones en cada rol); el total del panel es el de la línea con más.
 - **Tier** (1 = S+ … 15 = D−): percentil de fuerza encogida y presencia. Es orientativo.
 - **Matchups**: `d1` = WR del enfrentamiento − WR del campeón; `d2` = WR del enfrentamiento − el
   esperado por la fuerza de los dos. El esperado sale de los *odds* (`odds = wr / (100 − wr)`):

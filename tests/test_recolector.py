@@ -184,7 +184,7 @@ def test_rota_entre_jugadores(tmp_path):
     C.collect(r, tmp_path / "d", tmp_path / "s.json", **kw)
     C.collect(r, tmp_path / "d", tmp_path / "s.json", **kw)
     pedidos = [u.split("/by-puuid/")[1].split("/")[0] for u in api.urls if "/by-puuid/" in u]
-    assert pedidos == ["p0", "p1", "p2", "p3"]
+    assert sorted(pedidos[:2]) == ["p0", "p1"] and sorted(pedidos[2:]) == ["p2", "p3"]  # cada pasada, barajados
 
 
 def test_el_estado_no_se_publica(tmp_path):
@@ -324,14 +324,29 @@ def test_el_estado_antiguo_se_conserva(tmp_path):
     s = C.collect(r, tmp_path / "d", tmp_path / "s.json", players=2, now=lambda: 1_795_100_000, log=lambda *a: None)
     assert s["new"] == 0  # EUW1_1 ya estaba contada
     pedidos = [u.split("/by-puuid/")[1].split("/")[0] for u in api.urls if "/by-puuid/" in u]
-    assert pedidos == ["p210", "p211"]  # sigue por donde iba
+    assert sorted(pedidos) == ["p210", "p211"]  # sigue por donde iba
     st = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
     assert "cursor" not in st and "seen" not in st and "EUW1_1" in st["leagues"]["master_plus"]["seen"]
 
 
 def test_olvida_ids_que_ya_no_pueden_volver():
-    """Un id contado hace más del LOOKBACK (más un margen) ya no sale en las listas: se olvida."""
-    assert C.LOOKBACK < C.KEEP_IDS <= C.LOOKBACK + 2 * 86400
+    """Un id contado hace más de los días que se piden (más un margen) ya no sale en las listas: se
+    olvida. En Esmeralda+ se piden más días: a cada jugador se le vuelve a mirar tras semanas."""
+    for league, days in C.LOOKBACK.items():
+        assert days < C.keep_ids(league) <= days + 2 * 86400
+    assert C.LOOKBACK["master_plus"] < C.LOOKBACK["diamond_plus"] <= C.LOOKBACK["emerald_plus"]
+
+
+def test_deja_de_pedir_ids_al_llegar_al_tope(tmp_path):
+    """Con `matches` partidas nuevas ya no se piden más ids (cada petición cuenta)."""
+    league = {"entries": [{"puuid": f"p{i}"} for i in range(10)]}
+    rt = {"challengerleagues": league, "/ids": ["EUW1_1", "EUW1_2", "EUW1_3"]}
+    rt.update({f"/matches/EUW1_{i}": match(i) for i in (1, 2, 3)})
+    r, api = riot(rt)
+    s = C.collect(r, tmp_path / "d", tmp_path / "s.json", players=10, matches=2,
+                  now=lambda: 1_795_100_000, log=lambda *a: None)  # fmt: skip
+    assert s["players"] == 1 and s["new"] == 2 and s["counted"] == 2
+    assert sum("/by-puuid/" in u for u in api.urls) == 1
 
 
 def test_partidas_por_rol_son_las_reales():

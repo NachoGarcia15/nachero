@@ -16,6 +16,7 @@ rotación de cada liga) vive en un archivo privado del recolector, nunca en los 
 import gzip
 import hashlib
 import json
+import random
 import time
 from pathlib import Path
 
@@ -24,9 +25,19 @@ from nachero_collector import __version__
 from nachero_collector import aggregate as A
 from nachero_collector.riot import DIVISIONS, LEAGUES, PAGE
 
-LOOKBACK = 3 * 86400  # partidas de los últimos 3 días de cada jugador
-KEEP_IDS = LOOKBACK + 86400  # ids contados que se recuerdan: uno contado hace más ya no sale en el LOOKBACK
+DAY = 86400
+# Días de partidas que se piden a cada jugador. En Master+ (~11.000 jugadores en EUW) se recorre la
+# lista en ~1 día: 3 días bastan. En Diamante+ y Esmeralda+ (~700.000, muchos inactivos) a cada
+# jugador se le vuelve a mirar tras semanas y muchos juegan poco (medido en noviembre de 2026: ~0,7
+# partidas en 3 días en Esmeralda, ~10 en los apex): con 3 días, buena parte de las peticiones de ids
+# volverían vacías. Más de 7 días ya no compensa: las partidas extra son sobre todo del parche anterior.
+LOOKBACK = {"master_plus": 3 * DAY, "diamond_plus": 7 * DAY, "emerald_plus": 7 * DAY}
 SIZE_GUESS = 50  # páginas que se le suponen a una división hasta haberla recorrido entera
+
+
+def keep_ids(league: str) -> float:
+    """Cuánto se recuerda un id contado: uno contado hace más ya no sale en los ids que se piden."""
+    return LOOKBACK[league] + DAY
 
 
 def out_file(out_dir, patch: str, region: str, league: str) -> Path:
@@ -145,21 +156,31 @@ def collect(riot, out_dir, state_path, region="euw1", league="master_plus", play
     state = load_state(state_path)
     st = league_state(state, league)
     t0 = now()
-    seen: dict[str, float] = {k: v for k, v in st.get("seen", {}).items() if t0 - v < KEEP_IDS}
+    seen: dict[str, float] = {k: v for k, v in st.get("seen", {}).items() if t0 - v < keep_ids(league)}
 
     sources = st.setdefault("sources", {})
     r0 = riot.requests
     batch = pick_players(riot, league, sources, players)
     listing = riot.requests - r0  # peticiones de las listas de jugadores
+    # en orden aleatorio, y sin pedir más ids cuando ya hay `matches` partidas nuevas: los que se
+    # quedan sin mirar no sesgan la muestra (cuentan como recorridos y no gastan peticiones)
+    random.Random(t0).shuffle(batch)
     ids: list[str] = []
+    new: dict[str, None] = {}
+    asked = 0
     for puuid in batch:
-        ids += riot.match_ids(puuid, 420, start_time=t0 - LOOKBACK)
-    new = [m for m in dict.fromkeys(ids) if m not in seen][:matches]
-    log(f"{league}: {len(batch)} jugadores · {len(ids)} ids · {len(new)} partidas nuevas")
+        if len(new) >= matches:
+            break
+        got = riot.match_ids(puuid, 420, start_time=t0 - LOOKBACK[league])
+        asked += 1
+        ids += got
+        new.update((m, None) for m in got if m not in seen)
+    new_ids = list(new)[:matches]
+    log(f"{league}: {asked} jugadores · {len(ids)} ids · {len(new_ids)} partidas nuevas")
 
     docs: dict[str, dict] = {}
     counted = 0
-    for mid in new:
+    for mid in new_ids:
         m = riot.match(mid)
         seen[mid] = t0
         if not m or not A.usable(m):
@@ -186,7 +207,7 @@ def collect(riot, out_dir, state_path, region="euw1", league="master_plus", play
     st["seen"] = seen
     state["last_run"] = t0
     save_state(state_path, state)
-    summary = {"league": league, "players": len(batch), "ids": len(ids), "new": len(new), "counted": counted,
+    summary = {"league": league, "players": asked, "ids": len(ids), "new": len(new_ids), "counted": counted,
                "patches": sorted(docs), "requests": riot.requests, "listing": listing}  # fmt: skip
     log(f"Contadas {counted} partidas · parches {', '.join(sorted(docs)) or '—'} · {riot.requests} peticiones")
     return summary

@@ -18,8 +18,9 @@ Datos propios con volumen: el recolector lee también Diamante y Esmeralda (#86)
 - **La liga de los datos propios es la de los matchups** (`build_tier`, Esmeralda+ por defecto),
   la misma que la de las páginas de build de Lolalytics. `stats_league` ya no se usa. El panel dice
   la liga de los datos (Esmeralda+, Diamante+ o Master+).
-- El recolector recuerda los ids contados 4 días en vez de 30: uno más viejo ya no sale en los
-  3 días de ids que se piden, y el estado no crece con el volumen de Esmeralda+.
+- El recolector pide 7 días de ids en Diamante+ y Esmeralda+ (3 en Master+), en orden aleatorio, y
+  deja de pedirlos al tener las partidas de la pasada: allí muchos jugadores juegan poco y cada
+  petición cuenta. Recuerda los ids contados un día más de los que pide (antes, 30 días).
 
 ### Corregido
 - **Partidas por rol**: eran 1/10 de la suma de las del rol (un apaño para que el panel sumara las

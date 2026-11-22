@@ -78,7 +78,9 @@ Las mismas medidas se calculan con los datos propios (#85):
    - Límite: 100 peticiones / 2 min, unas 72.000 al día.
    - Lee Master+, Diamante+ o Esmeralda+ (`--league`, #86). En Master+ y un solo parche, la
      mediana es de 5–50 partidas por matchup: para matchups y sinergias hace falta Esmeralda+.
-     VOLUMEN_AQUI
+     Medido en EUW (`docs/RECOLECTOR.md`): ~46.000 partidas al día, ~480.000 por parche, con una
+     mediana de ~260 partidas por matchup y ~60 % de parejas de sinergia con 200 o más. Lo que
+     limita son las peticiones: Diamante+ da el mismo volumen que Esmeralda+.
    - Se publican archivos agregados por parche, región y liga (#18, #19, #20). Antes de cambiar
      la fuente por defecto se validan frente a Lolalytics (#21).
 3. **Fase 3**: con el prototipo funcionando, pedir la **clave de producción** (#23). Empieza en

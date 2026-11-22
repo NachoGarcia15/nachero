@@ -31,15 +31,16 @@ hasta entonces se le suponen 50 páginas.
 
 1. `league-v4` (`euw1`): las páginas de jugadores que tocan según la rotación → sus `puuid` (solo
    en memoria). Los apex son 3 peticiones; cada página de una división, 1.
-2. `match-v5` (routing `europe`): ids de soloq (`queue=420`) de los últimos 3 días de cada jugador
-   (500 por pasada), sin repetir las ya contadas.
+2. `match-v5` (routing `europe`): ids de soloq (`queue=420`) de cada jugador, en orden aleatorio
+   (500 como mucho por pasada), sin repetir las ya contadas: 3 días en Master+ y 7 en Diamante+ y
+   Esmeralda+ (ver abajo). Deja de pedir ids cuando ya tiene las partidas nuevas de la pasada.
 3. Detalle de cada partida nueva (como mucho 2000 por pasada). Fuera remakes, otras colas y
    partidas sin posición.
 4. Suma campeón, rol, victoria, bans, runas, matchups y sinergias al archivo de su parche
    (`<salida>/<parche>/euw1/<liga>.json.gz`). **La partida en bruto se descarta** en cuanto se
    cuenta; los archivos publicados no llevan jugadores ni ids de partida.
 5. Guarda su estado privado (`state/collector.json`, por liga: por dónde va la rotación de cada
-   fuente y qué ids ya contó, 4 días, porque uno más viejo ya no sale en los 3 días de los ids) —
+   fuente y qué ids ya contó, un día más de los que se piden: uno más viejo ya no puede salir) —
    no se publica. El estado de versiones anteriores (solo Master+) se convierte sin perder nada.
 
 Límites de la clave personal: 20 peticiones/s y 100 cada 2 min (~3000 por hora). Con los valores
@@ -48,7 +49,46 @@ por defecto, una pasada ronda 2500 peticiones. En un 429 se espera lo que diga `
 
 ## Presupuesto y volumen (clave personal)
 
-PRESUPUESTO_AQUI
+Medido en EUW el 22-nov-2026 con la clave personal (pasada real de Esmeralda+ y sondas de
+`league-v4` y `match-v5`; 1.100 peticiones en total):
+
+| | Apex | Diamante I–IV | Esmeralda I–IV |
+|---|---|---|---|
+| Jugadores en la escalera | ~11.000 (54 páginas) | ~156.000 (764) | ~531.000 (2.591) |
+| Partidas de soloq en 14 días por jugador (media; muchos con 0) | ~41 | ~13 | ~11 |
+
+- De 400 partidas pedidas, 386 valen (96,5 %: el resto son remakes o sin posición).
+- Presupuesto: 100 peticiones cada 2 min = **72.000 al día**. Cada partida cuesta 1 petición de
+  detalle más la parte de la petición de ids de su jugador: con 7 días de ids, ~6–7 partidas por
+  jugador en Diamante+ y Esmeralda+, ~1,15 peticiones por partida.
+- Con los valores por defecto (`--matches 2000`, una pasada por hora de ~2.300 peticiones y
+  ~46 min): **~46.000 partidas al día**. Con `--matches 2400` (~2.750 peticiones, ~55 min),
+  ~55.000, el máximo práctico.
+- **Diamante+ da el mismo volumen que Esmeralda+**: lo que limita son las peticiones, no los
+  jugadores. Diamante+ ya tiene de sobra (a ~8.000 jugadores al día, tarda ~3 semanas en dar la
+  vuelta) y su muestra es de más nivel. Esmeralda+ solo suma volumen con la clave de producción.
+- Master+ no llega: los apex juegan unas 6.000 partidas al día en EUW, y una pasada por hora ya
+  las coge casi todas.
+
+Partidas del parche y muestra (parche de 14 días; con 7 días de ids, las de los primeros días de
+cada parche se reparten con el anterior). Mediana por pareja, entre campeones con al menos un 1 %
+de pick rate en su rol, según los pick rates de Lolalytics (con el volumen de Lolalytics Master+
+el modelo da 82 y Lolalytics, 83):
+
+| Muestra | Partidas del parche | Matchup de misma línea | Pareja de sinergia | Sinergias con ≥ 200 |
+|---|---|---|---|---|
+| Master+ EUW (propio) | ~90.000 | ~50 | ~50 | ~8 % |
+| Diamante+ o Esmeralda+ EUW, por defecto | ~480.000 | ~260 | ~270 | ~60 % |
+| Ídem con `--matches 2400` | ~580.000 | ~320 | ~330 | ~70 % |
+| Lolalytics Esmeralda+, todas las regiones (16.23, a mitad de parche) | — | ~520 | — | — |
+
+Es decir: con la clave personal, la muestra propia de un parche queda a ~½ de la de Lolalytics
+Esmeralda+ (que junta todas las regiones), y unas 5 veces la de Master+. La clave de producción
+(#23) escala esto a todas las regiones.
+
+La clave es una sola: si corren dos recolectores con ella (p. ej. Master+ cada hora y otro de
+Esmeralda+), se reparten las 72.000 peticiones. Para la app por defecto, mejor uno solo con
+`--league diamond_plus` o `emerald_plus` (lo que diga `build_tier`).
 
 ## Uso
 

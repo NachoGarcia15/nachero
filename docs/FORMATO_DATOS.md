@@ -76,8 +76,12 @@ concretos, y el lector rechaza el archivo si los encuentra.
   campeón en todos los roles.
 - **Tier** (1 = S+ … 15 = D−): percentil de fuerza encogida y presencia. Es orientativo.
 - **Matchups**: `d1` = WR del enfrentamiento − WR del campeón; `d2` = WR del enfrentamiento − el
-  esperado por la fuerza de los dos (50 + fuerza propia − fuerza rival). Igual que en Lolalytics:
-  `d2` mide solo la interacción.
+  esperado por la fuerza de los dos. El esperado sale de los *odds* (`odds = wr / (100 − wr)`):
+  odds esperados = odds propios / odds del rival, con el WR de cada uno en su rol (Ahri 50,9 % contra
+  Mel 45,5 % → 55,6 %). Con fuerzas pequeñas es casi 50 + fuerza propia − fuerza rival. Igual que en
+  Lolalytics: `d2` mide solo la interacción. Ver `domain/blind.py` (`expected_wr`).
+- **Sinergias**: en la app, WR del dúo − esperado por el producto de los odds de los dos
+  (`expected_duo`), encogido con el spread de sinergia de la pareja de roles (#77).
 - **Runas**: «más popular» (más partidas) y «mayor WR» (WR encogido hacia el 50 %, entre las que
   tienen al menos el 5 % de las partidas y 30).
 

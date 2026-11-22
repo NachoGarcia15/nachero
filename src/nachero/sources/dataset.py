@@ -12,6 +12,7 @@ import json
 import math
 from pathlib import Path
 
+from nachero.domain.blind import expected_wr
 from nachero.domain.common import ROLES
 
 SCHEMA = 1
@@ -236,7 +237,9 @@ def derive(doc: dict, prev: dict | None = None) -> dict:
                 continue
             ecid, erole = _key(ek) or ("", "")
             wr = _wr(row)
-            expected = 50 + strength(cid, role) - strength(ecid, erole)
+            # esperado por la fuerza de los dos: cociente de sus odds (blind.expected_wr, vídeo de
+            # MachineLoLing); con fuerzas pequeñas es casi 50 + fuerza propia − fuerza rival
+            expected = expected_wr(50 + strength(cid, role), 50 + strength(ecid, erole))
             lanes.setdefault(erole, {})[ecid] = {
                 "wr": round(wr, 2),
                 "d1": round(wr - champ["wr"], 2),

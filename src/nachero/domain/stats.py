@@ -12,6 +12,7 @@ Formatos (todo en puntos de winrate, como el resto de la app):
   "tier", "rank", "pct"}}} o None.
 - `matchups(cid, role)`: {rol_rival: {"<cid>": {"wr", "d1", "d2", "pr", "n"}}} o None (aún no está).
 - `runes(cid, role)`: {"pick": página, "win": página} (puede estar vacío) o None (aún no está).
+- `synergies(cid, role)` (opcional, solo datos propios): {"<cid>:<rol>": {"wr", "n"}} o None.
 """
 
 from typing import Protocol, runtime_checkable
@@ -91,6 +92,15 @@ class ChainStats:
     def counters(self, cid, role):
         m = self.matchups(cid, role)
         return None if m is None else m.get(role, {})
+
+    def synergies(self, cid, role):
+        """Dúos con este campeón (#77) de la primera fuente que los tenga (Lolalytics no los da)."""
+        for p in self.providers:
+            fn = getattr(p, "synergies", None)
+            v = fn(cid, role) if callable(fn) else None
+            if v:
+                return v
+        return None
 
     def runes(self, cid, role):
         r = self.primary.runes(cid, role)

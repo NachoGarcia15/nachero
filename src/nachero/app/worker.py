@@ -15,7 +15,10 @@ from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, demo_must_s
 from nachero.clients.cdragon import CDragon, latest_patch
 from nachero.clients.lcu import LCU
 from nachero.config import CFG
+from nachero.domain import blind as BL
 from nachero.domain import calibration
+from nachero.domain import pool as POOL
+from nachero.domain import roles as R
 from nachero.domain.common import ROLE_ES, ROLES
 from nachero.domain.common import tier_name as TIER
 from nachero.domain.engine import Engine
@@ -26,7 +29,7 @@ from nachero.domain.stats import ChainStats, source_of
 from nachero.jsonio import read_json, write_json
 from nachero.sources.champions import Champs
 from nachero.sources.golgg import GolGG
-from nachero.sources.history import load_history
+from nachero.sources.history import load_history, role_of
 from nachero.sources.local_stats import LocalStats
 from nachero.sources.lolalytics import Lolalytics
 from nachero.sources.remote_stats import RemoteStats
@@ -58,6 +61,7 @@ def pool_row(engine, champs, cid, role):
         "confidence_es": est["confidence_es"],
         "roles_label": engine.roles.label(cid),
         "est": round(50 + you["total"] * engine.w("pool") + meta * engine.w("meta"), 1),
+        "blind": engine.blind_summary(cid, role),  # seguro a ciegas o de counter (#75)
     }
 
 
@@ -70,7 +74,48 @@ def pool_rows(engine, champs):
         if m.get("championPoints", 0) >= 80000:
             keys |= {(cid, r) for r in engine.roles.roles(cid, "flex")}
     rows = [pool_row(engine, champs, cid, role) for cid, role in keys]
+    for r in rows:
+        if r["blind"] is None:  # pide sus matchups en segundo plano (caché por parche)
+            engine.lola.matchups(r["id"], r["role_key"])
     return sorted(rows, key=lambda r: -r["est"])
+
+
+def pool_plans(engine, champs, rows) -> dict:
+    """Plan de Tu pool (#75) en tu rol principal y en el secundario: seguros a ciegas, de counter,
+    tamaño de tu pool (regla del 80 %) y, si no tienes ningún pick seguro, candidatos del parche."""
+    p = engine.player
+    roles = [engine.main_role()]
+    second = engine.cfg.get("secondary_role")
+    if second in ROLES and second not in roles:
+        roles.append(second)
+    never = {champs.id(n) for n in engine.cfg.get("never_pick", [])}
+    th = engine.bl
+    out = {}
+    for role in roles:
+        mine = [r for r in rows if r["role_key"] == role]
+        have = {r["id"] for r in mine}
+        games = [len(gs) for (c, r), gs in p.by_cr.items() if r == role]
+        # maestría de los campeones que se juegan en este rol (la regla del 80 % es por rol)
+        mastery = [
+            m.get("championPoints", 0)
+            for cid, m in p.mastery.items()
+            if R.at_least(engine.roles.category(cid, role), "flex")
+        ]
+        plan = POOL.plan(mine, role, th, mastery, games)
+        if "safe" in plan["missing"]:
+            sugg = []
+            for cid in engine.strong(role, 12):
+                if cid in have or cid in never:
+                    continue
+                b = engine.blind_summary(cid, role)
+                if b is None:
+                    engine.lola.matchups(cid, role)  # en segundo plano: estará en la próxima vuelta
+                elif b["label"] == "safe":
+                    sugg.append({"id": cid, "name": champs.name(cid), "p_pool": b["p_pool"],
+                                 "meta": round(engine.meta(cid, role)[0], 1)})  # fmt: skip
+            plan = POOL.plan(mine, role, th, mastery, games, sugg)
+        out[role] = plan
+    return out
 
 
 def evaluate(engine, champs, cid, role, view="draft", draft_ctx=None):
@@ -89,6 +134,8 @@ def evaluate(engine, champs, cid, role, view="draft", draft_ctx=None):
         allies=ctx.get("allies", ()),
         enemy_ids=ctx.get("enemy_ids", ()),
         enemy_left_after=ctx.get("enemy_left_after", 5),
+        unavailable=ctx.get("unavailable", ()),
+        ally_roles=ctx.get("ally_roles"),
     )
 
 
@@ -122,6 +169,56 @@ def resolve_records(games) -> int:
     recs, done = calibration.resolve(recs, games, time.time() * 1000)
     write_json(paths.predictions_file(), recs)
     return done
+
+
+def game_players(detail) -> list[dict]:
+    """Campeón, equipo y posición de cada jugador del detalle de una partida del cliente
+    (`/lol-match-history/v1/games/{id}`). Sin nombres: solo lo público al acabar la partida."""
+    out = []
+    for p in (detail or {}).get("participants") or []:
+        if isinstance(p, dict) and p.get("championId"):
+            out.append({"team": p.get("teamId"), "champ": p["championId"], "role": role_of(p)})
+    return out
+
+
+def lane_d2(engine):
+    """`d2` posterior de tu campeón contra tu rival de línea (caché de matchups; None sin datos)."""
+
+    def fn(cid, role, opp):
+        lanes = engine.lola.matchups(cid, role, fetch=False) or {}
+        row = lanes.get(role, {}).get(str(opp))
+        if not row:
+            return None
+        return BL.posterior(row["d2"], row["n"], engine.sigma(cid, role, role, lanes), row.get("wr"))[0]
+
+    return fn
+
+
+def enrich_records(lcu, engine, limit=5) -> int:
+    """Posición real de los rivales en las partidas ya resueltas (#71): con eso se sabe quién era tu
+    rival de línea, si eligió después de ti y si te counteó. Como mucho `limit` por vez."""
+    recs = read_json(paths.predictions_file(), [])
+    if not isinstance(recs, list):
+        return 0
+    todo = [i for i, r in enumerate(recs) if r.get("gameId") and "enemy_roles" not in r][-limit:]
+    th = engine.bl
+    for i in todo:
+        detail = lcu.get(f"/lol-match-history/v1/games/{recs[i]['gameId']}", timeout=20)
+        players = game_players(detail)
+        if players:
+            recs[i] = calibration.enrich(recs[i], players, lane_d2(engine), th["threshold"])
+    if todo:
+        write_json(paths.predictions_file(), recs)
+    return len(todo)
+
+
+def enrich_quiet(lcu, engine) -> None:
+    """`enrich_records` en segundo plano al arrancar: un fallo no importa (se reintenta al acabar
+    la próxima partida)."""
+    try:
+        enrich_records(lcu, engine)
+    except Exception as e:
+        log(f"Calibración: no pude leer el detalle de una partida ({e.__class__.__name__})", "warn")
 
 
 def data_status(lola, patch, gol_src=None, now=None):
@@ -189,7 +286,7 @@ def build_stats(champs):
     region, league = CFG.get("stats_region", "euw1"), CFG.get("stats_league", "master_plus")
     for name in dict.fromkeys(names):
         if name == "lolalytics":
-            lola = Lolalytics(str(paths.cache_dir()), log)
+            lola = Lolalytics(str(paths.cache_dir()), log, build_tier=CFG.get("build_tier"))
             lola.slug_fallback = champs.slug
             providers.append(lola)
         elif name == "remote":
@@ -446,6 +543,8 @@ def run_session():
         patch=patch,
         pro=ProEngine(champs, lola, engine, gol()),
     )
+    if online:  # posición real de los rivales en las partidas resueltas que aún no la tienen (#71)
+        threading.Thread(target=enrich_quiet, args=(lcu, engine), daemon=True).start()
     TASKS.start("picks", detail="Calculando tu pool y tus mejores picks…")
     main = engine.main_role()
     for r in engine.picks(main, set(), set(), [], [])[0][:10]:
@@ -509,6 +608,7 @@ def run_session():
                 with contextlib.suppress(Exception):
                     if resolve_records(games):
                         log("Partida apuntada en «¿Acierta Nachero?»", "ok")
+                    enrich_records(lcu, engine)
                 engine.player = player = Player(
                     games, lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20) or []
                 )
@@ -544,9 +644,11 @@ def run_session():
                     "picks": picks,
                 }
                 APP["pool"] = pool_rows(engine, champs)
+                APP["pool_plans"] = draft.pool_plans = pool_plans(engine, champs, APP["pool"])
         if not APP["pool"]:
             with LOCK:
                 APP["pool"] = pool_rows(engine, champs)
+                APP["pool_plans"] = draft.pool_plans = pool_plans(engine, champs, APP["pool"])
 
         if mode != "paused" or OPTS["demo"]:  # la demo no toca el cliente: se ve también en pausa
             acting = mode == "active" and not OPTS["demo"]

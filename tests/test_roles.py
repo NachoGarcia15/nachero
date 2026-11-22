@@ -5,6 +5,7 @@ import pytest
 
 from conftest import REAL_AVG, FakeLola, real_tiers
 from nachero.app.worker import evaluate, pool_rows
+from nachero.domain import blind as BL
 from nachero.domain import roles as R
 from nachero.domain.common import ROLES
 from nachero.domain.engine import Engine, infer_roles
@@ -147,9 +148,8 @@ def test_matchups_del_rol_principal_con_menos_peso(real_champs):
     eng, lola = engine(real_champs, mu=mu)
     lane, rest, items, loaded = eng.vs_enemy(TEEMO, "jungle", {LEE_SIN: "jungle"})
     assert loaded and items[0]["other_role"] and items[0]["lane"]
-    propio, *_ = engine(real_champs, mu={(TEEMO, "jungle"): {"jungle": {LEE_SIN: 4.0}}})[0].vs_enemy(
-        TEEMO, "jungle", {LEE_SIN: "jungle"}
-    )
+    # a la mitad del mismo matchup encogido con el spread de su rol principal contra la jungla
+    propio = BL.posterior(4.0, 1000, eng.sigma(TEEMO, "top", "jungle"), 54.0)[0]
     assert lane == pytest.approx(propio * 0.5)
     row = eng.evaluate(TEEMO, "jungle", enemy_ids=[LEE_SIN])
     assert row["matchups_other_role"] is True

@@ -28,9 +28,11 @@ class Lolalytics:
     COUNTER_TTL = 24 * 3600
     RETRY_AFTER = 30 * 60
 
-    def __init__(self, cache_dir, log, tier="master_plus"):
+    def __init__(self, cache_dir, log, tier="master_plus", build_tier=None):
         self.path = os.path.join(cache_dir, "lolalytics_cache.json")
         self.log, self.tier_name = log, tier
+        # liga de las páginas de build (matchups y runas): más amplia = más partidas por matchup (#70)
+        self.build_tier = build_tier or tier
         self.lock = threading.RLock()
         self.save_lock = threading.Lock()  # una escritura del archivo a la vez
         self.cache = {"tiers": {}, "builds": {}, "slugs": {}}
@@ -149,7 +151,13 @@ class Lolalytics:
 
     def _fresh(self, c):
         # las entradas antiguas (sin runas) se vuelven a descargar
-        return bool(c) and "runes" in c and c.get("patch") == self.patch and time.time() - c["t"] < self.COUNTER_TTL
+        return (
+            bool(c)
+            and "runes" in c
+            and c.get("patch") == self.patch
+            and c.get("tier", self.tier_name) == self.build_tier
+            and time.time() - c["t"] < self.COUNTER_TTL
+        )
 
     def counters(self, cid, role):
         """Solo los matchups contra tu misma linea (compatibilidad)."""
@@ -182,12 +190,18 @@ class Lolalytics:
                         parse_runes(self._fetch(f"https://lolalytics.com/lol/{slug}/aram/build/")),
                     )
                 else:
-                    url = f"https://lolalytics.com/lol/{slug}/build/?lane={LOLA_LANE[role]}&tier={self.tier_name}"
+                    url = f"https://lolalytics.com/lol/{slug}/build/?lane={LOLA_LANE[role]}&tier={self.build_tier}"
                     lanes, slugs, runes = parse_build(self._fetch(url))
                 with self.lock:
                     if slugs:
                         self.cache["slugs"].update(slugs)
-                    self.cache["builds"][key] = {"t": time.time(), "patch": self.patch, "lanes": lanes, "runes": runes}
+                    self.cache["builds"][key] = {
+                        "t": time.time(),
+                        "patch": self.patch,
+                        "tier": self.build_tier,
+                        "lanes": lanes,
+                        "runes": runes,
+                    }
                 self._save()
                 self.health.ok("builds")
             except Exception as e:

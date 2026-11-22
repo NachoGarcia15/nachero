@@ -2,10 +2,13 @@
 
 import copy
 import json
+import re
 from pathlib import Path
 
 import pytest
 
+from nachero.app import worker
+from nachero.config import CFG
 from nachero.sources import dataset
 from nachero.sources.history import load_history
 from nachero.sources.local_stats import LocalStats
@@ -13,7 +16,7 @@ from nachero_collector import aggregate as A
 from nachero_collector import collect as C
 from nachero_collector import history as H
 from nachero_collector.__main__ import main
-from nachero_collector.riot import RateLimiter, Riot, RiotError
+from nachero_collector.riot import PAGE, RateLimiter, Riot, RiotError
 
 DATA = Path(__file__).parent / "data" / "riot"
 MATCH = json.loads((DATA / "match.json").read_text(encoding="utf-8"))
@@ -189,6 +192,184 @@ def test_el_estado_no_se_publica(tmp_path):
     C.collect(r, tmp_path / "data", tmp_path / "privado" / "s.json", now=lambda: 1_795_100_000, log=lambda *a: None)
     publicados = [p.name for p in (tmp_path / "data").rglob("*") if p.is_file()]
     assert publicados == ["master_plus.json.gz"]
+
+
+# ------------------------------------------------------------------ Esmeralda+ y Diamante+ (#86)
+class Ladder:
+    """La escalera de soloq de mentira: apex y divisiones con `sizes[(tier, div)]` jugadores, en
+    páginas de 205 (la API devuelve una lista vacía pasada la última). Sin partidas."""
+
+    def __init__(self, sizes, apex=0, ids=()):
+        self.sizes, self.apex, self.ids, self.urls = sizes, apex, list(ids), []
+
+    def __call__(self, url, headers):
+        self.urls.append(url)
+        m = re.search(r"/entries/RANKED_SOLO_5x5/(\w+)/(\w+)\?page=(\d+)", url)
+        if m:
+            tier, div, page = m.group(1), m.group(2), int(m.group(3))
+            n = self.sizes.get((tier, div), 0)
+            rows = [{"puuid": f"{tier}{div}-{i}", "tier": tier} for i in range((page - 1) * PAGE, min(n, page * PAGE))]
+            return 200, {}, json.dumps(rows).encode()
+        if "challengerleagues" in url:
+            return 200, {}, json.dumps({"entries": [{"puuid": f"apex-{i:04d}"} for i in range(self.apex)]}).encode()
+        if "leagues/by-queue" in url:
+            return 200, {}, b'{"entries": []}'
+        if "/ids" in url:
+            return 200, {}, json.dumps(self.ids).encode()
+        return 404, {}, b""
+
+
+def ladder_riot(ladder):
+    limiter = RateLimiter(clock=lambda: 0.0, sleep=lambda s: None, limits=((10**6, 1.0),))
+    return Riot("RGAPI-test", "euw1", fetch=ladder, limiter=limiter, sleep=lambda s: None)
+
+
+def test_pagina_de_una_division():
+    lad = Ladder({("DIAMOND", "II"): 300})
+    r = ladder_riot(lad)
+    assert len(r.entries_puuids("DIAMOND", "II", 1)) == PAGE
+    assert r.entries_puuids("DIAMOND", "II", 2)[0] == f"DIAMONDII-{PAGE}"
+    assert r.entries_puuids("DIAMOND", "II", 3) == []
+    assert lad.urls[1] == "https://euw1.api.riotgames.com/lol/league/v4/entries/RANKED_SOLO_5x5/DIAMOND/II?page=2"
+
+
+def test_fuentes_de_cada_liga():
+    assert C.sources_of("master_plus") == ["APEX"]
+    assert C.sources_of("diamond_plus") == ["APEX", "DIAMOND/I", "DIAMOND/II", "DIAMOND/III", "DIAMOND/IV"]
+    assert len(C.sources_of("emerald_plus")) == 9 and C.sources_of("emerald_plus")[-1] == "EMERALD/IV"
+
+
+def test_pagina_a_pagina_sin_repetir_y_vuelta_a_empezar():
+    """Una división de 300 (dos páginas): de 100 en 100, sin repetir, y al acabar vuelve a la página 1
+    sabiendo su tamaño."""
+    lad = Ladder({("DIAMOND", "I"): 300})
+    r = ladder_riot(lad)
+    src: dict = {"APEX": {"lap": 99}}  # que solo mire Diamante I
+    for k in ("DIAMOND/II", "DIAMOND/III", "DIAMOND/IV"):
+        src[k] = {"lap": 99}
+    got = [C.pick_players(r, "diamond_plus", src, 100) for _ in range(3)]
+    assert sum(got, []) == [f"DIAMONDI-{i}" for i in range(300)]
+    assert src["DIAMOND/I"] == {"page": 3, "skip": 0}
+    nxt = C.pick_players(r, "diamond_plus", src, 50)  # página 3 vacía: vuelta 1, tamaño 2 páginas
+    assert nxt == [f"DIAMONDI-{i}" for i in range(50)]
+    assert src["DIAMOND/I"] == {"page": 1, "skip": 50, "lap": 1, "size": 2}
+
+
+def test_rota_por_divisiones_en_proporcion_a_su_tamano():
+    """Con el tiempo, cada división aporta según sus jugadores (una de 8 páginas da 4 veces más que
+    una de 2), y nadie se queda fuera."""
+    sizes = {("DIAMOND", d): 2 * PAGE for d in ("I", "II", "III")} | {("DIAMOND", "IV"): 8 * PAGE}
+    lad = Ladder(sizes, apex=PAGE)
+    r = ladder_riot(lad)
+    src: dict = {}
+    seen: list[str] = []
+    for _ in range(60):
+        seen += C.pick_players(r, "diamond_plus", src, 500)
+    by = {
+        k: sum(1 for p in seen if p.startswith(k))
+        for k in ("apex", "DIAMONDI-", "DIAMONDII-", "DIAMONDIII-", "DIAMONDIV-")
+    }
+    assert all(by.values())
+    assert 3.0 < by["DIAMONDIV-"] / by["DIAMONDII-"] < 5.0  # 8 páginas frente a 2
+    assert 1.5 < by["DIAMONDII-"] / by["apex"] < 2.5  # 2 páginas frente a 1
+    assert src["DIAMOND/IV"]["size"] == 8 and src["APEX"]["size"] == 1
+
+
+def test_una_pasada_no_repite_jugadores_aunque_haya_pocos():
+    lad = Ladder({("DIAMOND", "I"): 3}, apex=2)
+    got = C.pick_players(ladder_riot(lad), "diamond_plus", {}, 500)
+    assert sorted(got) == ["DIAMONDI-0", "DIAMONDI-1", "DIAMONDI-2", "apex-0000", "apex-0001"]
+
+
+def test_pasada_de_esmeralda_plus(tmp_path):
+    """La partida va al archivo de la liga de la muestra, y la rotación y los ids, a su estado."""
+    rt = routes(2)
+    lad = Ladder({("EMERALD", "IV"): 5}, apex=0, ids=["EUW1_1", "EUW1_2"])
+
+    def fetch(url, headers):
+        for k, body in rt.items():
+            if k.startswith("/matches/") and url.endswith(k):
+                return 200, {}, json.dumps(body).encode()
+        return lad(url, headers)
+
+    r = ladder_riot(fetch)
+    s = C.collect(r, tmp_path / "d", tmp_path / "s.json", league="emerald_plus", players=3,
+                  now=lambda: 1_795_100_000, log=lambda *a: None)  # fmt: skip
+    assert s["league"] == "emerald_plus" and s["counted"] == 2 and s["players"] == 3
+    doc = dataset.load_file(tmp_path / "d" / "16.23" / "euw1" / "emerald_plus.json.gz")
+    assert doc["league"] == "emerald_plus" and dataset.validate(doc) == []
+    st = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
+    assert set(st["leagues"]["emerald_plus"]["seen"]) == {"EUW1_1", "EUW1_2"}
+    assert st["leagues"]["emerald_plus"]["sources"]["EMERALD/IV"] == {"page": 1, "skip": 3}
+    assert not (tmp_path / "d" / "16.23" / "euw1" / "master_plus.json.gz").exists()
+
+
+def test_cada_liga_cuenta_sus_partidas(tmp_path):
+    """Con el mismo estado, una partida ya contada en Master+ cuenta también en Esmeralda+ (otra muestra)."""
+    kw = {"now": lambda: 1_795_100_000, "log": lambda *a: None}
+    r, _ = riot(routes(2))
+    C.collect(r, tmp_path / "d", tmp_path / "s.json", **kw)
+    r, _ = riot(routes(2))
+    assert C.collect(r, tmp_path / "d", tmp_path / "s.json", league="emerald_plus", **kw)["counted"] == 2
+    with pytest.raises(ValueError):
+        C.collect(r, tmp_path / "d", tmp_path / "s.json", league="hierro_plus", **kw)
+
+
+def test_el_estado_antiguo_se_conserva(tmp_path):
+    """El estado de antes (solo Master+, con "cursor") pasa al nuevo sin perder ids ni rotación."""
+    old = {"cursor": 210, "seen": {"EUW1_1": 1_795_000_000}, "last_run": 1_795_000_000}
+    (tmp_path / "s.json").write_text(json.dumps(old), encoding="utf-8")
+    league = {"entries": [{"puuid": f"p{i:03d}"} for i in range(300)]}
+    r, api = riot({"challengerleagues": league, "/ids": ["EUW1_1"]})
+    s = C.collect(r, tmp_path / "d", tmp_path / "s.json", players=2, now=lambda: 1_795_100_000, log=lambda *a: None)
+    assert s["new"] == 0  # EUW1_1 ya estaba contada
+    pedidos = [u.split("/by-puuid/")[1].split("/")[0] for u in api.urls if "/by-puuid/" in u]
+    assert pedidos == ["p210", "p211"]  # sigue por donde iba
+    st = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
+    assert "cursor" not in st and "seen" not in st and "EUW1_1" in st["leagues"]["master_plus"]["seen"]
+
+
+def test_olvida_ids_que_ya_no_pueden_volver():
+    """Un id contado hace más del LOOKBACK (más un margen) ya no sale en las listas: se olvida."""
+    assert C.LOOKBACK < C.KEEP_IDS <= C.LOOKBACK + 2 * 86400
+
+
+def test_partidas_por_rol_son_las_reales():
+    """Una partida pone dos campeones en cada rol: son 5 partidas por rol, no 1 (antes, `// 10`)."""
+    doc = A.new_doc("16.23", "euw1", "emerald_plus", "test")
+    for _ in range(5):
+        A.add_match(doc, MATCH)
+    doc["generated"] = "2026-11-19T00:00:00Z"
+    d = dataset.derive(doc)
+    assert {r: t["games"] for r, t in d["roles"].items()} == dict.fromkeys(
+        ("top", "jungle", "middle", "bottom", "utility"), 5
+    )
+
+
+def test_la_app_lee_los_datos_propios_de_la_liga_de_build_tier(tmp_path, monkeypatch):
+    out = tmp_path / "data"
+    for league in ("master_plus", "emerald_plus"):
+        doc = A.new_doc("16.23", "euw1", league, "test")
+        for _ in range(1 if league == "master_plus" else 3):
+            A.add_match(doc, MATCH)
+        doc["generated"] = doc["cutoff"] = "2026-11-19T00:00:00Z"
+        C.write_doc(C.out_file(out, "16.23", "euw1", league), doc)
+    monkeypatch.setitem(CFG, "build_tier", "emerald_plus")
+    assert worker.own_league() == "emerald_plus"
+    p = LocalStats(out, region="euw1", league=worker.own_league())
+    assert p.refresh_tiers("16.23") == 5 and p.stats()["games"] == 3
+    st = worker.data_status(p, "16.23")
+    assert st["tier"] == "Esmeralda+" and st["games"] == 3
+    monkeypatch.setitem(CFG, "build_tier", "raro")
+    assert worker.own_league() == "emerald_plus"
+    monkeypatch.setitem(CFG, "build_tier", "master_plus")
+    assert LocalStats(out, league=worker.own_league()).stats()["games"] == 1
+
+
+def test_la_linea_de_ordenes_solo_acepta_ligas_conocidas(monkeypatch):
+    monkeypatch.setenv("RIOT_API_KEY", "RGAPI-test")
+    with pytest.raises(SystemExit):
+        main(["recoger", "--league", "hierro_plus"])
 
 
 # ------------------------------------------------------------------ tu historial completo

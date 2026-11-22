@@ -1,9 +1,16 @@
-"""Una pasada del recolector: jugadores de Master+, partidas nuevas de soloq y conteos por parche.
+"""Una pasada del recolector: jugadores de la liga, partidas nuevas de soloq y conteos por parche.
 
-Presupuesto de la clave personal: ~3000 peticiones por hora. Cada pasada mira un tramo de
-jugadores (`players`, rotando entre pasadas) y como mucho `matches` partidas nuevas. El estado
-(qué partidas ya se han contado y por dónde va la rotación) vive en un archivo privado del
-recolector, nunca en los datos publicados.
+Ligas (`riot.LEAGUES`): `master_plus` (Challenger, Grandmaster y Master), `diamond_plus` (además
+Diamante I–IV) y `emerald_plus` (además Esmeralda I–IV). Cada división es una «fuente» que se lee
+por páginas de 205 jugadores; los apex, una más. Cada pasada coge `players` jugadores de la fuente
+que lleve menos recorrido (en fracción de su tamaño), así que con el tiempo cada división aporta en
+proporción a sus jugadores. Una partida cuenta en la liga de la muestra (la del archivo), sea cual
+sea la división del jugador que la trajo.
+
+Presupuesto de la clave personal: ~3000 peticiones por hora. Cada pasada mira `players` jugadores
+(una petición de ids cada uno, más una por página de la liga) y como mucho `matches` partidas
+nuevas (una petición cada una). El estado (qué partidas ya se han contado y por dónde va la
+rotación de cada liga) vive en un archivo privado del recolector, nunca en los datos publicados.
 """
 
 import gzip
@@ -15,9 +22,11 @@ from pathlib import Path
 from nachero.sources import dataset
 from nachero_collector import __version__
 from nachero_collector import aggregate as A
+from nachero_collector.riot import DIVISIONS, LEAGUES, PAGE
 
 LOOKBACK = 3 * 86400  # partidas de los últimos 3 días de cada jugador
-KEEP_IDS = 30 * 86400  # ids contados que se recuerdan (más viejos ya no salen en el LOOKBACK)
+KEEP_IDS = LOOKBACK + 86400  # ids contados que se recuerdan: uno contado hace más ya no sale en el LOOKBACK
+SIZE_GUESS = 50  # páginas que se le suponen a una división hasta haberla recorrido entera
 
 
 def out_file(out_dir, patch: str, region: str, league: str) -> Path:
@@ -57,23 +66,96 @@ def iso(ts: float) -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
 
 
+def sources_of(league: str) -> list[str]:
+    """Fuentes de jugadores de una liga: "APEX" y "TIER/DIVISIÓN" (p. ej. "DIAMOND/II")."""
+    return ["APEX"] + [f"{tier}/{div}" for tier in LEAGUES[league] for div in DIVISIONS]
+
+
+def _progress(s: dict) -> float:
+    """Vueltas dadas a una fuente, con decimales (0,5 = media fuente recorrida)."""
+    page = s.get("page", 1)
+    size = max(s.get("size") or SIZE_GUESS, page)
+    return s.get("lap", 0) + (page - 1 + s.get("skip", 0) / PAGE) / size
+
+
+def pick_players(riot, league: str, sources: dict, players: int) -> list[str]:
+    """Los `players` jugadores de esta pasada (sus puuid, solo en memoria). Avanza `sources`, el estado
+    de la rotación de la liga: {fuente: {"page", "skip", "lap", "size"}}."""
+    names = sources_of(league)
+    for n in names:
+        sources[n] = dict(sources.get(n) or {})
+    apex: list[str] | None = None
+    pages: dict[tuple[str, int], list[str]] = {}
+    wraps = dict.fromkeys(names, 0)
+    out: dict[str, None] = {}
+
+    def page_of(name: str, page: int) -> list[str]:
+        nonlocal apex
+        if (name, page) not in pages:
+            if name == "APEX":
+                if apex is None:
+                    apex = sorted(riot.apex_puuids())
+                    sources[name]["size"] = max(1, -(-len(apex) // PAGE))
+                pages[(name, page)] = apex[(page - 1) * PAGE : page * PAGE]
+            else:
+                tier, div = name.split("/")
+                pages[(name, page)] = riot.entries_puuids(tier, div, page)
+        return pages[(name, page)]
+
+    while len(out) < players:
+        live = [n for n in names if wraps[n] < 2]  # una fuente que ya ha dado dos vueltas no da más
+        if not live:
+            break
+        name = min(live, key=lambda n: _progress(sources[n]))
+        s = sources[name]
+        page, skip = s.get("page", 1), s.get("skip", 0)
+        entries = page_of(name, page)
+        if not entries:  # pasada la última página: se sabe su tamaño y vuelve a empezar
+            s.update(page=1, skip=0, lap=s.get("lap", 0) + 1, size=max(1, page - 1))
+            wraps[name] += 1
+            continue
+        take = entries[skip : skip + players - len(out)]
+        out.update(dict.fromkeys(take))
+        skip += len(take)
+        if skip >= len(entries):
+            page, skip = page + 1, 0
+        s.update(page=page, skip=skip)
+    return list(out)
+
+
+def league_state(state: dict, league: str) -> dict:
+    """Estado de una liga: {"sources": rotación, "seen": ids contados}. El estado antiguo (solo
+    Master+, con "cursor" en la lista de apex) se pasa a este formato sin perder nada."""
+    leagues = state.setdefault("leagues", {})
+    if "seen" in state or "cursor" in state:
+        cursor = state.pop("cursor", 0)
+        leagues.setdefault(
+            "master_plus",
+            {"seen": state.pop("seen", {}), "sources": {"APEX": {"page": cursor // PAGE + 1, "skip": cursor % PAGE}}},
+        )
+    return leagues.setdefault(league, {})
+
+
 def collect(riot, out_dir, state_path, region="euw1", league="master_plus", players=500, matches=2000,
             now=time.time, log=print) -> dict:  # fmt: skip
     """Una pasada. Devuelve un resumen: jugadores mirados, partidas nuevas, contadas y parches."""
+    if league not in LEAGUES:
+        raise ValueError(f"liga {league!r} desconocida: {', '.join(LEAGUES)}")
     state_path = Path(state_path)
     state = load_state(state_path)
-    seen: dict[str, float] = state.get("seen", {})
+    st = league_state(state, league)
     t0 = now()
-    seen = {k: v for k, v in seen.items() if t0 - v < KEEP_IDS}
+    seen: dict[str, float] = {k: v for k, v in st.get("seen", {}).items() if t0 - v < KEEP_IDS}
 
-    puuids = sorted(riot.apex_puuids())
-    cursor = state.get("cursor", 0) % max(1, len(puuids))
-    batch = (puuids[cursor:] + puuids[:cursor])[:players]
+    sources = st.setdefault("sources", {})
+    r0 = riot.requests
+    batch = pick_players(riot, league, sources, players)
+    listing = riot.requests - r0  # peticiones de las listas de jugadores
     ids: list[str] = []
     for puuid in batch:
         ids += riot.match_ids(puuid, 420, start_time=t0 - LOOKBACK)
     new = [m for m in dict.fromkeys(ids) if m not in seen][:matches]
-    log(f"{len(batch)} jugadores · {len(new)} partidas nuevas")
+    log(f"{league}: {len(batch)} jugadores · {len(ids)} ids · {len(new)} partidas nuevas")
 
     docs: dict[str, dict] = {}
     counted = 0
@@ -101,9 +183,11 @@ def collect(riot, out_dir, state_path, region="euw1", league="master_plus", play
         if errors:
             raise ValueError(f"el archivo de {patch} no cumple el esquema: {errors[:3]}")
         write_doc(out_file(out_dir, patch, region, league), doc)
-    save_state(state_path, {"cursor": (cursor + len(batch)) % max(1, len(puuids)), "seen": seen, "last_run": t0})
-    summary = {"players": len(batch), "new": len(new), "counted": counted, "patches": sorted(docs),
-               "requests": riot.requests}  # fmt: skip
+    st["seen"] = seen
+    state["last_run"] = t0
+    save_state(state_path, state)
+    summary = {"league": league, "players": len(batch), "ids": len(ids), "new": len(new), "counted": counted,
+               "patches": sorted(docs), "requests": riot.requests, "listing": listing}  # fmt: skip
     log(f"Contadas {counted} partidas · parches {', '.join(sorted(docs)) or '—'} · {riot.requests} peticiones")
     return summary
 

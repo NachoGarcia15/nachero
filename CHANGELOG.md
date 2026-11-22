@@ -3,6 +3,29 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.30.0] - 2026-11-22
+
+Datos propios con volumen: el recolector lee también Diamante y Esmeralda (#86).
+
+### Añadido
+- **Recolector: `--league diamond_plus` y `emerald_plus`** (recolector 0.2.0). Además de los apex,
+  lee los jugadores de `league-v4 /entries` por divisiones y páginas, rotando cada división en
+  proporción a su tamaño, con el estado de cada liga en `state/collector.json` (el de antes se
+  convierte solo). Cada muestra va a su archivo `<parche>/<región>/<liga>.json.gz`.
+- `docs/RECOLECTOR.md`: presupuesto de la clave personal y partidas por parche que da cada liga.
+
+### Cambiado
+- **La liga de los datos propios es la de los matchups** (`build_tier`, Esmeralda+ por defecto),
+  la misma que la de las páginas de build de Lolalytics. `stats_league` ya no se usa. El panel dice
+  la liga de los datos (Esmeralda+, Diamante+ o Master+).
+- El recolector recuerda los ids contados 4 días en vez de 30: uno más viejo ya no sale en los
+  3 días de ids que se piden, y el estado no crece con el volumen de Esmeralda+.
+
+### Corregido
+- **Partidas por rol**: eran 1/10 de la suma de las del rol (un apaño para que el panel sumara las
+  cinco líneas), así que con 5 partidas salía 1 por rol. Ahora son las partidas reales con ese rol
+  (suma / 2) y el total del panel es el de la línea con más, con datos propios y con Lolalytics.
+
 ## [0.29.0] - 2026-11-22
 
 Draft con **blindability**: las ideas de los vídeos de MachineLoLing sobre quién debe elegir

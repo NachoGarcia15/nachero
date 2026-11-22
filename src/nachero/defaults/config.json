@@ -105,7 +105,7 @@
     "counter_pct": 65.0,
     "swap_min_gain": 0.5
   },
-  "_build_tier_info": "Liga de las páginas de build de Lolalytics (matchups y runas): \"emerald_plus\" (por defecto: ~5 veces más partidas por matchup; en Master+ de un parche hay 5-50 y casi todo es ruido), \"diamond_plus\" o \"master_plus\". La fuerza en el parche sigue siendo Master+. Se aplica al reiniciar.",
+  "_build_tier_info": "Liga de las páginas de build de Lolalytics (matchups y runas): \"emerald_plus\" (por defecto: ~5 veces más partidas por matchup; en Master+ de un parche hay 5-50 y casi todo es ruido), \"diamond_plus\" o \"master_plus\". Con Lolalytics, la fuerza en el parche sigue siendo Master+. Con datos propios es la liga de todo (fuerza, matchups, runas y sinergias): se usa el archivo <parche>/<región>/<liga>.json.gz de esta liga. Se aplica al reiniciar.",
   "build_tier": "emerald_plus",
   "_ban_info": "Opcional: bans que quieres priorizar por rol. El resto se calcula con datos Master+.",
   "ban_priority": {
@@ -120,7 +120,6 @@
   "_stats_url_info": "Dirección del sitio estático con los datos propios (index.json del recolector). Vacío: sin datos propios.",
   "stats_url": "",
   "stats_region": "euw1",
-  "stats_league": "master_plus",
   "_stats_sources_info": "Fuentes de estadísticas en orden: la primera manda y las demás cubren lo que le falte. \"lolalytics\" (web) y \"local\" (archivo stats_file; vacío = stats/nachero-stats.json en tu carpeta de datos). Se aplica al reiniciar.",
   "stats_sources": [
     "lolalytics"

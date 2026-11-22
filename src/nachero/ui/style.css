@@ -293,6 +293,46 @@ main { flex: 1 0 auto; width: 100%; max-width: 1320px; margin: 0 auto; padding: 
 }
 .coach:hover { background: #fff; }
 
+/* ------------------------------------------------------------------ en partida (#88) */
+.gslot { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.gs-side { display: grid; justify-items: end; gap: 4px; }
+.gs-side .c { font: 500 12.5px/1 var(--mono); }
+.gspells { display: inline-flex; gap: 3px; }
+.spell { width: 18px; height: 18px; border-radius: 4px; background: var(--surface-2); }
+.gadv { min-height: 0; }
+.gadv .hero-body { max-width: none; }
+.gadv .est { margin-bottom: 12px; }
+.advbar { height: 6px; border-radius: 3px; background: var(--enemy); overflow: hidden; opacity: .85; }
+.advbar i { display: block; height: 100%; background: var(--ally); }
+.glanes { display: grid; gap: 2px; border-top: 1px solid var(--line); }
+.glane { display: grid; grid-template-columns: 34px minmax(0, 1fr) 54px minmax(0, 1fr); align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.glane.me { background: var(--accent-soft); border-radius: 6px; }
+.glane .rt { font: 500 11px/1 var(--mono); color: var(--text-3); }
+.glane .a, .glane .e { display: flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.glane .e { justify-content: flex-end; }
+.glane img { width: 24px; height: 24px; border-radius: 5px; }
+.glane .v { text-align: center; font: 500 12.5px/1 var(--mono); }
+.gbuild { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.gbuild .block-head { flex-wrap: wrap; gap: 6px 12px; }
+.brow { display: grid; grid-template-columns: 92px auto 1fr; align-items: center; gap: 10px; padding: 5px 0; font-size: 12.5px; }
+.brow .lbl { color: var(--text-3); }
+.brow.alt { opacity: .8; }
+.its { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.item { width: 30px; height: 30px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); }
+.its.opts { gap: 12px; }
+.gopt { display: inline-flex; align-items: center; gap: 5px; }
+.gopt small { font: 500 11.5px/1 var(--mono); }
+.sk-prio { display: inline-flex; align-items: center; gap: 6px; }
+.sk-prio i { color: var(--text-3); font-style: normal; }
+.k { display: inline-grid; place-items: center; font: 600 11.5px/1 var(--mono); }
+.sk-prio .k { width: 24px; height: 24px; border-radius: 6px; background: var(--surface-3); }
+.sk-order { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; margin-top: 8px; max-width: 520px; }
+.sk-order .k { position: relative; height: 30px; border-radius: 5px; background: var(--surface-2); padding-top: 9px; }
+.sk-order .k small { position: absolute; top: 3px; font: 400 8.5px/1 var(--mono); color: var(--text-3); }
+.k.kR { color: var(--accent); }
+.coach.ghost { background: transparent; color: var(--text); border: 1px solid var(--line-2); }
+.coach.ghost:hover { background: var(--surface-3); }
+
 /* ------------------------------------------------------------------ idle */
 /* Sin selección de campeón: picks a ciegas a la izquierda y, al lado, evaluar y el estado. */
 #view-draft.is-idle { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px 32px; align-items: start; }

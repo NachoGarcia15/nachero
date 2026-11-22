@@ -151,6 +151,16 @@ class Lolalytics:
             self.request(cid, role)
         return c.get("runes") if c and "runes" in c else None
 
+    def build(self, cid, role):
+        """Builds recomendadas {"pick": {...}, "win": {...}} (objetos, botas, habilidades y hechizos;
+        puede estar vacío) de la misma página que los matchups. None si aún no está: la pide en
+        segundo plano (también si la entrada es de antes de guardar las builds)."""
+        with self.lock:
+            c = self.cache["builds"].get(f"{cid}:{role}")
+        if not self._fresh(c) or "build" not in c:
+            self.request(cid, role)
+        return c.get("build") if c and "build" in c else None
+
     def _fresh(self, c):
         # las entradas antiguas (sin runas) se vuelven a descargar
         return (
@@ -186,23 +196,21 @@ class Lolalytics:
                 if not slug:
                     raise ValueError("sin slug")
                 if role == ARAM:  # build de ARAM: mismo estado qwik, sin tablas por línea
-                    lanes, slugs, runes = (
-                        {},
-                        {},
-                        parse_runes(self._fetch(f"https://lolalytics.com/lol/{slug}/aram/build/")),
-                    )
+                    page = {"lanes": {}, "slugs": {}, "build": {}}
+                    page["runes"] = parse_runes(self._fetch(f"https://lolalytics.com/lol/{slug}/aram/build/"))
                 else:
                     url = f"https://lolalytics.com/lol/{slug}/build/?lane={LOLA_LANE[role]}&tier={self.build_tier}"
-                    lanes, slugs, runes = parse_build(self._fetch(url))
+                    page = parse_page(self._fetch(url))
                 with self.lock:
-                    if slugs:
-                        self.cache["slugs"].update(slugs)
+                    if page["slugs"]:
+                        self.cache["slugs"].update(page["slugs"])
                     self.cache["builds"][key] = {
                         "t": time.time(),
                         "patch": self.patch,
                         "tier": self.build_tier,
-                        "lanes": lanes,
-                        "runes": runes,
+                        "lanes": page["lanes"],
+                        "runes": page["runes"],
+                        "build": page["build"],
                     }
                 self._save()
                 self.health.ok("builds")
@@ -312,10 +320,112 @@ def parse_runes(html):
     return _runes(objs, ref)
 
 
+SKILL_KEYS = {"1": "Q", "2": "W", "3": "E", "4": "R"}
+NO_BOOTS = {9999, 1001}  # «sin botas» y las botas básicas: solo si no hay otras
+
+
+def _ints(v, ref):
+    v = ref(v)
+    v = [ref(x, 1) for x in v] if isinstance(v, list) else []
+    return [x for x in v if isinstance(x, int) and not isinstance(x, bool)]
+
+
+def _num(v, ref):
+    v = ref(v, 1)
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _boots_table(objs, ref):
+    """Botas de la tabla «Boots» de la página, de más a menos jugadas: [(id, wr, partidas)]."""
+    for o in objs:
+        if not (isinstance(o, dict) and {"data", "type"} <= o.keys() and ref(o["type"]) == "boots"):
+            continue
+        rows = []
+        data = ref(o["data"])
+        for r in data if isinstance(data, list) else []:
+            r = ref(r, 1)
+            if isinstance(r, list) and len(r) >= 4:
+                v = [ref(x, 1) for x in r[:4]]
+                if isinstance(v[0], int) and all(isinstance(x, (int, float)) for x in v):
+                    rows.append((v[0], v[1], v[3]))
+        if rows:
+            return rows
+    return []
+
+
+def _build_page(summary, ref, boots_rows):
+    """Una build («pick» o «win») del resumen de la página: objetos, botas, habilidades y hechizos."""
+    summary = ref(summary)
+    if not isinstance(summary, dict):
+        return None
+    items = ref(summary.get("items"))
+    items = items if isinstance(items, dict) else {}
+    start, core = ref(items.get("start")), ref(items.get("core"))
+    page: dict = {
+        "start": _ints(start.get("set"), ref) if isinstance(start, dict) else [],
+        "core": _ints(core.get("set"), ref) if isinstance(core, dict) else [],
+    }
+    if isinstance(core, dict):
+        page["core_wr"], page["core_n"] = _num(core.get("wr"), ref), _num(core.get("n"), ref)
+    options = []
+    for k in ("item4", "item5", "item6"):
+        rows = ref(items.get(k))
+        opts = []
+        for r in rows if isinstance(rows, list) else []:
+            r = ref(r, 1)
+            if isinstance(r, dict) and isinstance(ref(r.get("id"), 1), int):
+                opts.append({"id": ref(r["id"], 1), "wr": _num(r.get("wr"), ref), "n": _num(r.get("n"), ref)})
+        options.append(opts[:3])
+    page["options"] = options
+    # botas: las del núcleo si las lleva; si no, las más jugadas de la tabla
+    boot_ids = [b for b, _, _ in boots_rows]
+    page["boots"] = next((c for c in page["core"] if c in boot_ids), None) or next(
+        (b for b in boot_ids if b not in NO_BOOTS), boot_ids[0] if boot_ids else None
+    )
+    prio = ref(summary.get("skillpriority"))
+    prio = ref(prio.get("id"), 1) if isinstance(prio, dict) else None
+    page["skills"] = prio if isinstance(prio, str) and set(prio) <= set("QWER") else ""
+    order = ref(summary.get("skillorder"))
+    order = ref(order.get("id"), 1) if isinstance(order, dict) else None
+    digits = str(order) if isinstance(order, (int, str)) else ""
+    page["order"] = "".join(SKILL_KEYS[d] for d in digits) if digits and set(digits) <= set(SKILL_KEYS) else ""
+    sums = ref(summary.get("sums"))
+    page["spells"] = _ints(sums.get("ids"), ref) if isinstance(sums, dict) else []
+    return page if page["core"] or page["start"] else None
+
+
+def _build(objs, ref):
+    """Builds recomendadas de "Most Common Build" (pick) y "Highest Win Build" (win), del mismo
+    resumen que las runas. Vacío si la página no las trae."""
+    boots_rows = _boots_table(objs, ref)
+    for o in objs:
+        if not (isinstance(o, dict) and {"pick", "win"} <= o.keys()):
+            continue
+        out = {}
+        for kind in ("pick", "win"):
+            page = _build_page(o[kind], ref, boots_rows)
+            if page:
+                out[kind] = page
+        if out:
+            return out
+    return {}
+
+
+def parse_page(html):
+    """Todo lo que Nachero usa de una página de build: matchups, slugs, runas y build (#88)."""
+    objs, ref = _qwik(html)
+    lanes = _lanes(objs, ref)
+    return {"lanes": lanes, "slugs": _slugs(objs, ref), "runes": _runes(objs, ref), "build": _build(objs, ref)}
+
+
 def parse_build(html):
     """Pagina de build de Lolalytics: matchups contra cada linea enemiga, mapa de slugs y runas recomendadas.
     Fila de matchup = [campeon, WR contra el, delta1, delta2, % de partidas, partidas]."""
-    objs, ref = _qwik(html)
+    page = parse_page(html)
+    return page["lanes"], page["slugs"], page["runes"]
+
+
+def _lanes(objs, ref):
     lanes = {}
     for o in objs:
         if not (isinstance(o, dict) and {"data", "lane"} <= o.keys() and ("$$type" in o or "type" in o)):
@@ -340,4 +450,4 @@ def parse_build(html):
             lanes[lane] = rows
     if not lanes:
         raise ValueError("sin tablas de matchups")
-    return lanes, _slugs(objs, ref), _runes(objs, ref)
+    return lanes

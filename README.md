@@ -318,6 +318,23 @@ Los valores por defecto están en `src/nachero/defaults/config.json`; los tuyos,
 - [CONTRIBUTING.md](CONTRIBUTING.md): entorno de desarrollo, comprobaciones y flujo de trabajo.
 - [CHANGELOG.md](CHANGELOG.md): cambios por versión.
 
+## En partida
+Al cargar la partida, la ventana de Nachero cambia a la vista **«En partida»** (nunca dentro del
+juego):
+
+- **Los dos drafts**: campeón, rol y hechizos, lo mismo que ves en la pantalla de carga. El rol de
+  los rivales es una **estimación** por sus campeones, como en la champ select; no se lee del
+  cliente. Ni nombres, ni rangos, ni historiales de otros jugadores.
+- **Puntuación de cada campeón** con el motor del draft (fuerza en el parche, matchups, encaje,
+  sinergias y composición), sin tu parte personal ni el riesgo de counter, para medir igual a los
+  diez. **Ventaja de draft** = (media de tu equipo − media del rival) / 2, en puntos de WR: el WR
+  estimado de tu equipo es 50 + ventaja. Matchup de cada línea y notas de composición.
+- **Tu build**: objetos iniciales, núcleo, botas, varias opciones para el 4.º, 5.º y 6.º objeto con
+  su WR, prioridad y orden de habilidades. Sale de la misma página de Lolalytics que los matchups
+  (sin peticiones de más; solo uso personal) y de la fuente que elijas para las runas (más jugada o
+  más ganadora). Va detrás de la interfaz de fuentes: los datos propios la podrán dar igual. El
+  botón de Coachless solo abre su página.
+
 ## Runas
 Al confirmar campeón (modo Activo), Nachero crea la página **«Nachero · Campeón Rol»** con las
 runas de Lolalytics del parche actual (de la liga de las páginas de matchups: Esmeralda+ por

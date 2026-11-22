@@ -19,6 +19,7 @@ src/nachero/
              remote_stats.py datos propios publicados: index.json + ETag a la caché
              health.py   salud de una fuente: distingue red de cambio de formato y avisa
              golgg.py      estadísticas de competitivo por torneo
+             items.py      objetos y hechizos del cliente (o CommunityDragon) para «En partida»
              (lolalytics.py también extrae las páginas de runas recomendadas)
   domain/    Lógica pura: sin red ni disco, testeable con dobles
              common.py   roles, tiers, shrink, normalización de nombres
@@ -34,6 +35,8 @@ src/nachero/
              pro.py      motor del simulador de draft pro
              runes.py    validar una página de runas y pasarla al formato del cliente
              queues.py   tipo de cola: draft, a ciegas o fuera de la Grieta
+             ingame.py   vista «En partida» (#88): equipos de la partida, puntuación de cada
+                         campeón y equipo (ventaja de draft) y build recomendada para el panel
              tasks.py    registro de tareas: qué hace la app y su progreso (n de m)
              stats.py    interfaz de las fuentes de estadísticas (StatsProvider) y cadena de respaldo
              calibration.py ¿acierta Nachero?: registro de picks, resultado y calibración
@@ -83,6 +86,15 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    se eligió en el panel con `POST /api/draft/choose`), es la elección del jugador: no se vuelve
    a marcar en ese turno.
 7. El panel consulta `/api/state` cada segundo y pinta.
+
+## En partida (#88)
+
+En `GameStart`, `InProgress` y `Reconnect`, `worker.game_view` lee `/lol-gameflow/v1/session` y la
+última sesión de champ select y publica `APP["game"]`: `ingame.parse_game` separa los equipos (tu
+equipo por tu puuid, que no sale de ahí), `ingame.report` puntúa a los diez con `Engine.score`
+(sin tu parte ni el riesgo de counter; los roles rivales, estimados) y `ingame.build_view` arma tu
+build desde `StatsProvider.build` (opcional, como `synergies`). Se recalcula cada 5 s mientras
+faltan matchups o la build y cada minuto después. Fuera de la Grieta no hay vista.
 
 ## Arranque y carga visible
 

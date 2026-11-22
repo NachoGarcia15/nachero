@@ -17,6 +17,7 @@ from nachero.clients.lcu import LCU
 from nachero.config import BUILD_TIERS, CFG, LEAGUE_NAMES
 from nachero.domain import blind as BL
 from nachero.domain import calibration
+from nachero.domain import ingame as IG
 from nachero.domain import pool as POOL
 from nachero.domain import roles as R
 from nachero.domain.common import ROLE_ES, ROLES
@@ -30,6 +31,7 @@ from nachero.jsonio import read_json, write_json
 from nachero.sources.champions import Champs
 from nachero.sources.golgg import GolGG
 from nachero.sources.history import load_history, role_of
+from nachero.sources.items import Items
 from nachero.sources.local_stats import LocalStats
 from nachero.sources.lolalytics import Lolalytics
 from nachero.sources.remote_stats import RemoteStats
@@ -378,6 +380,41 @@ def champ_select_view(draft, s, acting, queue):
     return draft.tick(s, acting, queue=queue) if s else None
 
 
+IN_GAME = ("GameStart", "InProgress", "Reconnect")  # pantalla de carga y partida en curso
+GAME_REFRESH = 5  # s entre recálculos de la vista «En partida» mientras faltan matchups o la build
+
+
+def game_view(engine, champs, items, flow, champ_select=None, puuid=None, role=None) -> dict | None:
+    """Vista «En partida» (#88): drafts, puntuación de cada campeón y equipo, y tu build.
+
+    `flow`: `/lol-gameflow/v1/session`; `champ_select`: la última sesión de champ select (de esta
+    partida); `role`: el tuyo si la champ select no lo dio (a ciegas). Fuera de la Grieta, None."""
+    queue = classify(flow) if isinstance(flow, dict) else classify(None)
+    if queue["kind"] == "other":
+        return None
+    game = IG.parse_game(flow, puuid, champ_select)
+    if not game or not game["ally"]:
+        return None
+    rep = IG.report(engine, champs, game, role or engine.main_role())
+    me, my_role = rep["me"], rep["my_role"]
+    build, coach = None, None
+    if me:
+        fn = getattr(engine.lola, "build", None)
+        raw = fn(me["id"], my_role) if callable(fn) else None
+        build = IG.build_view(raw, items, CFG.get("runes_source", "pick"))
+        if build:
+            build["spells"] = [items.brief(s, "spell") for s in build["spells"]]
+        rep["build_pending"] = raw is None and callable(fn)
+        # Coachless: solo el enlace (sus condiciones no permiten leer sus datos)
+        coach = f"https://coachless.gg/builds/{champs.slug(me['id'])}?role={my_role}"
+    for team in (rep["ally"], rep["enemy"]):
+        for p in team:
+            p["spells"] = [items.brief(s, "spell") for s in p["spells"]]
+    # sin el catálogo todavía, los nombres son números: se vuelve a calcular en unos segundos
+    names = items.ready() if hasattr(items, "ready") else True
+    return {**rep, "build": build, "coachless": coach, "queue": queue.get("name", ""), "names_ready": names}
+
+
 # ---------------------------------------------------------------- bucle principal
 _GOL = None
 
@@ -581,6 +618,9 @@ def run_session():
     runes.preload()  # catálogo de runas en segundo plano: el bucle no lo espera
     draft = Draft(lcu, champs, engine, runes)
     CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
+    items = CTX["items"] = Items(src)  # objetos y hechizos de la vista «En partida»
+    items.preload()
+    last_cs, last_game = None, 0.0  # última champ select real (para «En partida») y su último cálculo
     demo = None  # se crea al abrir la demo (por --demo o desde el panel)
     last_phase, accepted_at, last_idle, last_demo_step, last_probe = "-", 0, 0, -1, time.time()
     last_tiers = time.time()
@@ -618,6 +658,7 @@ def run_session():
             if phase == "ChampSelect":
                 draft.reset()
                 queue, queue_tries, queue_logged = None, 0, False
+                last_cs = None
             if phase in ("EndOfGame", "PreEndOfGame"):
                 TASKS.start("history", detail="Partida nueva: actualizando…")
                 games = load_history(
@@ -637,6 +678,10 @@ def run_session():
             if phase != "ChampSelect":
                 with LOCK:
                     APP["draft"] = None
+            if phase not in IN_GAME:
+                with LOCK:
+                    APP["game"] = None
+            last_game = 0.0
             last_phase = phase
         with LOCK:
             APP["phase"] = phase
@@ -702,6 +747,8 @@ def run_session():
                         d = None
                         if queue:
                             s = lcu.get("/lol-champ-select/v1/session")
+                            if isinstance(s, dict) and s.get("myTeam"):
+                                last_cs = s
                             if not queue_logged and isinstance(s, dict):
                                 # con la sesión, para saber si la personalizada tiene bans
                                 queue_logged = True
@@ -717,6 +764,17 @@ def run_session():
                                 save_record(rec, patch)
                     with LOCK:
                         APP["draft"] = d
+                elif phase in IN_GAME and online and not OPTS["demo"]:
+                    g = APP.get("game")
+                    pending = not g or not g.get("loaded") or g.get("build_pending") or not g.get("names_ready")
+                    if time.time() - last_game > (GAME_REFRESH if pending else 60):
+                        last_game = time.time()
+                        flow = lcu.get("/lol-gameflow/v1/session", timeout=10)
+                        me = lcu.get("/lol-summoner/v1/current-summoner", timeout=10) or {}
+                        role = draft.context["role"] if draft.context else None
+                        g = game_view(engine, champs, items, flow, last_cs, me.get("puuid"), role)
+                        with LOCK:
+                            APP["game"] = g
             except Exception as e:
                 log(f"Fallo puntual ({e.__class__.__name__}: {e}); reintento.", "warn")
         time.sleep(1)

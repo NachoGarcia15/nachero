@@ -55,6 +55,7 @@ APP: dict = {
     "loading": True,
     "phase": None,
     "draft": None,
+    "game": None,  # vista «En partida» (#88): drafts, ventaja de draft y tu build
     "idle": None,
     "rank": None,
     "pool": [],

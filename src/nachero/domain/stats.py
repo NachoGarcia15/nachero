@@ -13,6 +13,11 @@ Formatos (todo en puntos de winrate, como el resto de la app):
 - `matchups(cid, role)`: {rol_rival: {"<cid>": {"wr", "d1", "d2", "pr", "n"}}} o None (aún no está).
 - `runes(cid, role)`: {"pick": página, "win": página} (puede estar vacío) o None (aún no está).
 - `synergies(cid, role)` (opcional, solo datos propios): {"<cid>:<rol>": {"wr", "n"}} o None.
+- `build(cid, role)` (opcional, #88): {"pick": build, "win": build} (puede estar vacío) o None (aún
+  no está). Build: {"start": [objetos], "core": [objetos], "boots": objeto | None,
+  "options": [[{"id", "wr", "n"}] del 4.º, 5.º y 6.º objeto], "skills": "QEW" (prioridad),
+  "order": "QEWQ…" (nivel a nivel), "spells": [hechizos], "core_wr", "core_n"}. Lolalytics la saca
+  de la misma página que los matchups; los datos propios del recolector la podrán dar igual.
 """
 
 from typing import Protocol, runtime_checkable
@@ -101,6 +106,20 @@ class ChainStats:
             if v:
                 return v
         return None
+
+    def build(self, cid, role):
+        """Build recomendada (#88) de la primera fuente que la tenga; solo la principal la pide."""
+        first = None
+        for i, p in enumerate(self.providers):
+            fn = getattr(p, "build", None)
+            if not callable(fn):
+                continue
+            v = fn(cid, role)
+            if v:
+                return v
+            if i == 0:
+                first = v
+        return first  # {} (sin build) o None (aún no está) de la principal
 
     def runes(self, cid, role):
         r = self.primary.runes(cid, role)

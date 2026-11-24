@@ -156,28 +156,69 @@ def test_si_cambia_la_recomendacion_actualiza_su_marca(champs, auto):
     assert out["choose"]["by"] == "nachero"
 
 
-def test_no_vuelve_a_marcar_si_cambia_la_recomendacion(champs, auto):
+def test_sigue_la_recomendacion_si_cambia(champs, auto):
     lcu = Client(session())
     d = Draft(lcu, champs, engine(champs))
     best = tick(d, lcu)["hero"]["id"]
     lcu.s["myTeam"][1]["championPickIntent"] = best  # un aliado lo marca: cambia la recomendación
     out = tick(d, lcu)
-    assert out["hero"]["id"] != best
-    assert lcu.patches == [(1, {"championId": best})]  # ya marcó una vez: no lo vuelve a tocar
+    nuevo = out["hero"]["id"]
+    assert nuevo != best and lcu.patches == [(1, {"championId": best}), (1, {"championId": nuevo})]
+    assert out["choose"] == {**out["choose"], "marked": nuevo, "by": "nachero"}
+    tick(d, lcu)
+    assert len(lcu.patches) == 2  # no vuelve a marcar lo mismo
+    tick(d, lcu, left=3)
+    assert lcu.patches[-1] == (1, {"championId": nuevo, "completed": True})
+
+
+def test_marca_anterior_que_el_cliente_devuelve_tarde_no_es_del_jugador(champs, auto):
+    lcu = Client(session())
+    d = Draft(lcu, champs, engine(champs))
+    best = tick(d, lcu)["hero"]["id"]
+    lcu.s["myTeam"][1]["championPickIntent"] = best
+    vieja = copy.deepcopy(lcu.s)  # aún con la marca anterior de Nachero
+    nuevo = tick(d, lcu)["hero"]["id"]
+    out = d.tick(vieja, True, pickable=set(), bannable=set())
+    assert out["choose"]["by"] != "player" and nuevo not in d.choice.values()
+    assert len(lcu.patches) == 2  # el cliente ya lo muestra: no repite el PATCH
+    lcu.s["myTeam"][1]["championPickIntent"] = 0  # vuelve a ser la mejor: la vuelve a marcar
+    out = tick(d, lcu)
+    assert lcu.patches[-1] == (1, {"championId": best}) and out["choose"]["by"] == "nachero"
+
+
+def test_el_jugador_puede_volver_a_una_marca_anterior_de_nachero(champs, auto):
+    lcu = Client(session())
+    d = Draft(lcu, champs, engine(champs))
+    best = tick(d, lcu)["hero"]["id"]
+    lcu.s["myTeam"][1]["championPickIntent"] = best  # un aliado lo marca: Nachero marca la segunda
+    segunda = tick(d, lcu)["hero"]["id"]
+    lcu.s["myTeam"][1]["championPickIntent"] = segunda  # el aliado cambia: Nachero vuelve a la primera
+    tick(d, lcu)
+    tick(d, lcu)  # el cliente ya muestra la nueva marca
+    assert lcu.patches == [(1, {"championId": c}) for c in (best, segunda, best)]
+    lcu.s["myTeam"][1]["championPickIntent"] = 0
+    lcu.player_marks(1, segunda)  # el jugador marca a mano lo que Nachero marcó antes
+    out = tick(d, lcu)
+    assert out["hero"]["id"] == best  # hay otra mejor, pero no pisa al jugador
+    assert len(lcu.patches) == 3 and out["choose"] == {**out["choose"], "marked": segunda, "by": "player"}
 
 
 def test_cambio_del_jugador_que_llega_un_tick_tarde(champs, auto):
     lcu = Client(session())
     d = Draft(lcu, champs, engine(champs))
     best = tick(d, lcu)["hero"]["id"]
-    otro = next(c for c in (1, 8, 2) if c != best)
-    # el jugador marca otro, pero el cliente aún devuelve lo de Nachero y la recomendación cambia
+    # el jugador marca otro, pero la sesión del tick aún trae lo de Nachero y la recomendación cambia
     lcu.s["myTeam"][1]["championPickIntent"] = best
-    tick(d, lcu)
+    vieja = copy.deepcopy(lcu.s)
+    otro = next(c for c in (1, 8, 2) if c != best)
     lcu.player_marks(1, otro)
-    out = tick(d, lcu, left=3)
+    out = d.tick(vieja, True, pickable=set(), bannable=set())
+    assert lcu.patches == [(1, {"championId": best})]  # no pisa al jugador
+    assert out["choose"] == {**out["choose"], "marked": otro, "by": "player"}
+    for _ in range(2):
+        out = tick(d, lcu)
+    tick(d, lcu, left=3)
     assert lcu.patches == [(1, {"championId": best}), (1, {"championId": otro, "completed": True})]
-    assert out["choose"]["by"] == "player"
 
 
 def test_eleccion_del_jugador_que_se_lleva_otro_vuelve_a_la_recomendacion(champs, auto):

@@ -127,8 +127,8 @@ según tus interruptores.
 **Banear, marcar pick y confirmar pick vienen desactivados**: las normas de Riot no aceptan apps
 que tomen decisiones de juego por el jugador. Si los activas, siguen la recomendación de Nachero,
 pero **la última palabra es tuya**:
-- **Pick**: Nachero marca su recomendación **una vez** (solo la cambia si otro se lleva ese
-  campeón). A falta de `lock_when_seconds_left` segundos (8 por defecto) confirma **lo que esté
+- **Pick**: Nachero marca su recomendación y **la va cambiando** si la recomendación cambia con
+  el draft (o si otro se lleva ese campeón), hasta que marques otro tú. A falta de `lock_when_seconds_left` segundos (8 por defecto) confirma **lo que esté
   marcado**: lo suyo si no has tocado nada, o el campeón que hayas marcado tú.
 - **Ban**: la recomendación tiene en cuenta tu pick recomendado y los de tus aliados: prioriza a
   quien los countea y a los fuertes del parche, y no repite lo que ya han marcado o baneado tus

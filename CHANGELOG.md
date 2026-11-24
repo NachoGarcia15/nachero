@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.31.1] - 2026-11-24
+
+### Cambiado
+- **Marcar pick sigue la recomendación**: si la recomendación cambia durante el draft, Nachero
+  cambia la marca en el cliente (antes marcaba una sola vez por turno y se quedaba con la
+  primera). Si marcas otro campeón tú (en el cliente o en el panel), deja de cambiarla en ese
+  turno. Una marca anterior de Nachero que el cliente devuelva tarde no cuenta como elección tuya.
+
 ## [0.31.0] - 2026-11-22
 
 Vista **«En partida»** (#88): al cargar la partida, la ventana de Nachero enseña los drafts, su

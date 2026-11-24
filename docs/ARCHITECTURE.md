@@ -81,10 +81,12 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
 5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto countea a tu pick y a tus
    aliados, con los matchups en caché, por la probabilidad de que su rival elija después). Con `auto_ban`, `Draft.ban_turn` marca el primero en
    `BAN_PICK` (nunca lo confirma) y no pisa el que marque el jugador.
-6. En modo Activo, `Draft.turn` marca la recomendación de pick una vez por acción y confirma lo
-   que esté marcado a falta de `lock_when_seconds_left` s. Si lo marcado no es lo que marcó Nachero (o
-   se eligió en el panel con `POST /api/draft/choose`), es la elección del jugador: no se vuelve
-   a marcar en ese turno.
+6. En modo Activo, `Draft.turn` marca la recomendación de pick, la cambia si cambia la
+   recomendación y confirma lo que esté marcado a falta de `lock_when_seconds_left` s. Si lo
+   marcado no es nada que haya marcado Nachero (o se eligió en el panel con
+   `POST /api/draft/choose`), es la elección del jugador: no se vuelve a marcar en ese turno. Las
+   marcas anteriores de Nachero que el cliente aún devuelva (`Draft.earlier`) no cuentan como
+   elección del jugador.
 7. El panel consulta `/api/state` cada segundo y pinta.
 
 ## En partida (#88)

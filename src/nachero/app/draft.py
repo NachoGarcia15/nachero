@@ -30,6 +30,7 @@ class Draft:
         # por id de acción (ban o pick): lo último que marcó Nachero, lo que eligió el jugador
         # (en el cliente o en el panel) y las que ya confirmó Nachero
         self.hovered: dict[int, int] = {}
+        self.earlier: dict[int, set[int]] = {}  # marcas de pick anteriores de Nachero que el cliente aún no ha cambiado
         self.choice: dict[int, int] = {}
         self.confirmed: set[int] = set()
         self.last_ids: dict[str, set[int]] = {}  # última lista válida de pickable/bannable en esta selección
@@ -250,7 +251,7 @@ class Draft:
                 status.append(("info", f"Pondría {names}"))
 
         # ban: con `auto_ban`, Nachero marca el recomendado en BAN_PICK y lo banea el cliente al acabar
-        # el tiempo (nunca lo confirma). Pick: Nachero marca su recomendación (una vez por acción) y
+        # el tiempo (nunca lo confirma). Pick: Nachero marca su recomendación (y la sigue si cambia) y
         # confirma lo que esté marcado al final del turno. Si el jugador marca otro campeón (en el
         # cliente o en el panel), manda el jugador
         taken = banned | set(ally_ids) | set(enemy_ids)
@@ -394,16 +395,19 @@ class Draft:
     def turn(self, action, target, taken, acting, hover, lock, left, status):
         """Tu pick en la acción pendiente `action` (los bans solo se recomiendan, no se tocan).
 
-        Con `hover`, Nachero marca la recomendación `target` una sola vez por acción; solo la
-        vuelve a marcar si lo marcado deja de estar disponible (lo elige o lo banea otro). Si lo
-        marcado no es lo que marcó Nachero, es la elección del jugador y manda en ese turno. Así
-        no pisa al jugador aunque el cliente devuelva su cambio un tick tarde. Con `lock`, confirma
-        lo que esté marcado a falta de `lock_when_seconds_left` s.
+        Con `hover`, Nachero marca la recomendación `target` y la sigue: si cambia la recomendación,
+        cambia la marca. Si lo marcado no es nada que haya marcado Nachero, es la elección del
+        jugador y manda en ese turno (ya no se toca). Las marcas anteriores de Nachero que el
+        cliente aún devuelva (un tick tarde) no cuentan como elección del jugador. Con `lock`,
+        confirma lo que esté marcado a falta de `lock_when_seconds_left` s.
         Devuelve qué hay marcado y quién lo marcó, para el panel."""
         name = self.champs.name
         aid, cur = action["id"], action.get("championId") or 0
         secs = CFG.get("lock_when_seconds_left", 8)
-        if cur and cur != self.hovered.get(aid):  # lo ha marcado el jugador (el registro lo dice el estado)
+        if cur and cur == self.hovered.get(aid):  # el cliente ya muestra la última marca
+            self.earlier.pop(aid, None)
+        ours = {self.hovered.get(aid), *self.earlier.get(aid, ())}  # lo que ha marcado Nachero
+        if cur and cur not in ours:  # lo ha marcado el jugador (el registro lo dice el estado)
             self.choice[aid] = cur
         choice = self.choice.get(aid)
         if choice and choice in taken:  # lo ha elegido o baneado otro: vuelve la recomendación
@@ -413,16 +417,20 @@ class Draft:
             choice = None
         marked = choice or (cur if cur not in taken else 0)
         can_hover = not choice and hover and acting and target
-        # una vez por acción: si ya marcó y el cliente lo refleja, no vuelve a hacerlo salvo que lo
-        # marcado ya no valga. Si la acción sigue vacía (el cliente aceptó el PATCH pero no lo
-        # aplicó), no cuenta como hecho y se reintenta
-        fresh = aid not in self.hovered or not cur or cur in taken
-        if can_hover and fresh and cur != target["id"]:
+        # sin elección del jugador, lo marcado es nada, algo de Nachero o algo que ya no vale: se
+        # marca la recomendación si no es eso. Si el cliente aceptó el PATCH pero no lo aplicó (la
+        # acción sigue igual), no cuenta como hecho y se reintenta
+        if can_hover and cur != target["id"]:
             # la sesión del tick puede ir con retraso: antes de marcar, lo que hay ahora en el cliente
             now = self.action_now(aid)
-            if now and now != self.hovered.get(aid) and now not in taken:  # lo acaba de marcar el jugador
+            if now and now not in ours and now not in taken:  # lo acaba de marcar el jugador
                 self.choice[aid] = choice = marked = now
+            elif now == target["id"] == self.hovered.get(aid):  # ya está: solo la sesión iba con retraso
+                marked = now
             elif now is not None and self.patch(aid, {"championId": target["id"]}):
+                prev = self.hovered.get(aid)
+                if prev and prev != target["id"]:  # el cliente puede devolverla aún un tick
+                    self.earlier.setdefault(aid, set()).add(prev)
                 self.hovered[aid] = marked = target["id"]
             elif now is not None:  # se reintenta en el siguiente tick
                 self.note(f"El cliente no deja marcar {name(target['id'])}: lo reintento", "warn")

@@ -581,9 +581,10 @@ tr:hover td { background: rgba(255,255,255,.015); }
 .log-head small { color: var(--text-3); font-size: 12px; margin-right: 8px; }
 .log-item { display: grid; grid-template-columns: 70px 1fr; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .log-item time { font: 12.5px var(--mono); color: var(--text-3); padding-top: 1px; }
-.log-item.action span { color: var(--pos); }
-.log-item.warn span { color: #f3c37a; }
-.log-item.hint span { color: var(--text-2); }
+/* el tipo va en data-kind: como clase, «hint» tomaba el estilo del botón «?» de ayuda */
+.log-item[data-kind="action"] span { color: var(--pos); }
+.log-item[data-kind="warn"] span { color: #f3c37a; }
+.log-item[data-kind="hint"] span { color: var(--text-2); }
 
 /* ------------------------------------------------------------------ drawer */
 .scrim { position: fixed; inset: 0; background: rgba(4,5,8,.5); backdrop-filter: blur(6px); z-index: 30; }

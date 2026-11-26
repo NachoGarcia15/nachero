@@ -41,6 +41,10 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
 - **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
   estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
   ratón.
+- **Actividad: las pistas salían rotas** (todo lo de «Observando · …» y «Te toca elegir…»): su
+  tipo iba como clase CSS `hint`, la misma del botón «?» de ayuda, y cada entrada se pintaba
+  como un círculo de 17 px con el texto desbordado encima de las demás. Ahora el tipo va en
+  `data-kind`.
 - Simulador pro sin conexión con gol.gg: el selector de torneo se quedaba en «Cargando…» para
   siempre. Ahora sale «Reintentar gol.gg».
 - «En partida»: los porcentajes de la ventaja de draft usaban los colores de daño físico y mágico

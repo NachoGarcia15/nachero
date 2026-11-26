@@ -1078,7 +1078,7 @@ function evalTick() {
 /* ------------------------------------------------------------------ actividad */
 function renderLog(items) {
   $("#view-log").innerHTML = `<div class="log"><div class="log-head"><h1>Actividad</h1>
-    <div><small id="diag-msg" role="status"></small><button class="btn" id="diag">Copiar diagnóstico</button></div></div>${items.map((l) => `<div class="log-item ${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
+    <div><small id="diag-msg" role="status"></small><button class="btn" id="diag">Copiar diagnóstico</button></div></div>${items.map((l) => `<div class="log-item" data-kind="${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
 }
 
 // Versión, sistema, fase, conexión, parche y log reciente, sin datos personales (lo limpia el servidor)

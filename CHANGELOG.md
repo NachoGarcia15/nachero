@@ -81,6 +81,10 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
 - **El panel ya no pide nada a Google**: las fuentes Geist y Geist Mono (SIL Open Font License,
   `ui/geist-ofl.txt`) van dentro de la app (~140 KB) en lugar de cargarse de Google Fonts al abrir
   el panel. Mejor para la privacidad (#27) y con la misma letra sin conexión.
+- **Caché de Lolalytics**: se escribía entera (más de 10 MB, ~2 s) tras cada página de matchups;
+  al empezar un parche, cerca de 1 GB de escrituras y la mitad del tiempo de descarga. Ahora se
+  escribe al vaciarse la cola o como mucho cada 30 s, y un fallo al guardarla ya no marca la página
+  como fallida.
 - Si el cliente rechaza confirmar con `PATCH` (`completed`), Nachero confirma lo que ya está
   marcado con el otro camino de la API local (`POST …/actions/{id}/complete`): un rechazo
   puntual ya no acaba en esquivar la partida.

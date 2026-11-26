@@ -189,6 +189,7 @@ def window_controls(hidden: bool) -> dict:
         "set_mode": set_mode,
         "hidden": hidden,
         "register_show": lambda fn: OPTS.__setitem__("show_window", fn),
+        "register_notify": lambda fn: OPTS.__setitem__("notify", fn),
     }
 
 

@@ -169,3 +169,12 @@ def test_un_fallo_de_lectura_de_la_fase_no_reinicia_la_champ_select(bucle):
     assert fases == ["Fase: Selección de campeón"]  # sin pasar por «Sin cliente» ni volver a empezar
     assert any("no responde (NoPhase)" in m for _, m in log)
     assert len(client.patches) == 1  # la marca no se repite: el draft no se ha reiniciado
+
+
+@pytest.mark.parametrize("activo", [True, False])
+def test_avisos_de_la_bandeja_en_la_champ_select(bucle, monkeypatch, activo):
+    avisos = []
+    monkeypatch.setitem(OPTS, "notify", lambda title, text: avisos.append(title))
+    monkeypatch.setitem(CFG, "tray_notify", activo)
+    bucle(["ChampSelect", "ChampSelect", "ChampSelect"], 4)
+    assert avisos == (["Te toca elegir"] if activo else [])  # ya era tu turno: uno, no uno por vuelta

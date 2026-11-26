@@ -69,7 +69,9 @@ barra de tareas mostrando `Nachero` y su icono en lugar del ejecutable genérico
 **Bandeja del sistema**: cerrar la ventana deja Nachero en la bandeja (junto al reloj) y sigue
 aceptando partidas y leyendo la selección. Clic en su icono para abrirlo; clic derecho para
 cambiar de modo o salir. En Ajustes → App: «Cerrar deja Nachero en la bandeja» (desactívalo para
-que cerrar salga del todo) y «Abrir al iniciar Windows» (arranca en la bandeja; también `--tray`).
+que cerrar salga del todo), «Abrir al iniciar Windows» (arranca en la bandeja; también `--tray`) y
+«Avisos desde la bandeja»: con la ventana oculta, un aviso de Windows al empezar la selección y al
+llegar tu turno, con la recomendación.
 
 **Aviso de nueva versión**: si `update_url` (en `config.json`) apunta a un `latest.json` público
 con `{"version": "0.17.0", "url": "https://…", "notes": "…"}`, Nachero avisa al arrancar.

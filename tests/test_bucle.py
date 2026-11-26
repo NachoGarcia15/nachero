@@ -125,3 +125,34 @@ def test_historial_con_archivos_rotos_y_partidas_raras(tmp_path):
     assert [g["gameId"] for g in games] == [3, 1]  # las raras no tumban la lectura del resto
     assert valid_games(json.loads(cache.read_text(encoding="utf-8"))) == games
     assert valid_games({"a": 1}) == [] and valid_games(None) == []
+
+
+# ------------------------------------------------------------------ avisos desde la bandeja
+def test_avisos_de_la_champ_select_uno_de_cada():
+    seen = set()
+    hero = {"name": "Taliyah", "est": 54.3}
+    base = {"hero": hero, "my_turn": None, "ban_suggestions": [{"name": "Kayn"}], "locked": False}
+    assert worker.turn_notice(base, seen) == ("Selección de campeón", "Nachero recomienda Taliyah · 54,3 % WR estimado")
+    assert worker.turn_notice(base, seen) is None  # una vez
+    assert worker.turn_notice({**base, "my_turn": "ban"}, seen) == ("Te toca banear", "Nachero recomienda banear Kayn")
+    assert worker.turn_notice({**base, "my_turn": "ban"}, seen) is None
+    assert worker.turn_notice({**base, "my_turn": "pick"}, seen)[0] == "Te toca elegir"
+    assert worker.turn_notice({**base, "my_turn": "pick"}, seen) is None
+    # si la app arranca ya en tu turno, el de tu turno sustituye al de inicio
+    otra = set()
+    assert worker.turn_notice({**base, "my_turn": "pick"}, otra)[0] == "Te toca elegir" and "start" in otra
+    for d in (None, {"unsupported": True}, {**base, "hero": None}, {**base, "locked": True}):
+        assert worker.turn_notice(d, set()) is None
+
+
+def test_la_bandeja_avisa_solo_con_el_ajuste(monkeypatch):
+    from nachero.app import main as M
+
+    ctl = M.window_controls(hidden=True)
+    got = []
+    ctl["register_notify"](lambda title, text: got.append(title))
+    try:
+        state.OPTS["notify"]("Te toca elegir", "x")
+        assert got == ["Te toca elegir"]
+    finally:
+        state.OPTS["notify"] = None

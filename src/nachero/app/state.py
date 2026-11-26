@@ -46,8 +46,10 @@ LOCK = threading.RLock()
 TASKS = Tasks()  # qué está haciendo la app (pantalla de carga e indicador de la barra)
 # window: el panel está en la ventana de la app. demo_ui: la demo se abrió desde el panel (se
 # cierra sola al empezar una champ select de verdad); demo_since: cuándo, para empezarla de cero.
-# show_window: muestra la ventana (la pone desktop.open_window; la usa /api/show).
-OPTS: dict = {"demo": False, "window": False, "demo_ui": False, "demo_since": 0.0, "show_window": None}
+# show_window: muestra la ventana (la pone desktop.open_window; la usa /api/show). notify: aviso de
+# Windows desde la bandeja, solo con la ventana oculta (lo pone desktop.open_window; lo usa el bucle).
+OPTS: dict = {"demo": False, "window": False, "demo_ui": False, "demo_since": 0.0, "show_window": None,
+              "notify": None}  # fmt: skip
 APP: dict = {
     "mode": "observe",
     "connected": False,

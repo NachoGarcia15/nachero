@@ -231,6 +231,7 @@ class Handler(BaseHTTPRequestHandler):
                 "ban_priority": CFG.get("ban_priority", {}),
                 "spells": list(config.SPELLS),
                 "close_to_tray": bool(CFG.get("close_to_tray", True)),
+                "tray_notify": bool(CFG.get("tray_notify", True)),
                 "start_with_windows": bool(CFG.get("start_with_windows", False)),
                 "blind": {k: v for k, v in BL.settings(CFG).items() if k in config.BLIND_KEYS},
                 "build_tier": CFG.get("build_tier", "emerald_plus"),

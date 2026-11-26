@@ -587,6 +587,7 @@ def open_window(url: str, state_file: Path, storage: Path, app: dict | None = No
         w = state["win"]
         if w is None:
             return
+        state["hidden"] = False
         with contextlib.suppress(Exception):
             w.show()
             w.restore()
@@ -608,8 +609,16 @@ def open_window(url: str, state_file: Path, storage: Path, app: dict | None = No
         on_quit=quit_,
     )
     tray_ok = tray.start() if app else False
+    state["hidden"] = bool(app.get("hidden") and tray_ok)  # en la bandeja (oculta), no minimizada
+
+    def notify(title: str, text: str) -> None:  # avisos de la bandeja: solo con la ventana oculta
+        if tray_ok and state["hidden"]:
+            tray.notify(title, text)
+
     if "register_show" in app:
         app["register_show"](show)
+    if "register_notify" in app:
+        app["register_notify"](notify)
     win = webview.create_window(
         TITLE,
         url,
@@ -651,6 +660,7 @@ def open_window(url: str, state_file: Path, storage: Path, app: dict | None = No
             return True
         with contextlib.suppress(Exception):
             window.hide()
+        state["hidden"] = True
         if not cfg.get("tray_hint_shown"):
             tray.notify(*TRAY_HINT)
             cfg["tray_hint_shown"] = True

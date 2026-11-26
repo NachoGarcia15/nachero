@@ -385,6 +385,26 @@ def champ_select_view(draft, s, acting, queue):
     return draft.tick(s, acting, queue=queue) if s else None
 
 
+def turn_notice(d: dict | None, seen: set) -> tuple[str, str] | None:
+    """Aviso de la bandeja (`tray_notify`) en la champ select: al empezar, con la recomendación, y al
+    llegar tu turno de ban o de pick. Uno de cada por selección (`seen` lo recuerda)."""
+    if not d or d.get("unsupported") or not d.get("hero") or d.get("locked"):
+        return None
+    hero = d["hero"]
+    rec = f"{hero['name']} · {hero['est']:.1f} % WR estimado".replace(".", ",")
+    turn = d.get("my_turn")
+    if turn == "ban" and "ban" not in seen and d.get("ban_suggestions"):
+        seen.update({"start", "ban"})
+        return "Te toca banear", f"Nachero recomienda banear {d['ban_suggestions'][0]['name']}"
+    if turn == "pick" and "pick" not in seen:
+        seen.update({"start", "pick"})
+        return "Te toca elegir", f"Nachero recomienda {rec}"
+    if "start" not in seen:
+        seen.add("start")
+        return "Selección de campeón", f"Nachero recomienda {rec}"
+    return None
+
+
 IN_GAME = ("GameStart", "InProgress", "Reconnect")  # pantalla de carga y partida en curso
 GAME_REFRESH = 5  # s entre recálculos de la vista «En partida» mientras faltan matchups o la build
 
@@ -672,6 +692,7 @@ def run_session():
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
     queue, queue_tries, queue_logged = None, 0, False  # tipo de cola de la champ select actual
     failures = Repeats()  # un fallo que se repite cada segundo se apunta una vez
+    notified: set = set()  # avisos de la bandeja ya dados en esta champ select
     last_slow = 0.0  # último aviso de «Selección lenta» (uno cada 30 s como mucho)
     while True:
         mode = APP["mode"]
@@ -706,6 +727,7 @@ def run_session():
             log(f"Fase: {PHASE_ES.get(phase, phase)}")
             if phase == "ChampSelect":
                 draft.reset()
+                notified = set()
                 queue, queue_tries, queue_logged = None, 0, False
                 last_cs = None
             if phase in ("EndOfGame", "PreEndOfGame") and online and not OPTS["demo"]:
@@ -799,6 +821,10 @@ def run_session():
                             rec = draft.pop_record()
                             if rec:
                                 save_record(rec, patch)
+                            notice, notify = turn_notice(d, notified), OPTS.get("notify")
+                            if notice and notify and CFG.get("tray_notify", True):
+                                with contextlib.suppress(Exception):  # un aviso no para la champ select
+                                    notify(*notice)
                     with LOCK:
                         APP["draft"] = d
                 elif phase in IN_GAME and online and not OPTS["demo"]:

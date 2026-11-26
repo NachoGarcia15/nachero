@@ -1149,6 +1149,7 @@ const TOGGLES = [
 const APP_TOGGLES = [
   ["close_to_tray", "Cerrar deja Nachero en la bandeja", "Sigue aceptando partidas y leyendo la selección. Para salir, clic derecho en su icono → Salir."],
   ["start_with_windows", "Abrir al iniciar Windows", "Arranca en la bandeja al iniciar sesión, sin abrir la ventana."],
+  ["tray_notify", "Avisos desde la bandeja", "Con la ventana en la bandeja, un aviso de Windows al empezar la selección y al llegar tu turno, con la recomendación."],
 ];
 const WEIGHTS = [
   ["pool", "Tu pool", "Experiencia, forma y resultados con cada campeón."],

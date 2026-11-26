@@ -22,7 +22,7 @@ TOGGLES = [
     "open_coachless_on_lock",
 ]
 # Interruptores de la app (no de la partida): se cambian en Ajustes → App
-APP_TOGGLES = ["close_to_tray", "start_with_windows"]
+APP_TOGGLES = ["close_to_tray", "start_with_windows", "tray_notify"]
 WEIGHT_KEYS = ("pool", "meta", "matchup", "comp")
 MAX_CHAMP_LIST = 40  # campeones en pool_bonus y never_pick
 MAX_BAN_PRIORITY = 10  # bans prioritarios por rol

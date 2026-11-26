@@ -125,6 +125,9 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   qué respondió el cliente a cada marca o confirmación.
 - En tu turno, con «Confirmar pick», el panel dice cuánto falta para que Nachero confirme
   («Nachero confirma lo marcado en 12 s»), con el reloj real.
+- **Avisos desde la bandeja** (Ajustes → App, activado): con la ventana oculta en la bandeja, un
+  aviso de Windows al empezar la selección y al llegar tu turno de ban o de pick, con la
+  recomendación. Uno de cada por selección; con la ventana abierta, ninguno.
 - **«Abrir registros»** en Actividad: abre la carpeta con `nachero.log` y `selecciones/` (lo que
   pasó en cada champ select), para mandarla si algo falla. En Ajustes, **«Tus datos»**: todo se
   queda en tu PC, con «Abrir carpeta de datos» y cómo borrarlo.

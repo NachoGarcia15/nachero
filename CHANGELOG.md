@@ -80,6 +80,11 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   se desvían (en errores típicos), cuánto de la muestra es ruido y los matchups de la misma liga.
   Usa lo que ya tiene Nachero en tu carpeta de datos, sin descargar nada, y deja un informe en
   Markdown. Detalle en `docs/DATOS.md`.
+- **Bans que no te quitan un combo** (#85, primera parte): con datos propios, la sinergia medida
+  de lo que han elegido o marcado tus aliados protege a sus parejas de combo (≥ 1,5 pp) de los
+  roles aún libres en tu equipo: no banea Ashe si tu support ha marcado Seraphine. Si aun así sale,
+  lo dice («pero hace combo con tu …»). Con Lolalytics (sin sinergias) no cambia nada.
+  `Engine.pair_synergies` reúne el cálculo de la sinergia que ya usaba el pick (#77).
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
   10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
   nombres ni ids de cuenta.

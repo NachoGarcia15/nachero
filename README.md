@@ -134,7 +134,8 @@ pero **la última palabra es tuya**:
   lo suyo si no has tocado nada, o el campeón que hayas marcado tú.
 - **Ban**: la recomendación tiene en cuenta tu pick recomendado y los de tus aliados: prioriza a
   quien los countea y a los fuertes del parche, y no repite lo que ya han marcado o baneado tus
-  aliados. Con «Banear», en la fase de bans (no en la planificación) Nachero **marca** el primero
+  aliados. Con datos propios, tampoco banea la pareja de combo de lo que han elegido o marcado
+  (no Ashe si tu support marca Seraphine) mientras ese rol siga libre en tu equipo. Con «Banear», en la fase de bans (no en la planificación) Nachero **marca** el primero
   y **no lo confirma**: lo banea el cliente al acabar el tiempo. Si marcas otro, se banea el tuyo.
 - **Si marcas otro campeón** (en el cliente o en el panel), Nachero no lo vuelve a cambiar en ese
   turno, aunque el cliente tarde en reflejar tu cambio.

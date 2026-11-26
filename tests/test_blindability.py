@@ -337,6 +337,33 @@ def test_sinergia_medida_con_datos_propios(champs):
     assert eng(champs, {}).synergy(1, "jungle", [(2, 1.0)], {2: "middle"}) == (0.0, [], False)
 
 
+# ------------------------------------------------------------------ combos de tus aliados en los bans (#85)
+class SynLola(RowsLola):
+    def synergies(self, cid, role):
+        return self.syn.get((cid, role))
+
+
+def combo_bans(champs, syn, allies):
+    """Bans de un ADC: Marksman (4) es el más fuerte de la línea; tu support marca Enchanter (6)."""
+    tiers = all_roles(bottom={4: (54, 9000, 12, 90), 10: (51, 9000, 6, 90)}, utility={6: (51, 9000, 8, 90)})
+    e = Engine(champs, SynLola(tiers, {}, syn), player(), {"pick_mode": "meta", "weights": {}})
+    return e, [b["id"] for b in e.bans("bottom", [], set(), allies)]
+
+
+def test_no_banea_el_combo_de_lo_que_marca_tu_aliado(champs):
+    # Enchanter + Marksman ganan mucho más juntos de lo esperado (20.000 partidas): combo
+    syn = {(6, "utility"): {"4:bottom": {"wr": 62.0, "n": 20000}, "10:bottom": {"wr": 51.0, "n": 20000}}}
+    _, sin_datos = combo_bans(champs, {}, [(6, "utility", 0.5)])
+    assert sin_datos[0] == 4  # sin datos propios, nada cambia: el más fuerte
+    e, con = combo_bans(champs, syn, [(6, "utility", 0.5)])
+    assert 4 not in con and con[0] == 10
+    combo, who = e.ally_combos([(6, "utility", 0.5)])
+    assert combo[("bottom", "4")] > e.COMBO_MIN * 0.5 and who["4"] == ["Enchanter"]
+    # con tu ADC ya confirmado, ese hueco está cerrado: no hay nada que proteger
+    _, cerrado = combo_bans(champs, syn, [(6, "utility", 0.5), (10, "bottom", 1.0)])
+    assert cerrado[0] == 4
+
+
 # ------------------------------------------------------------------ simulador pro (#76)
 def test_simulador_pro_usa_blindability(champs):
     e = eng(champs, {(1, "jungle"): risky_rows(0.8), (5, "jungle"): risky_rows(2.6)},

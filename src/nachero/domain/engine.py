@@ -564,19 +564,39 @@ class Engine:
         ) * 0.3
 
     # -- sinergias medidas (#77)
-    def synergy(self, cid, role, allies, ally_roles=None):
-        """Sinergia medida con tus aliados (datos propios, esquema 1): WR del dúo menos el esperado por
-        la fuerza de los dos (producto de odds), encogido con el spread de sinergia de la pareja de
-        roles. `allies`: [(cid, peso)] (elegido 1, marcado 0,5); `ally_roles`: {cid: rol} del cliente.
-        Sin rol (cola a ciegas), el rol principal del aliado con la mitad de peso.
-        Devuelve (pp, motivos, hay_datos). Lolalytics no da sinergias: sin datos propios, 0."""
+    def pair_synergies(self, cid, role, ar):
+        """Sinergia medida (datos propios, esquema 1) de `cid` en `role` con cada aliado posible del
+        rol `ar`: {cid del aliado (str): pp}. Es el WR del dúo menos el esperado por la fuerza de los
+        dos (producto de odds), encogido con el spread de sinergia de `cid` con ese rol, mezclado con
+        el previo de la pareja de roles. Vacío sin datos (Lolalytics no da sinergias)."""
         fn = getattr(self.lola, "synergies", None)
         rows = fn(cid, role) if callable(fn) else None
-        if not rows:
-            return 0.0, [], False
-        ally_roles = ally_roles or {}
+        if not rows or role not in BL.SYN_PRIOR:
+            return {}
         th = self.bl
         base = 50 + self.meta(cid, role)[0]
+        same = {}
+        for k, r in rows.items():
+            kc, _, kr = k.partition(":")
+            if kr == ar and r.get("n") and kc.isdigit():
+                exp = BL.expected_duo(base, 50 + self.meta(int(kc), ar)[0])
+                same[kc] = {"d2": r["wr"] - exp, "n": r["n"], "wr": r["wr"]}
+        if not same:
+            return {}
+        sp = BL.spread(same)
+        m = sp["m"] if sp["m"] >= th["min_matchups"] else 0
+        sig = BL.mix_sigma(sp["spread"], m, BL.SYN_PRIOR[role].get(ar, 0.6), th["prior_matchups"])
+        return {kc: BL.posterior(v["d2"], v["n"], sig, v.get("wr"))[0] for kc, v in same.items()}
+
+    def synergy(self, cid, role, allies, ally_roles=None):
+        """Sinergia medida con tus aliados (`pair_synergies`). `allies`: [(cid, peso)] (elegido 1,
+        marcado 0,5); `ally_roles`: {cid: rol} del cliente. Sin rol (cola a ciegas), el rol principal
+        del aliado con la mitad de peso. Devuelve (pp, motivos, hay_datos): sin datos propios, 0."""
+        fn = getattr(self.lola, "synergies", None)
+        if not callable(fn) or not fn(cid, role):
+            return 0.0, [], False
+        ally_roles = ally_roles or {}
+        by_role: dict = {}
         total, why = 0.0, []
         for a, w in allies:
             if not a or w <= 0:
@@ -585,25 +605,36 @@ class Engine:
             if not ar:
                 continue
             w = w * (1.0 if a in ally_roles else 0.5)
-            row = rows.get(f"{a}:{ar}")
-            if not row or not row.get("n"):
+            if ar not in by_role:
+                by_role[ar] = self.pair_synergies(cid, role, ar)
+            mean = by_role[ar].get(str(a))
+            if mean is None:
                 continue
-            # spread del campeón con aliados de ese rol, mezclado con el previo de la pareja
-            same = {}
-            for k, r in rows.items():
-                kc, _, kr = k.partition(":")
-                if kr == ar and r.get("n") and kc.isdigit():
-                    exp = BL.expected_duo(base, 50 + self.meta(int(kc), ar)[0])
-                    same[kc] = {"d2": r["wr"] - exp, "n": r["n"], "wr": r["wr"]}
-            sp = BL.spread(same)
-            m = sp["m"] if sp["m"] >= th["min_matchups"] else 0
-            sig = BL.mix_sigma(sp["spread"], m, BL.SYN_PRIOR[role].get(ar, 0.6), th["prior_matchups"])
-            d = same.get(str(a), {}).get("d2", 0.0)
-            mean, _ = BL.posterior(d, row["n"], sig, row.get("wr"))
             total += w * mean
             if abs(mean) >= 0.4:
                 why.append(("+" if mean > 0 else "-", f"sinergia con tu {self.champs.name(a)} {mean:+.1f}"))
         return total, why, True
+
+    def ally_combos(self, allies) -> tuple[dict, dict]:
+        """Parejas de combo de tus aliados (#85): campeones de los roles aún libres en tu equipo con
+        los que lo que han elegido o marcado gana `COMBO_MIN` pp o más. Devuelve ({(rol, cid str):
+        pp × peso}, {cid str: [nombres de tus aliados]}). Sin datos propios, vacío."""
+        locked = {a[1] for a in allies if a[1] in ROLES and a[2] >= 1}
+        combo: dict = defaultdict(float)
+        who = defaultdict(list)
+        for a in allies:
+            cid, r, w = a[0], a[1], a[2]
+            if not cid or r not in ROLES or w <= 0:
+                continue
+            for lane in ROLES:
+                if lane == r or lane in locked:
+                    continue
+                for partner, s in self.pair_synergies(cid, r, lane).items():
+                    if s >= self.COMBO_MIN:
+                        combo[(lane, partner)] += w * s
+                        if self.champs.name(cid) not in who[partner]:
+                            who[partner].append(self.champs.name(cid))
+        return combo, who
 
     # -- recomendacion principal
     def score(self, cid, role, allies, enemy_ids, enemy_roles, enemy_left_after, autofill=False,
@@ -752,6 +783,7 @@ class Engine:
         return row
 
     BAN_PROTECT = 2.0  # escala de la protección frente a la fuerza (0,4 × fuerza, que puede caer en tu equipo)
+    COMBO_MIN = 1.5  # pp de sinergia medida para llamarlo combo (#85)
 
     def bans(self, role, my_top, blocked, allies=(), my_after=None):
         """Bans recomendados (#73). my_top: tus picks recomendados (el primero, el que juegas); allies:
@@ -794,6 +826,9 @@ class Engine:
                 counter_map[(lane, en)] += wgt * self.BAN_PROTECT * e * -mean
                 if mean <= -1.0 and who not in counter_who[en]:
                     counter_who[en].append(who)
+        # combos de tus aliados (datos propios, #85): banear la pareja de lo que han elegido o
+        # marcado te quita a ti la opción (no banear Ashe si tu support ha marcado Seraphine)
+        combo, combo_who = self.ally_combos(allies)
         best: dict = {}
         for lane in dict.fromkeys([role] + [lane for lane, _ in counter_map]):
             lt = t if lane == role else self.lola.tier(lane)
@@ -806,12 +841,15 @@ class Engine:
                     continue  # de otra línea, solo si countea a un aliado
                 presence = c["pr"] / 100
                 strength = shrink(c["wr"] - (lt or {}).get("avg", 50.0), c["games"], 1500)
-                value = presence * (0.4 * strength + counter) * 100
+                protect = combo.get((lane, cid), 0.0)
+                value = presence * (0.4 * strength + counter - self.BAN_PROTECT * protect) * 100
                 if value <= 0 or value <= best.get(icid, {}).get("value", 0):
                     continue
                 reasons = []
                 if counter_who.get(cid):
                     reasons.append("countea a " + " y a ".join(counter_who[cid][:3]))
+                if protect > 0:
+                    reasons.append("pero hace combo con tu " + " y tu ".join(combo_who[cid][:2]))
                 if strength >= 1:
                     reasons.append(f"{c['wr']:.1f}% WR en Master+")
                 reasons.append(f"{c['pr']:.1f}% pick · {c['br']:.0f}% ban")

@@ -62,6 +62,9 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
   CORS que el panel nunca da). Cuerpos de más de 1 MiB o que no son un objeto JSON, 413 y 400.
 
 ### Cambiado
+- Si el cliente rechaza confirmar con `PATCH` (`completed`), Nachero confirma lo que ya está
+  marcado con el otro camino de la API local (`POST …/actions/{id}/complete`): un rechazo
+  puntual ya no acaba en esquivar la partida.
 - Fuera de tu turno, lo marcado es tu **intención de pick** (lo que ven tus aliados), aunque la
   acción guarde una marca anterior. Con tu ban en curso no se toca tu pick: se sigue al acabar los
   bans.

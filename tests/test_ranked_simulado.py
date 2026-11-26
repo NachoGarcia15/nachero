@@ -45,6 +45,7 @@ class Ranked:
         self.sticky = sticky
         self.patches: list = []
         self.slow = 0  # PATCH que el cliente aplica pero no responde a tiempo
+        self.reject_lock = False  # el cliente no acepta confirmar con PATCH (sí con POST …/complete)
         self.last_error = None
         bans = [{"id": 100 + c, "actorCellId": c, "championId": 0, "completed": False, "isAllyAction": c < 5,
                  "isInProgress": False, "type": "ban"} for c in range(10)]  # fmt: skip
@@ -144,9 +145,22 @@ class Ranked:
     def raw(self, method, path, body=None, timeout=5):
         if not path.startswith(ACTIONS):
             return b""
+        if path.endswith("/complete"):  # POST …/complete: confirma lo que esté marcado
+            a = self.action(int(path[len(ACTIONS) : -len("/complete")]))
+            self.patches.append((a["id"], {"complete": True}))
+            if not a["isInProgress"] or not a["championId"]:
+                self.last_error = "HTTP 500: Invalid action"
+                return None
+            a.update(completed=True, isInProgress=False)
+            self.row(self.me).update(championId=a["championId"], championPickIntent=0)
+            self.stamp()
+            return b""
         aid = int(path[len(ACTIONS) :])
         a = self.action(aid)
         self.patches.append((aid, dict(body)))
+        if body.get("completed") and self.reject_lock:
+            self.last_error = "HTTP 400: Invalid request"
+            return None
         banning = any(b["isInProgress"] for b in self.s["actions"][0]) and self.s["timer"]["phase"] == "BAN_PICK"
         if a["completed"] or (a["type"] == "pick" and banning):
             self.last_error = "HTTP 500: Invalid action"
@@ -333,6 +347,21 @@ def test_el_jugador_cambia_fuera_de_turno_y_se_confirma_lo_suyo(champs, auto):
     lcu.wait(23)
     tick(d, lcu)
     assert mine_patches(lcu) == [{"championId": b1}, {"championId": otro, "completed": True}]
+
+
+def test_si_el_cliente_rechaza_confirmar_con_patch_usa_complete(champs, auto):
+    lcu = Ranked()
+    lcu.reject_lock = True
+    d = draft(champs, lcu)
+    b1 = tick(d, lcu)["hero"]["id"]
+    lcu.to_bans()
+    lcu.end_bans()
+    lcu.start_turn(2)
+    tick(d, lcu)
+    lcu.wait(23)
+    tick(d, lcu)
+    assert lcu.locked() and lcu.row(1)["championId"] == b1
+    assert lcu.patches[-2:] == [(301, {"championId": b1, "completed": True}), (301, {"complete": True})]
 
 
 def test_cliente_que_rechaza_marcar_lo_dice_con_su_motivo(champs, auto):

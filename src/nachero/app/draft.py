@@ -505,6 +505,8 @@ class Draft:
                 final = now if now and now not in taken else final  # lo marcado en este momento
                 if aid not in self.confirmed:
                     ok = self.patch(aid, {"championId": final, "completed": True})
+                    if ok is False and now == final:  # el otro camino de la API: confirmar lo marcado
+                        ok = self.complete(aid)
                     if ok:
                         self.confirmed.add(aid)
                         self.note(f"Confirmado {name(final)}")
@@ -607,15 +609,24 @@ class Draft:
         rechaza (el motivo, en `last_error`) y None si no responde a tiempo. Entonces no se sabe si
         lo ha aplicado: en ranked el cliente espera al servidor, que a veces tarda. Un fallo de red
         nunca corta el tick (antes se perdía la vuelta y la marca de Nachero parecía del jugador)."""
+        return self.send_action("PATCH", f"/lol-champ-select/v1/session/actions/{aid}", body, aid)
+
+    def complete(self, aid):
+        """Confirma lo que ya esté marcado en la acción `aid` con el otro camino de la API local
+        (`POST …/complete`), por si el cliente rechaza el PATCH con `completed`. Como `patch`."""
+        return self.send_action("POST", f"/lol-champ-select/v1/session/actions/{aid}/complete", None, aid)
+
+    def send_action(self, method, path, body, aid):
         t0 = time.perf_counter()
-        path = f"/lol-champ-select/v1/session/actions/{aid}"
+        ok: bool | None
         try:
-            ok = self.lcu.raw("PATCH", path, body, timeout=self.ACTION_TIMEOUT) is not None
+            ok = self.lcu.raw(method, path, body, timeout=self.ACTION_TIMEOUT) is not None
             self.last_error = None if ok else (getattr(self.lcu, "last_error", None) or "sin motivo")
         except Exception as e:
             ok, self.last_error = None, f"sin respuesta ({e.__class__.__name__})"
         ms = round((time.perf_counter() - t0) * 1000)
-        self.log_trace("patch", {"aid": aid, "body": body, "ok": ok, "error": self.last_error, "ms": ms})
+        self.log_trace("patch", {"aid": aid, "method": method, "body": body, "ok": ok, "error": self.last_error,
+                                 "ms": ms})  # fmt: skip
         return ok
 
     def choose(self, kind, cid):

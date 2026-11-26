@@ -621,7 +621,7 @@ class Engine:
         pp × peso}, {cid str: [nombres de tus aliados]}). Sin datos propios, vacío."""
         locked = {a[1] for a in allies if a[1] in ROLES and a[2] >= 1}
         combo: dict = defaultdict(float)
-        who = defaultdict(list)
+        who: dict = defaultdict(list)
         for a in allies:
             cid, r, w = a[0], a[1], a[2]
             if not cid or r not in ROLES or w <= 0:

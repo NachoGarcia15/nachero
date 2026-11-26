@@ -10,6 +10,7 @@ src/nachero/
   clients/   Cómo hablamos con el exterior "del juego"
              lcu.py      API local del cliente de LoL (lockfile/puerto + token)
              cdragon.py  CommunityDragon: mismos datos estáticos cuando el cliente está cerrado
+             winproc.py  procesos de Windows con ctypes (línea de comandos del cliente sin consolas)
   sources/   Fuentes de datos (red, caché en disco, parseo)
              champions.py  metadatos e imágenes de campeones
              history.py    historial del jugador (rol de cada partida)
@@ -20,6 +21,7 @@ src/nachero/
              health.py   salud de una fuente: distingue red de cambio de formato y avisa
              golgg.py      estadísticas de competitivo por torneo
              items.py      objetos y hechizos del cliente (o CommunityDragon) para «En partida»
+             compare.py    leer datos propios y caché de Lolalytics e informe de validación (#21)
              (lolalytics.py también extrae las páginas de runas recomendadas)
   domain/    Lógica pura: sin red ni disco, testeable con dobles
              common.py   roles, tiers, shrink, normalización de nombres
@@ -40,8 +42,11 @@ src/nachero/
              tasks.py    registro de tareas: qué hace la app y su progreso (n de m)
              stats.py    interfaz de las fuentes de estadísticas (StatsProvider) y cadena de respaldo
              calibration.py ¿acierta Nachero?: registro de picks, resultado y calibración
+             validation.py ¿valen los datos propios? Comparación con Lolalytics (#21)
+             cstimer.py  reloj de la champ select: lo que queda de verdad del turno
   app/       Orquestación
-             state.py    estado compartido (APP, TASKS), log
+             state.py    estado compartido (APP, TASKS), log (y trazas de fallos al archivo)
+             trace.py    registro de diagnóstico de cada champ select (logs/selecciones)
              draft.py    champ select de soloq (lee sesión, recomienda, actúa)
              runes.py    importar la página de runas al cliente
              demo.py     draft simulado

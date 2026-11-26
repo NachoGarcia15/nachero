@@ -90,6 +90,31 @@ Las mismas medidas se calculan con los datos propios (#85):
    - La versión pública deja de leer Lolalytics y gol.gg (#24). Quedan solo la API de Riot y
      Leaguepedia.
 
+## Validar los datos propios (#21)
+
+Antes de que los datos propios pasen a ser la fuente principal, se comparan con Lolalytics:
+
+```
+.venv\Scripts\python scripts/validar_datos.py --salida informe.md
+```
+
+Usa lo que ya tiene Nachero en tu carpeta de datos, sin descargar nada: los datos propios
+(`stats_file` o la caché de `stats_url`) y `cache/lolalytics_cache.json`. Con `--own`, `--patch`,
+`--region` y `--league` se compara otro archivo o parche. Por rol (`domain/validation.py`):
+
+- **Correlación del WR relativo** (WR − media del rol) y del pick rate. Relativo porque las tier
+  lists de Lolalytics de la app son de Master+ y los datos propios, de `build_tier`.
+- **Diferencia media y sesgo** en pp, y campeones con **|z| > 3**: z = diferencia / error típico
+  de las dos muestras. Más de 3 no se explica por ruido.
+- **Señal**: fracción del spread de WR propio que no es ruido binomial (2500/n pp²). Cerca de 0 al
+  principio de parche: faltan partidas.
+- **Matchups**: d2 de las páginas de build en caché de la misma liga frente a los propios.
+
+Veredicto orientativo por rol: «coinciden» con correlación ≥ 0,8, señal ≥ 0,5 y como mucho un 5 %
+de campeones con |z| > 3; «se parecen» desde 0,5. **Pendiente**: correrlo en varios momentos del
+parche (día 1, 3 y 7) y apuntar aquí a partir de cuántas partidas por rol pasan a ser la fuente
+principal.
+
 ## Claves de la API de Riot
 
 Se gestionan en developer.riotgames.com (revisado el 22-nov-2026). Son gratuitas.

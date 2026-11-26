@@ -3,9 +3,11 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
-## [0.31.2] - 2026-11-26
+## [0.32.0] - 2026-11-27
 
-Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
+Marcar y confirmar pick en ranked (lo que no funcionaba en el cliente real), seguridad del panel,
+#93 sin destellos de consola, validación de los datos propios (#21) y una revisión de bugs y de la
+interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
 
 ### Corregido
 - **Confirmar pick no confirmaba**: el reloj de la sesión del cliente es una foto del último
@@ -71,6 +73,11 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
 - Si el cliente no deja marcar o confirmar, el registro dice por qué (su mensaje de error).
 
 ### Añadido
+- **Validar los datos propios frente a Lolalytics** (#21): `scripts/validar_datos.py` compara, por
+  rol, el WR relativo y el pick rate (correlación, diferencia media, sesgo), los campeones que más
+  se desvían (en errores típicos), cuánto de la muestra es ruido y los matchups de la misma liga.
+  Usa lo que ya tiene Nachero en tu carpeta de datos, sin descargar nada, y deja un informe en
+  Markdown. Detalle en `docs/DATOS.md`.
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
   10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
   nombres ni ids de cuenta.

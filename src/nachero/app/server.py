@@ -165,7 +165,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def refused(self) -> bool:
         """Rechaza (403) lo que no venga del propio panel; ver `refusal`."""
-        why = refusal(self.headers, self.command, self.server.server_address[1])
+        addr = self.server.server_address
+        why = refusal(self.headers, self.command, int(addr[1]) if isinstance(addr, tuple) else 0)
         if why:
             self.send(403, {"error": f"petición rechazada ({why})"})
         return bool(why)

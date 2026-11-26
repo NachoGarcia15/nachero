@@ -32,7 +32,10 @@ document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => setV
 
 function setView(v) {
   VIEW = v;
-  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    b.classList.toggle("on", b.dataset.view === v);
+    b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false");  // la pestaña activa, para lectores de pantalla
+  });
   ["draft", "pool", "pro", "log"].forEach((k) => ($("#view-" + k).hidden = k !== v));
   const sec = $("#view-" + v);
   sec.classList.remove("view-in");
@@ -1182,7 +1185,7 @@ function renderBlindSettings(st) {
       <small>Campeones con los que puede responderte (los que suman el 80 % de su maestría; en mid, 7 de media). Nunca se mira quién es.</small>
       <input type="range" id="bl-size" min="1" max="15" step="1" value="${size}"></div>
     <div class="opt"><div class="tx"><b>Modelo de matchups</b><small>${model === "measured" ? "Medido: cada matchup se encoge según sus partidas y cuánto importa esa pareja de líneas (recomendado)." : "Clásico: encogimiento fijo y pesos por línea a mano."}</small>
-      <div class="seg seg-sm" role="radiogroup" aria-label="Modelo de matchups"><button data-model="measured" class="${model === "measured" ? "on" : ""}">Medido</button><button data-model="classic" class="${model === "classic" ? "on" : ""}">Clásico</button></div></div></div>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Modelo de matchups"><button data-model="measured" class="${model === "measured" ? "on" : ""}" role="radio" aria-checked="${model === "measured"}">Medido</button><button data-model="classic" class="${model === "classic" ? "on" : ""}" role="radio" aria-checked="${model === "classic"}">Clásico</button></div></div></div>
     <div class="opt"><div class="tx"><b>Liga de los matchups</b><small>Esmeralda+ da unas 5 veces más partidas por matchup (en Master+ de un parche casi todo es ruido). La fuerza en el parche sigue siendo Master+. Se aplica al reiniciar.</small>
       <div class="seg seg-sm" role="radiogroup" aria-label="Liga de los matchups">${[["emerald_plus", "Esmeralda+"], ["diamond_plus", "Diamante+"], ["master_plus", "Master+"]].map(([k, n]) => `<button data-tier="${k}" class="${tier === k ? "on" : ""}">${n}</button>`).join("")}</div></div></div>`;
   const eR = $("#bl-eta"), sR = $("#bl-size");

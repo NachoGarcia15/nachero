@@ -51,6 +51,8 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   siempre. Ahora sale «Reintentar gol.gg».
 - «En partida»: los porcentajes de la ventaja de draft usaban los colores de daño físico y mágico
   (naranja y morado); ahora, los de la barra y los equipos (azul y rojo).
+- Accesibilidad: la pestaña activa se anuncia (`aria-current`) y el modelo de matchups de Ajustes
+  dice cuál está elegido (`aria-checked`), como el resto de selectores.
 - Ajustes decía que Nachero marca su recomendación «una vez»: desde la 0.31.1 la va cambiando.
 - Plan de Tu pool: «Todos tus campeones son de elegir pronto» salía también con campeones
   intermedios; ahora dice cuáles son de elegir pronto y que falta un counter.

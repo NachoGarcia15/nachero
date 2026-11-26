@@ -39,10 +39,13 @@ from nachero.sources.remote_stats import RemoteStats
 
 
 def pool_row(engine, champs, cid, role):
-    """Fila de Tu pool: tú con el campeón + su fuerza en el rol, a ciegas, con su rol y confianza."""
+    """Fila de Tu pool: tú con el campeón y su fuerza en el rol, con su rol y confianza. El
+    estimado es el del motor a ciegas (sin draft, con el riesgo de counter si eliges primero, tus
+    puntos extra y tu estilo): el mismo número que en la pantalla de espera y en la recomendación."""
     you = engine.player.components(cid, role)
     meta, tr = engine.meta(cid, role)
     est = engine.roles.estimate(cid, role)
+    blind = engine.evaluate(cid, role)
     return {
         "id": cid,
         "name": champs.name(cid),
@@ -63,7 +66,8 @@ def pool_row(engine, champs, cid, role):
         "confidence": est["confidence"],
         "confidence_es": est["confidence_es"],
         "roles_label": engine.roles.label(cid),
-        "est": round(50 + you["total"] * engine.w("pool") + meta * engine.w("meta"), 1),
+        "est": blind["est"],
+        "risk": blind["parts"].get("risk", 0.0),
         "blind": engine.blind_summary(cid, role),  # seguro a ciegas o de counter (#75)
     }
 

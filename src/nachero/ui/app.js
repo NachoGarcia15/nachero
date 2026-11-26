@@ -890,7 +890,7 @@ function renderPool(rows) {
   });
   el.innerHTML = `
     <div class="pool-head">
-      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol${hint("Tu experiencia y resultados con él, más su fuerza en Master+ este parche. Con maestría alta, cada campeón sale también en sus roles principal y flex.")}</p>${historyNote(STATE.history)}</div>
+      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol${hint("Tu experiencia y resultados con él, su fuerza en Master+ este parche y el riesgo de que te counteen si eliges primero: el mismo cálculo que la pantalla de espera. Con maestría alta, cada campeón sale también en sus roles principal y flex.")}</p>${historyNote(STATE.history)}</div>
       <div class="pool-tools"><label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" id="pool-q" placeholder="Buscar campeón…" aria-label="Buscar campeón en tu pool" autocomplete="off" value="${esc(POOL_Q)}"></label>
       <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos <small>${rows.length}</small></button>${ROLE_BTNS.map(([r, t]) => `<button data-r="${r}" class="${POOL_ROLE === r ? "on" : ""}" ${count(r) ? "" : "disabled"}>${t} <small>${count(r)}</small></button>`).join("")}</div></div>
     </div>

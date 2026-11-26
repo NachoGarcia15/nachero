@@ -34,6 +34,10 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
 - Un fallo que se repite en cada vuelta del bucle se apunta una vez (y cuántas veces más se ha
   repetido) en lugar de llenar la Actividad cada segundo; su traza completa va al archivo de
   registro. «Selección lenta», como mucho una vez cada 30 s.
+- **Tu pool y la pantalla de espera daban otro WR para el mismo campeón**: Tu pool sumaba solo tu
+  parte y la fuerza en el parche; la recomendación cuenta además el riesgo de counter a ciegas,
+  tus puntos de «practicando» y tu estilo. Ahora Tu pool usa el mismo cálculo del motor y el mismo
+  campeón sale con el mismo número en las dos vistas (y el plan de Tu pool ordena con él).
 - **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
   estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
   ratón.

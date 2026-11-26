@@ -187,6 +187,20 @@ def test_pool_maestria_en_roles_principal_y_flex(real_champs):
     assert {r["role_key"] for r in rows if r["id"] == LEE_SIN} == {"jungle"}
 
 
+def test_tu_pool_y_la_pantalla_de_espera_dan_el_mismo_estimado(real_champs):
+    """Antes Tu pool sumaba solo tú + parche: el mismo campeón salía con otro WR que en la pantalla
+    de espera (que cuenta el riesgo de counter a ciegas, tus puntos extra y tu estilo)."""
+    juegos = [game(LEE_SIN, "jungle")] * 6 + [game(TALIYAH, "jungle", win=False)] * 4
+    eng, _ = engine(real_champs, games=juegos, cfg={"pool_bonus": {"Taliyah": 1.5}})
+    rows = {r["id"]: r for r in pool_rows(eng, real_champs) if r["role_key"] == "jungle"}
+    idle = {p["id"]: p for p in eng.picks("jungle", set(), set(), [], [])[0]}
+    for cid in (LEE_SIN, TALIYAH):
+        assert rows[cid]["est"] == idle[cid]["est"]
+    sin, _ = engine(real_champs, games=juegos)
+    sin_rows = {r["id"]: r for r in pool_rows(sin, real_champs) if r["role_key"] == "jungle"}
+    assert round(rows[TALIYAH]["est"] - sin_rows[TALIYAH]["est"], 1) == 1.5  # «practicando» cuenta
+
+
 def test_buscador_en_tu_pool(real_champs):
     eng, _ = engine(real_champs)
     row = evaluate(eng, real_champs, TEEMO, "jungle", view="pool")

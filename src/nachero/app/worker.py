@@ -11,7 +11,7 @@ from nachero import paths
 from nachero.app.demo import Demo
 from nachero.app.draft import Draft
 from nachero.app.runes import RuneImporter
-from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, demo_must_stop, log, set_demo
+from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, Repeats, demo_must_stop, log, log_error, set_demo
 from nachero.app.trace import Trace
 from nachero.clients.cdragon import CDragon, latest_patch
 from nachero.clients.lcu import LCU
@@ -445,8 +445,44 @@ def worker():
         except Restart as e:
             log(str(e), "ok")
         except Exception as e:
-            log(f"Reiniciando tras un error ({e.__class__.__name__}: {e})", "warn")
+            log_error(f"Reiniciando tras un error ({e.__class__.__name__}: {e})", e)
             time.sleep(3)
+
+
+HISTORY_BUSY = threading.Lock()  # una sola lectura del historial a la vez
+
+
+def refresh_history(lcu, engine) -> bool:
+    """Al acabar una partida: historial, «¿Acierta Nachero?» y tu modelo personal. Va en segundo
+    plano: el historial puede tardar más de un minuto y, si el cliente falla, antes se reiniciaba
+    toda la sesión. Si ya se está leyendo, no hace nada (False)."""
+    if not HISTORY_BUSY.acquire(blocking=False):
+        return False
+    try:
+        TASKS.start("history", detail="Partida nueva: actualizando…")
+        games = load_history(
+            lcu, str(paths.history_file()), CFG["history_queues"], log, str(paths.history_import_file())
+        )
+        TASKS.finish("history", f"{len(games)} partidas de la Grieta")
+        with contextlib.suppress(Exception):
+            if resolve_records(games):
+                log("Partida apuntada en «¿Acierta Nachero?»", "ok")
+            enrich_records(lcu, engine)
+        mastery = lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20)
+        if not isinstance(mastery, list):  # sin respuesta: la que ya tenía
+            mastery = list(engine.player.mastery.values())
+        engine.player = player = Player(games, mastery)
+        with LOCK:
+            APP["history"] = player.history_summary(APP.get("rank"))
+            APP["games"] = len(player.games)
+            APP["refresh_idle"] = True  # Tu pool, con la partida nueva
+        return True
+    except Exception as e:
+        TASKS.fail("history", f"No he podido leer el historial ({e.__class__.__name__})")
+        log_error(f"No he podido actualizar el historial ({e.__class__.__name__}: {e})", e)
+        return False
+    finally:
+        HISTORY_BUSY.release()
 
 
 def client_ready(lcu):
@@ -634,6 +670,8 @@ def run_session():
     last_tiers = time.time()
     fails = 0  # fallos seguidos al leer la fase: el cliente a veces tarda mas de 5 s
     queue, queue_tries, queue_logged = None, 0, False  # tipo de cola de la champ select actual
+    failures = Repeats()  # un fallo que se repite cada segundo se apunta una vez
+    last_slow = 0.0  # último aviso de «Selección lenta» (uno cada 30 s como mucho)
     while True:
         mode = APP["mode"]
         if not online:
@@ -669,22 +707,8 @@ def run_session():
                 draft.reset()
                 queue, queue_tries, queue_logged = None, 0, False
                 last_cs = None
-            if phase in ("EndOfGame", "PreEndOfGame"):
-                TASKS.start("history", detail="Partida nueva: actualizando…")
-                games = load_history(
-                    lcu, str(paths.history_file()), CFG["history_queues"], log, str(paths.history_import_file())
-                )
-                TASKS.finish("history", f"{len(games)} partidas de la Grieta")
-                with contextlib.suppress(Exception):
-                    if resolve_records(games):
-                        log("Partida apuntada en «¿Acierta Nachero?»", "ok")
-                    enrich_records(lcu, engine)
-                engine.player = player = Player(
-                    games, lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery", timeout=20) or []
-                )
-                with LOCK:
-                    APP["history"] = player.history_summary(APP.get("rank"))
-                    APP["games"] = len(player.games)
+            if phase in ("EndOfGame", "PreEndOfGame") and online and not OPTS["demo"]:
+                threading.Thread(target=refresh_history, args=(lcu, engine), daemon=True).start()
             if phase != "ChampSelect":
                 with LOCK:
                     APP["draft"] = None
@@ -767,7 +791,8 @@ def run_session():
                             t0 = time.time()
                             d = champ_select_view(draft, s, acting, queue)
                             slow = time.time() - t0
-                            if slow > SLOW_TICK:  # para localizar esperas en el cliente real
+                            if slow > SLOW_TICK and time.time() - last_slow > 30:  # esperas en el cliente real
+                                last_slow = time.time()
                                 parts = " · ".join(f"{k} {v:.1f} s" for k, v in draft.timings.items() if v >= 0.5)
                                 log(f"Selección lenta: {slow:.1f} s en analizar ({parts or 'sin detalle'})", "warn")
                             rec = draft.pop_record()
@@ -787,5 +812,5 @@ def run_session():
                         with LOCK:
                             APP["game"] = g
             except Exception as e:
-                log(f"Fallo puntual ({e.__class__.__name__}: {e}); reintento.", "warn")
+                failures.report("Fallo puntual", e)
         time.sleep(1)

@@ -26,6 +26,14 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
   queda de respaldo y sin ventana. Si el cliente va como administrador, sigue el `lockfile`.
 - El acceso directo del Menú Inicio (`--install-shortcut`) se crea sin ventanas y funciona con
   carpetas de usuario con apóstrofo (O'Brien).
+- **Al acabar una partida, un fallo del cliente reiniciaba toda la sesión**: el historial (hasta
+  60 s) y la maestría se leían fuera de la protección del bucle; si el cliente tardaba o fallaba,
+  Nachero volvía a cargarlo todo. Ahora se leen en segundo plano y una sola vez a la vez (antes,
+  dos: en PreEndOfGame y en EndOfGame, con el bucle parado), y si la maestría no llega se queda la
+  que había (antes se perdía).
+- Un fallo que se repite en cada vuelta del bucle se apunta una vez (y cuántas veces más se ha
+  repetido) en lugar de llenar la Actividad cada segundo; su traza completa va al archivo de
+  registro. «Selección lenta», como mucho una vez cada 30 s.
 - **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
   estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
   ratón.

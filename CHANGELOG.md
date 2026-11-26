@@ -45,6 +45,9 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   perdían tus ajustes). Ahora arranca, guarda una copia en `config.roto.json` y lo dice en la
   Actividad. Un valor con un tipo que no toca (p. ej. `"weights": "x"`, que rompía el motor en cada
   vuelta) no entra: se queda el de por defecto.
+- Historial y perfil guardados con un formato inesperado (otro tipo o partidas a medias) hacían
+  que la sesión fallara en cada intento («Reiniciando tras un error» cada 3 s). Ahora se ignora lo
+  que no vale, y una partida rara del historial del cliente no impide leer las demás.
 - **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
   estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
   ratón.

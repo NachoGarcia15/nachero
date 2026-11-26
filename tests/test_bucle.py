@@ -92,3 +92,36 @@ def test_una_sola_lectura_a_la_vez(sin_disco):
     t.start()
     t.join(5)
     assert not worker.HISTORY_BUSY.locked()
+
+
+# ------------------------------------------------------------------ historial roto
+def test_historial_con_archivos_rotos_y_partidas_raras(tmp_path):
+    import json
+
+    from nachero.sources.history import load_history, valid_games
+
+    buena = {"gameId": 1, "t": 5, "patch": "16.23", "champ": 163, "role": "jungle", "win": True, "k": 1, "d": 1,
+             "a": 1, "gpm": 400, "dpm": 600, "cspm": 6}  # fmt: skip
+    cache = tmp_path / "history_cache.json"
+    cache.write_text(json.dumps([buena, {"gameId": 2}, "x", None]), encoding="utf-8")  # a medias y basura
+    imp = tmp_path / "history_import.json"
+    imp.write_text(json.dumps({"no": "es una lista"}), encoding="utf-8")
+
+    def partida(gid, **cambios):
+        g = {"gameId": gid, "queueId": 420, "gameDuration": 1800, "gameCreation": 10 + gid, "gameVersion": "16.23.1",
+             "participants": [{"championId": 64, "spell1Id": 11, "spell2Id": 4, "timeline": {},
+                               "stats": {"win": False, "kills": 3, "deaths": 2, "assists": 9, "goldEarned": 12000,
+                                         "totalDamageDealtToChampions": 15000, "totalMinionsKilled": 40,
+                                         "neutralMinionsKilled": 150}}]}  # fmt: skip
+        g.update(cambios)
+        return g
+
+    class Cliente:
+        def req(self, method, path, timeout=None):
+            raras = [partida(4, participants=[]), partida(5, gameVersion=None), {"queueId": 420}]
+            return {"games": {"games": [partida(3), *raras]}}
+
+    games = load_history(Cliente(), str(cache), [420], lambda *a: None, str(imp))
+    assert [g["gameId"] for g in games] == [3, 1]  # las raras no tumban la lectura del resto
+    assert valid_games(json.loads(cache.read_text(encoding="utf-8"))) == games
+    assert valid_games({"a": 1}) == [] and valid_games(None) == []

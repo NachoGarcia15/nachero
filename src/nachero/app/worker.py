@@ -31,7 +31,7 @@ from nachero.domain.stats import ChainStats, source_of
 from nachero.jsonio import read_json, write_json
 from nachero.sources.champions import Champs
 from nachero.sources.golgg import GolGG
-from nachero.sources.history import load_history, role_of
+from nachero.sources.history import load_history, role_of, valid_games
 from nachero.sources.items import Items
 from nachero.sources.local_stats import LocalStats
 from nachero.sources.lolalytics import Lolalytics
@@ -568,10 +568,8 @@ def run_session():
     else:
         TASKS.skip("client", "Cerrado: sigo sin él")
     open_profile(lcu if online else None)
-    try:
-        pcache = read_json(paths.player_file(), {})
-    except Exception:
-        pcache = {}
+    pcache = read_json(paths.player_file(), {})
+    pcache = pcache if isinstance(pcache, dict) else {}  # roto: se vuelve a escribir al conectar
     if online:
         TASKS.start("history", detail="Leyendo tus últimas 200 partidas…")
         games = load_history(
@@ -598,11 +596,10 @@ def run_session():
         with LOCK:
             APP["rank"] = rank
     else:
-        try:
-            games = read_json(paths.history_file(), [])
-        except Exception:
-            games = []
+        games = valid_games(read_json(paths.history_file(), []))
         mastery, rank = pcache.get("mastery", []), pcache.get("rank")
+        mastery = mastery if isinstance(mastery, list) else []
+        rank = rank if isinstance(rank, dict) else None
         TASKS.finish("history", f"{len(games)} partidas guardadas" if games else "Sin partidas guardadas")
         TASKS.finish("mastery", "Guardada" if mastery else "Sin datos guardados")
     src = lcu if online else CDragon()

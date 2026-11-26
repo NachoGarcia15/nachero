@@ -72,13 +72,67 @@ def final_items(p: dict, catalog: dict) -> tuple[list[int], list[int]]:
     return sorted(i for i in held if i in legendary), sorted(i for i in held if i in boots)
 
 
-def add_match(doc: dict, match: dict, catalog: dict | None = None) -> bool:
+SKILL_KEYS = {1: "Q", 2: "W", 3: "E", 4: "R"}
+ORDER_LEVELS = 11  # primeros niveles del orden de habilidades (hasta la 2.ª R: lo que se repite)
+START_MS = 90_000  # compras de antes del minuto y medio: objetos iniciales
+
+
+def timeline_builds(timeline: dict, catalog: dict | None) -> dict[int, dict]:
+    """De los eventos de match-v5 (`/timeline`), por participante (1–10): orden de habilidades
+    (primeros `ORDER_LEVELS` niveles, «QEWQQRQEQEE»), objetos iniciales (ordenados) y los tres
+    primeros objetos completos en orden de compra. Las compras deshechas no cuentan."""
+    legendary = set((catalog or {}).get("legendary") or ())
+    events = sorted(
+        (e for f in ((timeline or {}).get("info") or {}).get("frames") or [] for e in f.get("events") or []),
+        key=lambda e: e.get("timestamp", 0),
+    )
+    out: dict[int, dict] = {}
+    for e in events:
+        pid = e.get("participantId")
+        if not isinstance(pid, int):
+            continue
+        st = out.setdefault(pid, {"order": "", "start": [], "bought": []})
+        kind = e.get("type")
+        if kind == "SKILL_LEVEL_UP" and e.get("levelUpType", "NORMAL") == "NORMAL":
+            if len(st["order"]) < ORDER_LEVELS and e.get("skillSlot") in SKILL_KEYS:
+                st["order"] += SKILL_KEYS[e["skillSlot"]]
+        elif kind == "ITEM_PURCHASED" and isinstance(e.get("itemId"), int):
+            if e.get("timestamp", 0) <= START_MS:
+                st["start"].append(e["itemId"])
+            st["bought"].append(e["itemId"])
+        elif kind == "ITEM_UNDO" and isinstance(e.get("beforeId"), int) and e["beforeId"]:
+            for key in ("start", "bought"):  # deshace la última compra de ese objeto
+                if e["beforeId"] in st[key]:
+                    idx = len(st[key]) - 1 - st[key][::-1].index(e["beforeId"])
+                    st[key].pop(idx)
+    for st in out.values():
+        core: list[int] = []
+        for i in st.pop("bought"):
+            if i in legendary and i not in core:
+                core.append(i)
+        st["core"] = core[:3] if len(core) >= 3 else []
+        st["start"] = sorted(st["start"])
+    return out
+
+
+def _add_listed(rows: list, key: str, value, win: bool) -> None:
+    """Suma a la fila de `rows` cuyo `key` es `value` (la crea si no está)."""
+    same = next((r for r in rows if r[key] == value), None)
+    if same is None:
+        same = {key: value, "games": 0, "wins": 0}
+        rows.append(same)
+    _add(same, win)
+
+
+def add_match(doc: dict, match: dict, catalog: dict | None = None, timeline: dict | None = None) -> bool:
     """Suma una partida al documento de su parche. False si no vale (cola, remake, posiciones).
-    Con `catalog` (objetos completos y botas del parche, `items.catalog`), cuenta también la build."""
+    Con `catalog` (objetos completos y botas del parche, `items.catalog`), cuenta también la build;
+    con `timeline` (#90), el orden de habilidades, los objetos iniciales y el núcleo en orden."""
     info = match["info"]
     doc["totals"]["games"] += 1
     players = []
-    for p in info["participants"]:
+    events = timeline_builds(timeline, catalog) if timeline else {}
+    for k, p in enumerate(info["participants"]):
         cid, role, win = str(p["championId"]), POSITION[p["teamPosition"]], bool(p["win"])
         players.append((cid, role, win, p["teamId"]))
         champ = doc["champions"].setdefault(cid, {"bans": 0, "roles": {}})
@@ -108,6 +162,14 @@ def add_match(doc: dict, match: dict, catalog: dict | None = None) -> bool:
                 _add(row.setdefault("items", {}).setdefault(str(i), {}), win)
             for b in boots:
                 _add(row.setdefault("boots", {}).setdefault(str(b), {}), win)
+        ev = events.get(p.get("participantId", k + 1))
+        if ev:
+            if len(ev["order"]) == ORDER_LEVELS:
+                _add_listed(row.setdefault("skills", []), "order", ev["order"], win)
+            if ev["start"]:
+                _add_listed(row.setdefault("starts", []), "ids", ev["start"], win)
+            if ev["core"]:
+                _add_listed(row.setdefault("cores", []), "ids", ev["core"], win)
     for team in info.get("teams", []):
         for b in team.get("bans", []):
             if b.get("championId", -1) > 0:
@@ -130,5 +192,6 @@ def trim_runes(doc: dict, keep: int = 8) -> None:
     for champ in doc["champions"].values():
         for row in champ["roles"].values():
             row["runes"] = sorted(row.get("runes", []), key=lambda r: -r["games"])[:keep]
-            if "spells" in row:
-                row["spells"] = sorted(row["spells"], key=lambda r: -r["games"])[:keep]
+            for key in ("spells", "skills", "starts", "cores"):
+                if key in row:
+                    row[key] = sorted(row[key], key=lambda r: -r["games"])[:keep]

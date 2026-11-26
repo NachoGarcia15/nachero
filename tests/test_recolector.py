@@ -167,6 +167,20 @@ def test_pasada_completa(tmp_path):
     assert LocalStats(tmp_path / "data").refresh_tiers("16.23") == 5
 
 
+def test_timeline_solo_si_se_pide(tmp_path):
+    """--timeline: una petición más por partida (#90); sin él, ni una."""
+    tl = {"info": {"frames": [{"events": [{"type": "SKILL_LEVEL_UP", "timestamp": 1, "participantId": 1,
+                                            "skillSlot": 1, "levelUpType": "NORMAL"}]}]}}  # fmt: skip
+    r, api = riot({"/timeline": tl, **routes(2)})
+    C.collect(r, tmp_path / "a", tmp_path / "s.json", now=lambda: 1_795_100_000, log=lambda *a: None)
+    assert not [u for u in api.urls if u.endswith("/timeline")]
+    r, api = riot({"/timeline": tl, **routes(2)})
+    s = C.collect(
+        r, tmp_path / "b", tmp_path / "s2.json", now=lambda: 1_795_100_000, log=lambda *a: None, timeline=True
+    )
+    assert s["counted"] == 2 and len([u for u in api.urls if u.endswith("/timeline")]) == 2
+
+
 def test_no_cuenta_dos_veces_y_acumula(tmp_path):
     r, _ = riot(routes(2))
     kw = {"now": lambda: 1_795_100_000, "log": lambda *a: None}

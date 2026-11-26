@@ -56,13 +56,27 @@ def _build_ok(r: dict) -> bool:
         if not isinstance(block, dict) or not all(str(i).isdigit() and _counts_ok(v) for i, v in block.items()):
             return False
     spells = r.get("spells", [])
-    if not isinstance(spells, list):
+    if not isinstance(spells, list) or not all(_counts_ok(s) and _ids_ok(s.get("ids"), 2) for s in spells):
         return False
-    return all(
-        _counts_ok(s) and isinstance(s.get("ids"), list) and len(s["ids"]) == 2
-        and all(isinstance(x, int) and not isinstance(x, bool) for x in s["ids"])
-        for s in spells
-    )  # fmt: skip
+    # del timeline (#90): orden de habilidades, objetos iniciales y núcleo en orden de compra
+    for key in ("skills", "starts", "cores"):
+        rows = r.get(key, [])
+        if not isinstance(rows, list) or not all(_counts_ok(s) for s in rows):
+            return False
+        for s in rows:
+            if key == "skills":
+                ok = isinstance(s.get("order"), str) and bool(s["order"]) and set(s["order"]) <= set("QWER")
+            else:
+                ok = _ids_ok(s.get("ids"), 3 if key == "cores" else None)
+            if not ok:
+                return False
+    return True
+
+
+def _ids_ok(v, n: int | None) -> bool:
+    """Lista de ids de objeto o hechizo (enteros), de `n` elementos si se pide."""
+    return (isinstance(v, list) and bool(v) and (n is None or len(v) == n)
+            and all(isinstance(x, int) and not isinstance(x, bool) for x in v))  # fmt: skip
 
 
 def _key(k) -> tuple[str, str] | None:
@@ -151,6 +165,15 @@ def _blend(cur: dict | None, prev: dict | None, k: int) -> dict | None:
     return out
 
 
+def _blend_rows(cur: list | None, prev: list | None, field: str) -> list:
+    """Filas con conteos identificadas por `field` (hechizos, órdenes…), como las páginas de runas."""
+    rows = {json.dumps(r[field]): r for r in cur or []}
+    for r in prev or []:
+        key = json.dumps(r[field])
+        rows[key] = {**r, **(_blend(rows.get(key), r, MERGE_K["rune"]) or {})}
+    return list(rows.values())
+
+
 def merge(doc: dict, prev: dict | None) -> dict:
     """El documento con el parche anterior mezclado (si lo hay). Conteos con decimales."""
     if not prev or prev.get("region") != doc.get("region") or prev.get("league") != doc.get("league"):
@@ -171,12 +194,10 @@ def merge(doc: dict, prev: dict | None) -> dict:
                 cb, pb = (cr or {}).get(key) or {}, (pr or {}).get(key) or {}
                 if cb or pb:
                     r[key] = {i: _blend(cb.get(i), pb.get(i), MERGE_K["rune"]) for i in set(cb) | set(pb)}
-            sp = {json.dumps(s["ids"]): s for s in (cr or {}).get("spells", [])}
-            for s in (pr or {}).get("spells", []):
-                key = json.dumps(s["ids"])
-                sp[key] = {**s, **(_blend(sp.get(key), s, MERGE_K["rune"]) or {})}
-            if sp:
-                r["spells"] = list(sp.values())
+            for key, field in (("spells", "ids"), ("skills", "order"), ("starts", "ids"), ("cores", "ids")):
+                blended = _blend_rows((cr or {}).get(key), (pr or {}).get(key), field)
+                if blended:
+                    r[key] = blended
             roles[role] = r
         champs[cid] = {"bans": cur_c.get("bans", 0), "roles": roles}
     out = {**doc, "champions": champs, "merged_with": prev.get("patch")}
@@ -228,10 +249,11 @@ def _shrunk(row) -> float:
 
 
 def _builds(r: dict) -> dict:
-    """Builds del formato de `StatsProvider.build` (#90) con lo que hay sin el timeline: objetos
-    completos y botas del final de la partida y la pareja de hechizos. «pick»: lo más jugado; «win»:
-    lo de mayor WR (encogido) entre lo que tiene el 5 % de las partidas y 30. Sin orden de compra
-    ni de habilidades (hace falta el timeline): `start`, `skills` y `order` vacíos."""
+    """Builds del formato de `StatsProvider.build` (#90): objetos completos y botas del final de la
+    partida y la pareja de hechizos y, si el recolector leyó el timeline, el núcleo en orden de
+    compra (con su WR), los objetos iniciales y el orden de habilidades. «pick»: lo más jugado;
+    «win»: lo de mayor WR (encogido) entre lo que tiene el 5 % de las partidas y 30. Sin timeline,
+    `start`, `skills` y `order` van vacíos y el núcleo son los tres objetos más llevados."""
     games = r.get("games") or 0
     items = {int(i): v for i, v in (r.get("items") or {}).items() if v and v.get("games")}
     boots = {int(i): v for i, v in (r.get("boots") or {}).items() if v and v.get("games")}
@@ -248,21 +270,35 @@ def _builds(r: dict) -> dict:
 
     popular = sorted(items, key=lambda i: -items[i]["games"])
     winning = sorted((i for i in items if items[i]["games"] >= floor), key=lambda i: -_shrunk(items[i]))
+    cores = [c for c in r.get("cores") or [] if c.get("games")]
+    starts = [s for s in r.get("starts") or [] if s.get("games")]
+    skills = [s for s in r.get("skills") or [] if s.get("games")]
 
-    def page(core: list[int], by_wr: bool) -> dict:
+    def page(by_wr: bool) -> dict:
+        tri = best(cores, None, by_wr)[1]  # con timeline: el núcleo en orden de compra, con su WR
+        core = list(tri["ids"]) if tri else (winning if by_wr else popular)[:3]
         rest = [i for i in popular if i not in core][:BUILD_OPTIONS]
         options = [{"id": i, "wr": round(_wr(items[i]), 1), "n": round(items[i]["games"])} for i in rest]
-        sp = best(spells, None, by_wr)[1]
+        sp, st, sk = best(spells, None, by_wr)[1], best(starts, None, by_wr)[1], best(skills, None, by_wr)[1]
         return {
-            "start": [], "core": core, "core_wr": None, "core_n": None, "boots": best(boots, None, by_wr)[0],
-            "options": [options, [], []] if options else [], "skills": "", "order": "",
+            "start": list(st["ids"]) if st else [], "core": core,
+            "core_wr": round(_wr(tri), 1) if tri else None, "core_n": round(tri["games"]) if tri else None,
+            "boots": best(boots, None, by_wr)[0], "options": [options, [], []] if options else [],
+            "skills": skill_priority(sk["order"]) if sk else "", "order": sk["order"] if sk else "",
             "spells": list(sp["ids"]) if sp else [],
         }  # fmt: skip
 
-    out = {"pick": page(popular[:3], False)}
-    if winning:
-        out["win"] = page(winning[:3], True)
+    out = {"pick": page(False)}
+    if winning or any(c["games"] >= floor for c in cores):
+        out["win"] = page(True)
     return out
+
+
+def skill_priority(order: str) -> str:
+    """Prioridad de Q, W y E de un orden de habilidades («QWEQQRQEQEE» → «QEW»): la que más puntos
+    lleva primero; a igualdad, la que se subió antes."""
+    keys = [k for k in "QWE" if k in order]
+    return "".join(sorted(keys, key=lambda k: (-order.count(k), order.index(k))))
 
 
 def derive(doc: dict, prev: dict | None = None) -> dict:

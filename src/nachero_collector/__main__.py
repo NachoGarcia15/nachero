@@ -23,6 +23,11 @@ def parse_args(argv=None):
     )
     c.add_argument("--players", type=int, default=500, help="jugadores por pasada (rotan por divisiones y páginas)")
     c.add_argument("--matches", type=int, default=2000, help="partidas nuevas como mucho por pasada")
+    c.add_argument(
+        "--timeline", action="store_true",
+        help="pide también los eventos de cada partida (orden de habilidades, objetos iniciales y núcleo en "
+        "orden): una petición más por partida, la mitad de partidas por hora",
+    )  # fmt: skip
     pu = sub.add_parser("publicar", help="escribe index.json para publicar la carpeta en un sitio estático")
     pu.add_argument("--out", default="data")
     h = sub.add_parser("historial", help="tu historial completo de la temporada para «Tu pool»")
@@ -45,7 +50,8 @@ def main(argv=None) -> int:
     riot = Riot(key, args.region)
     try:
         if args.cmd == "recoger":
-            collect(riot, args.out, args.state, args.region, args.league, args.players, args.matches)
+            collect(riot, args.out, args.state, args.region, args.league, args.players, args.matches,
+                    timeline=args.timeline)  # fmt: skip
         else:
             n = import_history(riot, args.riot_id, args.out, season_start())
             print(f"{n} partidas en {args.out}: cópialo a la carpeta de tu perfil de Nachero")

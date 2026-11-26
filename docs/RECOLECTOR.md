@@ -46,8 +46,11 @@ hasta entonces se le suponen 50 páginas.
    objetos completos y las botas que llevaba cada uno al final. El catálogo sale de **Data Dragon**
    (público, sin clave: la de Riot nunca va en esa petición), una vez por parche, y se guarda junto
    al estado (`state/items-<parche>.json`). Si no se puede leer, esa pasada no cuenta objetos y el
-   resto sigue igual. El orden de compra y el de habilidades necesitan el *timeline* (una petición
-   más por partida): de momento no se piden.
+   resto sigue igual. Con `--timeline` pide también los eventos de cada partida
+   (`/lol/match/v5/matches/{id}/timeline`): orden de habilidades (11 primeros niveles), objetos
+   iniciales (antes del minuto y medio, sin las compras deshechas) y los tres primeros objetos
+   completos en orden de compra. Es **una petición más por partida**: con la clave personal, la
+   mitad de partidas por hora. Por eso va apagado por defecto.
 
 Límites de la clave personal: 20 peticiones/s y 100 cada 2 min (~3000 por hora). Con los valores
 por defecto, una pasada ronda 2500 peticiones. En un 429 se espera lo que diga `Retry-After`; los
@@ -101,6 +104,7 @@ Esmeralda+), se reparten las 72.000 peticiones. Para la app por defecto, mejor u
 ```
 export RIOT_API_KEY=RGAPI-…            # Windows: set RIOT_API_KEY=RGAPI-…
 python -m nachero_collector recoger --out data --state state/collector.json
+python -m nachero_collector recoger --out data --state state/collector.json --timeline   # con builds completas
 ```
 
 Opciones: `--region euw1`, `--league master_plus|diamond_plus|emerald_plus`, `--players 500`,

@@ -143,3 +143,55 @@ def test_local_stats_y_vista_en_partida(tmp_path):
     assert [i["id"] for i in view["core"]] == [3078, 6630, 3053] and view["boots"]["id"] == 3047
     assert view["slots"][0]["slot"] == 4 and view["slots"][0]["items"][0]["id"] == 3071
     assert IG.build_view(s.build(86, "top"), Items(), "win")["which"] == "win"
+
+
+# ------------------------------------------------------------------ con el timeline (#90)
+def eventos(pid=1):
+    """Timeline de match-v5 de un participante: inicio con Doran y poción (y una compra deshecha),
+    habilidades Q-W-E-Q-Q-R-Q-E-Q-E-E y núcleo Trinity → Goredrinker → Sterak."""
+    ev = [{"type": "ITEM_PURCHASED", "timestamp": 1000, "participantId": pid, "itemId": 1055},
+          {"type": "ITEM_PURCHASED", "timestamp": 1500, "participantId": pid, "itemId": 2003},
+          {"type": "ITEM_PURCHASED", "timestamp": 1800, "participantId": pid, "itemId": 1001},
+          {"type": "ITEM_UNDO", "timestamp": 2000, "participantId": pid, "beforeId": 1001, "afterId": 0},
+          {"type": "ITEM_PURCHASED", "timestamp": 600_000, "participantId": pid, "itemId": 3078},
+          {"type": "ITEM_PURCHASED", "timestamp": 900_000, "participantId": pid, "itemId": 3047},
+          {"type": "ITEM_PURCHASED", "timestamp": 1_100_000, "participantId": pid, "itemId": 6630},
+          {"type": "ITEM_PURCHASED", "timestamp": 1_300_000, "participantId": pid, "itemId": 3078},
+          {"type": "ITEM_PURCHASED", "timestamp": 1_500_000, "participantId": pid, "itemId": 3053}]  # fmt: skip
+    for k, slot in enumerate([1, 2, 3, 1, 1, 4, 1, 3, 1, 3, 3, 2, 2]):
+        ev.append({"type": "SKILL_LEVEL_UP", "timestamp": 60_000 * (k + 1), "participantId": pid, "skillSlot": slot,
+                   "levelUpType": "NORMAL"})  # fmt: skip
+    ev.append({"type": "SKILL_LEVEL_UP", "timestamp": 5, "participantId": pid, "skillSlot": 2, "levelUpType": "EVOLVE"})
+    return {"info": {"frames": [{"events": ev[:10]}, {"events": ev[10:]}]}}
+
+
+def test_timeline_orden_inicio_y_nucleo():
+    got = A.timeline_builds(eventos(), CATALOGO)[1]
+    assert got["order"] == "QWEQQRQEQEE"  # 11 niveles; las evoluciones (Kha'Zix…) no cuentan
+    assert got["start"] == [1055, 2003]  # las botas deshechas no cuentan
+    assert got["core"] == [3078, 6630, 3053]  # en orden de compra, sin repetir y sin botas
+    assert dataset.skill_priority("QWEQQRQEQEE") == "QEW" and dataset.skill_priority("QWE") == "QWE"
+
+
+def test_con_timeline_la_build_trae_orden_inicio_y_nucleo_con_su_wr():
+    m = partida({0: ([3078, 6630, 3047, 3053, 0, 0, 3340], (11, 4))})
+    doc = A.new_doc("16.23", "euw1", "emerald_plus", "test")
+    A.add_match(doc, m, CATALOGO, eventos(1))
+    p0 = m["info"]["participants"][0]
+    row = doc["champions"][str(p0["championId"])]["roles"][A.POSITION[p0["teamPosition"]]]
+    assert row["skills"][0]["order"] == "QWEQQRQEQEE" and row["cores"][0]["ids"] == [3078, 6630, 3053]
+    doc["generated"] = "2026-11-27T00:00:00Z"
+    assert dataset.validate(doc) == []
+    key = f"{p0['championId']}:{A.POSITION[p0['teamPosition']]}"
+    b = dataset.derive(doc)["builds"][key]["pick"]
+    assert b["core"] == [3078, 6630, 3053] and b["core_n"] == 1 and b["core_wr"] in (0.0, 100.0)
+    assert b["start"] == [1055, 2003] and b["order"] == "QWEQQRQEQEE" and b["skills"] == "QEW"
+
+
+def test_timeline_no_valido_se_rechaza():
+    doc = documento()
+    doc["champions"]["86"]["roles"]["top"]["skills"] = [{"order": "QXZ", "games": 1, "wins": 0}]
+    assert dataset.validate(doc)
+    doc = documento()
+    doc["champions"]["86"]["roles"]["top"]["cores"] = [{"ids": [3078, 6630], "games": 1, "wins": 0}]
+    assert dataset.validate(doc)

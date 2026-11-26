@@ -111,8 +111,11 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   con el catálogo de objetos de Data Dragon (público, en caché por parche), los objetos completos y
   las botas del final de cada partida. Los datos propios dan así la build de «En partida» (más
   jugada y de mayor WR, con opciones para el 4.º objeto). Campos nuevos y opcionales del esquema 1:
-  los archivos anteriores siguen valiendo. Sin el *timeline* aún no hay orden de compra ni de
-  habilidades. Recolector 0.3.0.
+  los archivos anteriores siguen valiendo. Recolector 0.3.0.
+- **Builds completas con `--timeline`** (#90): el recolector puede pedir los eventos de cada partida
+  (una petición más por partida, apagado por defecto) y contar el orden de habilidades, los objetos
+  iniciales y el núcleo en orden de compra. La build de «En partida» con datos propios trae entonces
+  inicio, núcleo con su WR y partidas, prioridad y orden de habilidades, como la de Lolalytics.
 - **`scripts/ver_seleccion.py`**: cuenta lo que pasó en una selección (la última, por defecto) a
   partir de su registro: fase y reloj, tu pick en el cliente, qué recomendaba y marcaba Nachero y
   qué respondió el cliente a cada marca o confirmación.

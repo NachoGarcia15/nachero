@@ -78,6 +78,9 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   fuera de la caché) y un `index.json` que no es un objeto ya no rompe la descarga en un hilo.
 
 ### Cambiado
+- **El panel ya no pide nada a Google**: las fuentes Geist y Geist Mono (SIL Open Font License,
+  `ui/geist-ofl.txt`) van dentro de la app (~140 KB) en lugar de cargarse de Google Fonts al abrir
+  el panel. Mejor para la privacidad (#27) y con la misma letra sin conexión.
 - Si el cliente rechaza confirmar con `PATCH` (`completed`), Nachero confirma lo que ya está
   marcado con el otro camino de la API local (`POST …/actions/{id}/complete`): un rechazo
   puntual ya no acaba en esquivar la partida.

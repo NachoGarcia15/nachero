@@ -85,3 +85,19 @@ def test_refusal_sin_servidor():
     assert refusal({**ok, "Host": "127.0.0.1:8766"}, "GET", 8765) == "host"  # otro puerto
     assert refusal({"Host": "127.0.0.1:8765"}, "GET", 8765) is None  # un GET no necesita JSON
     assert refusal({}, "GET", 8765) == "host"
+
+
+def test_el_panel_no_pide_nada_fuera(panel):
+    """Fuentes servidas por el propio panel (#27): ni Google Fonts ni otro sitio al abrirlo."""
+    import re
+    from pathlib import Path
+
+    ui = Path(__file__).resolve().parent.parent / "src" / "nachero" / "ui"
+    for name in ("index.html", "style.css"):
+        text = (ui / name).read_text(encoding="utf-8")
+        assert not re.search(r"(src|href)=[\"']https?://|url\(\s*[\"']?https?://|@import", text), name
+    # la licencia OFL va junto a las fuentes
+    assert (ui / "geist-ofl.txt").read_text(encoding="utf-8").startswith("Copyright")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(f"http://127.0.0.1:{panel}/geist.woff2", timeout=5) as r:
+        assert r.headers["Content-Type"] == "font/woff2" and r.read(4) == b"wOF2"

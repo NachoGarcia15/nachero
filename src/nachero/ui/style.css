@@ -1,3 +1,8 @@
+/* Geist y Geist Mono (SIL Open Font License 1.1, ver geist-ofl.txt), servidas por el propio panel:
+   sin peticiones a Google Fonts (privacidad, #27) y con la misma letra sin conexión */
+@font-face { font-family: "Geist"; src: url("/geist.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("/geist-mono.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+
 /* Elevación por capas: fondo → superficie (tarjetas, paneles) → elevado (controles, hover).
    Grafito con un punto frío; el dorado es la marca y el verde, el estado del sistema. */
 :root {

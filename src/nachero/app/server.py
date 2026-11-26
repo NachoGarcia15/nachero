@@ -178,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
     def static_file(path):
         """Archivo del panel para una ruta, o None. Nunca sale de la carpeta ui/."""
         name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
-        if not re.fullmatch(r"[a-z0-9_-]+\.(html|css|js|svg|png|ico)", name):
+        if not re.fullmatch(r"[a-z0-9_-]+\.(html|css|js|svg|png|ico|woff2)", name):
             return None
         f = (paths.UI_DIR / name).resolve()
         return f if f.parent == paths.UI_DIR.resolve() and f.is_file() else None
@@ -200,6 +200,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         static = self.static_file(path)
         if static:
+            if static.suffix == ".woff2":  # las fuentes no cambian entre versiones: un día de caché
+                return self.send(200, static.read_bytes(), "font/woff2", cache=True)
             ctype = mimetypes.guess_type(static.name)[0] or "text/plain"
             return self.send(200, static.read_bytes(), ctype + "; charset=utf-8")
         if path == "/api/instance":  # para que un segundo Nachero en este puerto traiga al frente a este

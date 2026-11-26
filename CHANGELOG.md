@@ -126,7 +126,10 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
 - En tu turno, con «Confirmar pick», el panel dice cuánto falta para que Nachero confirme
   («Nachero confirma lo marcado en 12 s»), con el reloj real.
 - **«Abrir registros»** en Actividad: abre la carpeta con `nachero.log` y `selecciones/` (lo que
-  pasó en cada champ select), para mandarla si algo falla.
+  pasó en cada champ select), para mandarla si algo falla. En Ajustes, **«Tus datos»**: todo se
+  queda en tu PC, con «Abrir carpeta de datos» y cómo borrarlo.
+- **`docs/PRIVACIDAD.md`** (#27): borrador de la política de privacidad con lo que la app guarda en
+  tu PC, lo que descarga y lo que publica el recolector.
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
   10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
   nombres ni ids de cuenta.

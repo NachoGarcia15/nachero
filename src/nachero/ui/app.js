@@ -1119,20 +1119,22 @@ async function copyDiagnostics() {
 }
 $("#view-log").addEventListener("click", (e) => {
   if (e.target.id === "diag") copyDiagnostics();
-  if (e.target.id === "open-logs") openLogs();
+  if (e.target.id === "open-logs") openFolder("logs", "#diag-msg");
 });
 
-async function openLogs() {
-  const msg = $("#diag-msg");
+/* Abre la carpeta de registros («logs») o la de datos («data») en el Explorador. */
+async function openFolder(which, msgSel) {
+  const msg = $(msgSel);
   try {
-    const r = await fetch("/api/open-logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const r = await fetch("/api/open-folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ which }) });
     const out = await r.json();
-    msg.textContent = r.ok ? "Abierta la carpeta de registros" : out.error || "No he podido abrirla";
+    msg.textContent = r.ok ? "Carpeta abierta" : out.error || "No he podido abrirla";
   } catch (_) {
     msg.textContent = "Nachero no responde";
   }
-  setTimeout(() => { if ($("#diag-msg")) $("#diag-msg").textContent = ""; }, 4000);
+  setTimeout(() => { if ($(msgSel)) $(msgSel).textContent = ""; }, 4000);
 }
+$("#open-data").onclick = () => openFolder("data", "#data-msg");
 
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [

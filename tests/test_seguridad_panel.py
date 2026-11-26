@@ -103,14 +103,17 @@ def test_el_panel_no_pide_nada_fuera(panel):
         assert r.headers["Content-Type"] == "font/woff2" and r.read(4) == b"wOF2"
 
 
-def test_abrir_la_carpeta_de_registros(panel, monkeypatch, home):
+def test_abrir_las_carpetas_de_registros_y_de_datos(panel, monkeypatch, home):
     from nachero import paths
     from nachero.app import desktop
 
     abiertas = []
     monkeypatch.setattr(desktop, "open_folder", lambda p: abiertas.append(p))
-    assert call(panel, "/api/open-logs", {}, JSON) == (200, {"ok": True}) and abiertas == [paths.log_dir()]
+    assert call(panel, "/api/open-folder", {"which": "logs"}, JSON) == (200, {"ok": True})
+    assert call(panel, "/api/open-folder", {"which": "data"}, JSON) == (200, {"ok": True})
+    assert abiertas == [paths.log_dir(), paths.user_dir()]
+    assert call(panel, "/api/open-folder", {"which": "C:/Windows"}, JSON)[0] == 400  # solo esas dos
     monkeypatch.setattr(desktop, "open_folder", lambda p: "solo en Windows")
-    code, out = call(panel, "/api/open-logs", {}, JSON)
+    code, out = call(panel, "/api/open-folder", {"which": "logs"}, JSON)
     assert code == 409 and "solo en Windows" in out["error"]
-    assert call(panel, "/api/open-logs", {}, {"Content-Type": "text/plain"})[0] == 403  # otra web no puede
+    assert call(panel, "/api/open-folder", {"which": "logs"}, {"Content-Type": "text/plain"})[0] == 403

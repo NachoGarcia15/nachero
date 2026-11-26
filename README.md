@@ -327,6 +327,8 @@ Los valores por defecto están en `src/nachero/defaults/config.json`; los tuyos,
   Detalles en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - `tests/`: pruebas (sin cliente ni internet).
 - [docs/ROADMAP.md](docs/ROADMAP.md): hoja de ruta y normas de Riot que la condicionan.
+- [docs/PRIVACIDAD.md](docs/PRIVACIDAD.md): qué guarda la app en tu PC, qué descarga y qué publica
+  el recolector (borrador de la política de privacidad, #27).
 - [CONTRIBUTING.md](CONTRIBUTING.md): entorno de desarrollo, comprobaciones y flujo de trabajo.
 - [CHANGELOG.md](CHANGELOG.md): cambios por versión.
 

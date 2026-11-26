@@ -377,8 +377,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(code, out)
         if self.path == "/api/draft/swap":
             return self.send(*swap_request(body))
-        if self.path == "/api/open-logs":  # carpeta de registros (nachero.log y selecciones/)
-            problem = desktop.open_folder(paths.log_dir())
+        if self.path == "/api/open-folder":  # registros (nachero.log y selecciones/) o carpeta de datos
+            folders = {"logs": paths.log_dir, "data": paths.user_dir}
+            which = body.get("which")
+            if which not in folders:
+                return self.send(400, {"error": "carpeta no válida"})
+            problem = desktop.open_folder(folders[which]())
             if problem:
                 return self.send(409, {"error": f"No he podido abrirla: {problem}"})
             return self.send(200, {"ok": True})

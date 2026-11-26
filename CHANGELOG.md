@@ -41,6 +41,10 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
 - **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
   estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
   ratón.
+- Simulador pro sin conexión con gol.gg: el selector de torneo se quedaba en «Cargando…» para
+  siempre. Ahora sale «Reintentar gol.gg».
+- «En partida»: los porcentajes de la ventaja de draft usaban los colores de daño físico y mágico
+  (naranja y morado); ahora, los de la barra y los equipos (azul y rojo).
 - Ajustes decía que Nachero marca su recomendación «una vez»: desde la 0.31.1 la va cambiando.
 - Plan de Tu pool: «Todos tus campeones son de elegir pronto» salía también con campeones
   intermedios; ahora dice cuáles son de elegir pronto y que falta un counter.

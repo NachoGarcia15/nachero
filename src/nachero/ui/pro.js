@@ -243,7 +243,7 @@ function renderPro() {
     <div class="pro-head">
       <div><h1>Simulador de draft pro</h1><p class="muted">${t && t.error ? "No puedo leer gol.gg: " + esc(t.error) : dataLine}</p></div>
       <div class="pro-controls">
-        <select id="pro-tour" aria-label="Torneo">${t && t.all ? [...new Set([...(t.majors || []), ...t.all])].map((n) => `<option ${n === PRO.tournament ? "selected" : ""}>${esc(n)}</option>`).join("") : `<option>${esc(PRO.tournament || "Cargando…")}</option>`}</select>
+        ${t && t.error ? `<button class="btn" id="pro-retry" title="Volver a pedir la lista de torneos a gol.gg">Reintentar gol.gg</button>` : `<select id="pro-tour" aria-label="Torneo">${t && t.all ? [...new Set([...(t.majors || []), ...t.all])].map((n) => `<option ${n === PRO.tournament ? "selected" : ""}>${esc(n)}</option>`).join("") : `<option>${esc(PRO.tournament || "Cargando…")}</option>`}</select>`}
         <button class="btn" id="pro-undo" ${PRO.history.length ? "" : "disabled"}>Deshacer</button>
         <button class="btn" id="pro-reset">Reiniciar</button>
       </div>
@@ -282,6 +282,9 @@ function renderPro() {
   el.querySelectorAll(".gch").forEach((b) => (b.onclick = () => proApply(Number(b.dataset.id))));
   const tour = $("#pro-tour");
   if (tour) tour.onchange = async () => { PRO.tournament = tour.value; await proLoadChamps(); proSuggest(); };
+  // sin gol.gg el selector se quedaba en «Cargando…»: ahora se puede volver a intentar
+  const retry = $("#pro-retry");
+  if (retry) retry.onclick = () => { PRO_UI.inited = false; PRO_UI.tournaments = null; proInit(); };
   $("#pro-undo").onclick = proUndo;
   $("#pro-reset").onclick = () => proReset(false);
   const r2 = $("#pro-reset2"); if (r2) r2.onclick = () => proReset(false);

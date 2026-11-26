@@ -614,7 +614,7 @@ function renderGame(el, g, s) {
           <div class="eyebrow">Ventaja de draft${hint("Cada campeón se puntúa con el motor del draft (fuerza en el parche, matchups, encaje, sinergias y composición), sin tu parte personal. La media de cada equipo es su WR estimado con ese draft; ventaja = (media de tu equipo − media del rival) / 2, así los dos WR suman 100.", "start")}</div>
           ${g.enemy.length ? `<div class="est"><span class="num ${pending ? "muted" : tone(adv)}">${signed(adv)}</span><small>puntos de WR${pending ? " · calculando matchups…" : ""}</small></div>
           <div class="advbar" title="WR estimado de tu equipo ${f1(t.est)} %"><i class="ally" style="width:${Math.max(5, Math.min(95, t.est))}%"></i></div>
-          <div class="dmglbl"><span>Tu equipo ${f1(t.est)} %</span><span>Rival ${f1(100 - t.est)} %</span></div>`
+          <div class="dmglbl teams"><span>Tu equipo ${f1(t.est)} %</span><span>Rival ${f1(100 - t.est)} %</span></div>`
           : `<p class="muted">Sin rivales en esta partida: no hay ventaja que calcular.</p>`}
         </div>
       </article>

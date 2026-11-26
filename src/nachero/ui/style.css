@@ -308,6 +308,9 @@ main { flex: 1 0 auto; width: 100%; max-width: 1320px; margin: 0 auto; padding: 
 .gadv .est { margin-bottom: 12px; }
 .advbar { height: 6px; border-radius: 3px; background: var(--enemy); overflow: hidden; opacity: .85; }
 .advbar i { display: block; height: 100%; background: var(--ally); }
+/* los porcentajes de los equipos, con los colores de la barra (no los de daño físico/mágico) */
+.dmglbl.teams span:first-child { color: var(--ally); }
+.dmglbl.teams span:last-child { color: var(--enemy); }
 .glanes { display: grid; gap: 2px; border-top: 1px solid var(--line); }
 .glane { display: grid; grid-template-columns: 34px minmax(0, 1fr) 54px minmax(0, 1fr); align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
 .glane.me { background: var(--accent-soft); border-radius: 6px; }

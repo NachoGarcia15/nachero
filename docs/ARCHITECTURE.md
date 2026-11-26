@@ -86,7 +86,9 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    la sesión (`blind.pick_order`): picks rivales después del tuyo y sin hacer.
 5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto countea a tu pick y a tus
    aliados, con los matchups en caché, por la probabilidad de que su rival elija después). Con `auto_ban`, `Draft.ban_turn` marca el primero en
-   `BAN_PICK` (nunca lo confirma) y no pisa el que marque el jugador.
+   `BAN_PICK` (nunca lo confirma) y no pisa el que marque el jugador. Con datos propios, las
+   parejas de combo de lo que han elegido o marcado tus aliados (`Engine.ally_combos`, sinergia
+   medida ≥ `COMBO_MIN`) restan como protección (#85).
 6. En modo Activo, `Draft.turn` marca la recomendación de pick, la cambia si cambia la
    recomendación y confirma lo que esté marcado a falta de `lock_when_seconds_left` s. Si lo
    marcado no es nada que haya marcado Nachero (o se eligió en el panel con
@@ -101,7 +103,11 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    - **Diagnóstico**: `app/trace.py` apunta en `logs/selecciones/<fecha>.jsonl` (las 10 últimas)
      la sesión sin datos de jugadores, el reloj, cada decisión y cada PATCH con su respuesta,
      solo cuando cambian. No en la demo.
-7. El panel consulta `/api/state` cada segundo y pinta.
+   - **Combos** (#85, datos propios): `Draft.combo_line` dice si tu pick depende de su pareja
+     (`Engine.combo_advice`: spread de sinergia ≥ `DEP_SIGMA` con un rol aún libre) o lista sus
+     combos para ese rol (`Engine.combo_partners`), con un mensaje para copiar al chat.
+7. El panel consulta `/api/state` cada segundo y pinta. El servidor solo atiende al propio panel
+   (`server.refusal`: `Host`, `Origin` y POST en JSON).
 
 ## En partida (#88)
 
@@ -110,7 +116,9 @@ En `GameStart`, `InProgress` y `Reconnect`, `worker.game_view` lee `/lol-gameflo
 equipo por tu puuid, que no sale de ahí), `ingame.report` puntúa a los diez con `Engine.score`
 (sin tu parte ni el riesgo de counter; los roles rivales, estimados) y `ingame.build_view` arma tu
 build desde `StatsProvider.build` (opcional, como `synergies`). Se recalcula cada 5 s mientras
-faltan matchups o la build y cada minuto después. Fuera de la Grieta no hay vista.
+faltan matchups o la build y cada minuto después. Fuera de la Grieta no hay vista. Con datos
+propios, la build sale de `dataset._builds` (#90): objetos completos, botas y hechizos del final
+de la partida y, si el recolector leyó el *timeline*, inicio, núcleo en orden y habilidades.
 
 ## Arranque y carga visible
 
@@ -137,7 +145,10 @@ entra en una partida (`state.demo_must_stop`).
 - Historial, maestría y rango van por cuenta en `profiles/<puuid>` (`paths.use_profile`, al
   conectar con `/lol-summoner/v1/current-summoner`); sin cliente, el último perfil (`last.json`).
   Los ajustes son comunes a todas las cuentas.
-- No se envía nada del usuario a ningún sitio. Solo se descargan estadísticas públicas.
+- No se envía nada del usuario a ningún sitio. Solo se descargan estadísticas públicas. El panel
+  no pide nada fuera: las fuentes (Geist, OFL) van en `ui/`.
+- Herramientas para revisar sin la app: `scripts/validar_datos.py` (datos propios frente a
+  Lolalytics, #21) y `scripts/ver_seleccion.py` (cronología de una selección desde su registro).
 - Las fuentes externas se piden con caché y ~1,5 s entre peticiones.
 
 ## Decisiones

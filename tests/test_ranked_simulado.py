@@ -258,6 +258,7 @@ def test_sigue_la_recomendacion_fuera_de_turno_y_confirma_con_el_reloj_congelado
         out = tick(d, lcu)
         assert not lcu.locked() and len(lcu.patches) == n
     assert out["timer_left"] == 10  # el panel cuenta de verdad
+    assert out["choose"]["lock_in"] == 2  # «Nachero confirma lo marcado en 2 s»
     lcu.wait(2.5)  # quedan 7,5 s de verdad
     tick(d, lcu)
     assert lcu.locked() and mine_patches(lcu)[-1] == {"championId": b2, "completed": True}

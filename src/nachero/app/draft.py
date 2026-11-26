@@ -1,5 +1,6 @@
 """Logica de la seleccion de campeon en soloq: lee la sesion del cliente, recomienda y (en modo activo) actua."""
 
+import math
 import time
 import webbrowser
 
@@ -499,6 +500,7 @@ class Draft:
             key=f"pick{aid}",
             left=None if left is None else round(left, 1),
         )  # fmt: skip
+        lock_in = None  # segundos hasta que Nachero confirme (para el panel)
         if action["isInProgress"]:
             final = marked or (target["id"] if target else 0)
             # sin reloj no se confirma a ciegas; con 0 s (se acaba el turno), se intenta igual
@@ -518,6 +520,7 @@ class Draft:
                         why = f" ({self.last_error})" if self.last_error else ""
                         self.note(f"El cliente no deja confirmar {name(final)}{why}: lo reintento", "warn")
             elif acting and lock and final:
+                lock_in = max(0, math.ceil(left - secs)) if left is not None else None
                 if by == "player":
                     msg = f"Has elegido {name(final)}: se confirmará {name(final)}"
                 elif by == "nachero":
@@ -533,7 +536,7 @@ class Draft:
                 status.append(("turn", f"Te toca elegir: {target['name']}"))
         elif not acting and hover and target:
             status.append(("info", f"Marcaría {target['name']}"))
-        return {"marked": marked, "by": by}
+        return {"marked": marked, "by": by, "lock_in": lock_in}
 
     def ban_turn(self, action, target, taken, acting, status):
         """Tu ban en curso (solo en BAN_PICK). Con `auto_ban` en modo Activo marca `target` sin

@@ -123,6 +123,8 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
 - **`scripts/ver_seleccion.py`**: cuenta lo que pasó en una selección (la última, por defecto) a
   partir de su registro: fase y reloj, tu pick en el cliente, qué recomendaba y marcaba Nachero y
   qué respondió el cliente a cada marca o confirmación.
+- En tu turno, con «Confirmar pick», el panel dice cuánto falta para que Nachero confirme
+  («Nachero confirma lo marcado en 12 s»), con el reloj real.
 - **«Abrir registros»** en Actividad: abre la carpeta con `nachero.log` y `selecciones/` (lo que
   pasó en cada champ select), para mandarla si algo falla.
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las

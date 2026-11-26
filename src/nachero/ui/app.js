@@ -452,6 +452,7 @@ function renderDraft([d, idle, s]) {
   const best = d.hero;
   const alts = d.locked ? d.picks.slice(0, 6) : d.picks.slice(1, 7);
   const turn = d.status.find((x) => x.kind.startsWith("turn"));
+  const lockIn = d.choose && d.choose.kind === "pick" && d.choose.lock_in != null ? d.choose.lock_in : null;  // cuenta atrás del confirmado
   const infos = d.status.filter((x) => !x.kind.startsWith("turn"));
   const low = d.timer_left <= 8 && d.my_turn;
 
@@ -464,7 +465,7 @@ function renderDraft([d, idle, s]) {
 
     <div class="center">
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
-      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? (d.my_turn === "ban" ? "bánealo tú en el cliente o aquí" : "hazlo tú") : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
+      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? (d.my_turn === "ban" ? "bánealo tú en el cliente o aquí" : "hazlo tú") : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : lockIn != null ? `Nachero confirma lo marcado en ${lockIn} s: cámbialo en el cliente o aquí` : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
       ${chooser(d.choose)}
       ${roleFitLine(d)}
       ${d.slot_line ? `<p class="info-line slotline">${esc(d.slot_line)}</p>` : ""}

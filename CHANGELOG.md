@@ -40,6 +40,11 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   parte y la fuerza en el parche; la recomendación cuenta además el riesgo de counter a ciegas,
   tus puntos de «practicando» y tu estilo. Ahora Tu pool usa el mismo cálculo del motor y el mismo
   campeón sale con el mismo número en las dos vistas (y el plan de Tu pool ordena con él).
+- **Ajustes rotos**: si `config.json` era JSON válido pero no un objeto, Nachero no arrancaba; si
+  estaba corrupto, seguía con los de por defecto sin avisar y el siguiente guardado lo pisaba (se
+  perdían tus ajustes). Ahora arranca, guarda una copia en `config.roto.json` y lo dice en la
+  Actividad. Un valor con un tipo que no toca (p. ej. `"weights": "x"`, que rompía el motor en cada
+  vuelta) no entra: se queda el de por defecto.
 - **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
   estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
   ratón.

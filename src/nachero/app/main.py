@@ -116,6 +116,8 @@ def run(argv=None):
     setup_logging()
     moved = paths.migrate_legacy()
     config.init()
+    if config.PROBLEM["text"]:
+        log(config.PROBLEM["text"], "warn")
     if renamed:
         log(f"Datos de {renamed} pasados a {paths.user_dir()} (draftbot ahora se llama Nachero)", "ok")
     if moved:

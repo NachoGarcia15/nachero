@@ -27,6 +27,14 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
 - El acceso directo del Menú Inicio (`--install-shortcut`) se crea sin ventanas y funciona con
   carpetas de usuario con apóstrofo (O'Brien).
 
+### Seguridad
+- **El panel solo atiende al propio panel.** Escucha en 127.0.0.1, pero cualquier web abierta en
+  el navegador podía mandarle órdenes: activar «Confirmar pick», cambiar la fuente de datos o el
+  inicio con Windows, marcar un campeón o pedir un intercambio. Con un nombre que apunte a
+  127.0.0.1 (DNS rebinding) podía además leer tu estado. Ahora rechaza (403) las peticiones con
+  otro `Host` u otro `Origin` y los POST que no son JSON (desde otra web, eso exige un permiso
+  CORS que el panel nunca da). Cuerpos de más de 1 MiB o que no son un objeto JSON, 413 y 400.
+
 ### Cambiado
 - Fuera de tu turno, lo marcado es tu **intención de pick** (lo que ven tus aliados), aunque la
   acción guarde una marca anterior. Con tu ban en curso no se toca tu pick: se sigue al acabar los

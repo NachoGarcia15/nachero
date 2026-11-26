@@ -46,7 +46,8 @@ src/nachero/
              runes.py    importar la página de runas al cliente
              demo.py     draft simulado
              worker.py   bucle principal y sesión con el cliente
-             server.py   API HTTP del panel y archivos estáticos
+             server.py   API HTTP del panel y archivos estáticos (solo atiende al propio
+                         panel: Host, Origin y POST en JSON; ver `server.refusal`)
              desktop.py  ventana de la app (pywebview), diálogos, instancia única
              tray.py     icono en la bandeja del sistema (Win32 con ctypes)
              updates.py  aviso de nueva versión (latest.json público)

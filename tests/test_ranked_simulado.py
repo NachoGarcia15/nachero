@@ -458,3 +458,28 @@ def test_motivo_del_error_del_cliente():
     assert http_error_text(e) == "HTTP 500: Invalid action"
     e = urllib.error.HTTPError("https://127.0.0.1/x", 404, "Not Found", {}, io.BytesIO(b""))  # type: ignore[arg-type]
     assert http_error_text(e) == "HTTP 404"
+
+
+def test_cronologia_legible_del_registro(champs, auto, tmp_path):
+    """scripts/ver_seleccion.py: lo que pasó en la selección, a partir del registro de diagnóstico."""
+    from nachero.app.trace import timeline
+
+    lcu = Ranked()
+    d = draft(champs, lcu)
+    d.trace = Trace(tmp_path, clock=lcu.clock)
+    d.reset()
+    b1 = tick(d, lcu)["hero"]["id"]
+    lcu.to_bans()
+    lcu.end_bans()
+    lcu.start_turn(2)
+    tick(d, lcu)
+    lcu.wait(23)
+    tick(d, lcu)
+    tick(d, lcu)  # la vuelta siguiente ya ve el pick confirmado
+    lines = [json.loads(x) for x in next(tmp_path.glob("*.jsonl")).read_text(encoding="utf-8").splitlines()]
+    text = "\n".join(timeline(lines, lambda c: f"C{c}"))
+    assert "Fase PLANNING · quedan 30 s" in text and "Fase BAN_PICK" in text
+    assert f"Marcar C{b1} → aceptado" in text and f"Confirmar C{b1} → aceptado" in text
+    assert f"Nachero recomienda C{b1} · marcado C{b1} (de Nachero)" in text
+    assert "Cliente: tu pick, confirmado" in text
+    assert text.index("Fase PLANNING") < text.index("Cliente: tu pick, aún no es tu turno")

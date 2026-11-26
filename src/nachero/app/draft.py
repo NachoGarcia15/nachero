@@ -135,8 +135,8 @@ class Draft:
                 my_pick = {**my_pick, "championId": shown}
         timer = s.get("timer") or {}
         left = self.time_left(timer)  # None: sin reloj (no se confirma a ciegas)
-        self.log_trace("session", session_view(s), key="session")
         self.log_trace("timer", dict(timer), key="timer", left=None if left is None else round(left, 1))
+        self.log_trace("session", session_view(s), key="session")
         # en planificación el cliente ya da los bans como «en curso», pero ignora lo que se marque
         # en ellos (sin error): el turno de ban empieza de verdad en BAN_PICK
         planning = timer.get("phase") == "PLANNING"

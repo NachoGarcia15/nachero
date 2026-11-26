@@ -143,9 +143,10 @@ pero **la última palabra es tuya**:
   en el cliente y cuenta como elección tuya. Solo en modo Activo.
 - El pick se confirma unos segundos antes del final, no a cero: si no da tiempo, en ranked se
   esquiva.
-- Si algo no va como esperas, `logs/selecciones` (en tu carpeta de datos) guarda lo que pasó en
-  cada una de tus 10 últimas selecciones: lo que daba el cliente y lo que hizo Nachero, sin
-  nombres ni ids de cuenta.
+- Si algo no va como esperas, `logs/selecciones` (en tu carpeta de datos; botón «Abrir
+  registros» en Actividad) guarda lo que pasó en cada una de tus 10 últimas selecciones: lo que
+  daba el cliente y lo que hizo Nachero, sin nombres ni ids de cuenta. `python
+  scripts/ver_seleccion.py` lo cuenta en orden.
 
 Si ya los tenías activados, Nachero respeta tus ajustes guardados.
 

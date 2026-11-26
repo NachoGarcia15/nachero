@@ -68,7 +68,7 @@ def spell_pair(p: dict) -> list[int] | None:
 def final_items(p: dict, catalog: dict) -> tuple[list[int], list[int]]:
     """(objetos completos, botas) que llevaba al final: `item0`–`item5` (el 6 es el guardián)."""
     legendary, boots = set(catalog.get("legendary") or ()), set(catalog.get("boots") or ())
-    held = {p.get(f"item{i}") for i in range(6)}
+    held = {x for x in (p.get(f"item{i}") for i in range(6)) if isinstance(x, int)}
     return sorted(i for i in held if i in legendary), sorted(i for i in held if i in boots)
 
 

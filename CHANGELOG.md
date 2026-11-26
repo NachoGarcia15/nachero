@@ -103,7 +103,7 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   las botas del final de cada partida. Los datos propios dan así la build de «En partida» (más
   jugada y de mayor WR, con opciones para el 4.º objeto). Campos nuevos y opcionales del esquema 1:
   los archivos anteriores siguen valiendo. Sin el *timeline* aún no hay orden de compra ni de
-  habilidades.
+  habilidades. Recolector 0.3.0.
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
   10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
   nombres ni ids de cuenta.

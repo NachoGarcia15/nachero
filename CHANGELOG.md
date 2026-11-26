@@ -26,6 +26,12 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
   queda de respaldo y sin ventana. Si el cliente va como administrador, sigue el `lockfile`.
 - El acceso directo del Menú Inicio (`--install-shortcut`) se crea sin ventanas y funciona con
   carpetas de usuario con apóstrofo (O'Brien).
+- **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
+  estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
+  ratón.
+- Ajustes decía que Nachero marca su recomendación «una vez»: desde la 0.31.1 la va cambiando.
+- Plan de Tu pool: «Todos tus campeones son de elegir pronto» salía también con campeones
+  intermedios; ahora dice cuáles son de elegir pronto y que falta un counter.
 
 ### Seguridad
 - **El panel solo atiende al propio panel.** Escucha en 127.0.0.1, pero cualquier web abierta en

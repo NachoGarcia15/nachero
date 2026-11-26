@@ -201,6 +201,7 @@ function renderHeader(s) {
   conn.classList.toggle("off", !!s.offline);
   conn.classList.toggle("seek", searching(s) && !noWin);
   conn.querySelector("span").textContent = noWin && !s.connected ? "Necesita Windows" : s.offline ? "Cliente cerrado" : searching(s) ? "Buscando el cliente" : s.loading ? "Conectado" : s.phase_es || "Conectado";
+  conn.title = conn.querySelector("span").textContent;  // entero al pasar el ratón si la barra lo recorta
   renderWork(s);
   $("#platform").hidden = !noWin;
   if (noWin) $("#platform").textContent = `Nachero necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga nachero.exe y ábrelo en Windows.`;
@@ -1622,7 +1623,7 @@ async function poll() {
   } catch (_) {
     const conn = $("#conn");
     conn.classList.remove("ok", "seek");
-    conn.querySelector("span").textContent = "Nachero no responde";
+    conn.querySelector("span").textContent = conn.title = "Nachero no responde";
     $("#work").hidden = true;
   }
 }

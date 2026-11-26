@@ -48,6 +48,11 @@ def plan(rows: list[dict], role: str, th: dict, mastery_points=(), role_games=()
         )
     elif missing == ["safe"]:
         text = "No tienes ningún pick seguro a ciegas en este rol: si eliges pronto, te pueden counterear."
+    elif missing == ["counter"] and groups["flex"]:
+        text = (
+            f"Para elegir pronto tienes {_join(names['safe'])}, pero ningún counter: "
+            "te falta uno para cuando veas a tu rival."
+        )
     elif missing == ["counter"]:
         text = "Todos tus campeones son de elegir pronto: te falta un counter para cuando veas a tu rival."
     else:

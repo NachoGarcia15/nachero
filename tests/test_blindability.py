@@ -289,6 +289,13 @@ def test_plan_del_pool():
     assert ok["size_mastery"] == 2 and ok["size_role"] == 2
     assert "seguro a ciegas: Graves" in POOL.slot_line(2, 0.8, 0.0, ok)
     assert "counter: Qiyana" in POOL.slot_line(5, 0.0, 1.0, ok)
+    # sin counter: «todos son de elegir pronto» solo si de verdad lo son (sin intermedios)
+    solo = POOL.plan([row("Taliyah", "safe"), row("Naafiri", "safe")], "jungle", th)
+    assert solo["missing"] == ["counter"] and solo["text"].startswith("Todos tus campeones son de elegir pronto")
+    mezcla = POOL.plan([row("Taliyah", "safe"), row("Qiyana", "flex")], "jungle", th)
+    assert mezcla["text"] == (
+        "Para elegir pronto tienes Taliyah, pero ningún counter: te falta uno para cuando veas a tu rival."
+    )
 
 
 # ------------------------------------------------------------------ calibración (#71)

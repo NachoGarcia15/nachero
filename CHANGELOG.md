@@ -113,6 +113,8 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   jugada y de mayor WR, con opciones para el 4.º objeto). Campos nuevos y opcionales del esquema 1:
   los archivos anteriores siguen valiendo. Sin el *timeline* aún no hay orden de compra ni de
   habilidades. Recolector 0.3.0.
+- **«Abrir registros»** en Actividad: abre la carpeta con `nachero.log` y `selecciones/` (lo que
+  pasó en cada champ select), para mandarla si algo falla.
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
   10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
   nombres ni ids de cuenta.

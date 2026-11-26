@@ -1092,7 +1092,7 @@ function evalTick() {
 /* ------------------------------------------------------------------ actividad */
 function renderLog(items) {
   $("#view-log").innerHTML = `<div class="log"><div class="log-head"><h1>Actividad</h1>
-    <div><small id="diag-msg" role="status"></small><button class="btn" id="diag">Copiar diagnóstico</button></div></div>${items.map((l) => `<div class="log-item" data-kind="${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
+    <div><small id="diag-msg" role="status"></small><button class="btn" id="open-logs" title="nachero.log y selecciones/: lo que pasó en cada selección de campeón, para mandarlo si algo falla">Abrir registros</button> <button class="btn" id="diag">Copiar diagnóstico</button></div></div>${items.map((l) => `<div class="log-item" data-kind="${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
 }
 
 // Versión, sistema, fase, conexión, parche y log reciente, sin datos personales (lo limpia el servidor)
@@ -1116,7 +1116,22 @@ async function copyDiagnostics() {
   }
   setTimeout(() => { if ($("#diag-msg")) $("#diag-msg").textContent = ""; }, 4000);
 }
-$("#view-log").addEventListener("click", (e) => { if (e.target.id === "diag") copyDiagnostics(); });
+$("#view-log").addEventListener("click", (e) => {
+  if (e.target.id === "diag") copyDiagnostics();
+  if (e.target.id === "open-logs") openLogs();
+});
+
+async function openLogs() {
+  const msg = $("#diag-msg");
+  try {
+    const r = await fetch("/api/open-logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const out = await r.json();
+    msg.textContent = r.ok ? "Abierta la carpeta de registros" : out.error || "No he podido abrirla";
+  } catch (_) {
+    msg.textContent = "Nachero no responde";
+  }
+  setTimeout(() => { if ($("#diag-msg")) $("#diag-msg").textContent = ""; }, 4000);
+}
 
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [

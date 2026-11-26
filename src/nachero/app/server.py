@@ -377,6 +377,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(code, out)
         if self.path == "/api/draft/swap":
             return self.send(*swap_request(body))
+        if self.path == "/api/open-logs":  # carpeta de registros (nachero.log y selecciones/)
+            problem = desktop.open_folder(paths.log_dir())
+            if problem:
+                return self.send(409, {"error": f"No he podido abrirla: {problem}"})
+            return self.send(200, {"ok": True})
         if self.path == "/api/refresh":
             lola, patch = CTX.get("lola"), CTX.get("patch")
             if lola and patch:

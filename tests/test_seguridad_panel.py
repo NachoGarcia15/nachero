@@ -101,3 +101,16 @@ def test_el_panel_no_pide_nada_fuera(panel):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(f"http://127.0.0.1:{panel}/geist.woff2", timeout=5) as r:
         assert r.headers["Content-Type"] == "font/woff2" and r.read(4) == b"wOF2"
+
+
+def test_abrir_la_carpeta_de_registros(panel, monkeypatch, home):
+    from nachero import paths
+    from nachero.app import desktop
+
+    abiertas = []
+    monkeypatch.setattr(desktop, "open_folder", lambda p: abiertas.append(p))
+    assert call(panel, "/api/open-logs", {}, JSON) == (200, {"ok": True}) and abiertas == [paths.log_dir()]
+    monkeypatch.setattr(desktop, "open_folder", lambda p: "solo en Windows")
+    code, out = call(panel, "/api/open-logs", {}, JSON)
+    assert code == 409 and "solo en Windows" in out["error"]
+    assert call(panel, "/api/open-logs", {}, {"Content-Type": "text/plain"})[0] == 403  # otra web no puede

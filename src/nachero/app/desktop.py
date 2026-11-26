@@ -273,6 +273,18 @@ try {{
             os.unlink(vbs_path)
 
 
+def open_folder(path: Path) -> str | None:
+    """Abre `path` en el Explorador de Windows (botón «Abrir registros» del panel). Devuelve el error."""
+    if not WIN:
+        return "solo en Windows"
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        os.startfile(str(path))
+    except OSError as e:
+        return str(e)
+    return None
+
+
 # ------------------------------------------------------------------ abrir al iniciar Windows
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 RUN_VALUE = "Nachero"

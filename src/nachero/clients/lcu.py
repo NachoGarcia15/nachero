@@ -6,10 +6,14 @@ import os
 import re
 import ssl
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 
+from nachero.clients import winproc
+
 _CTX = ssl._create_unverified_context()
+CLIENT_EXE = "LeagueClientUx.exe"
 METADATA = r"C:\ProgramData\Riot Games\Metadata\league_of_legends.live\league_of_legends.live.product_settings.yaml"
 DEFAULT_DIRS = [r"C:\Riot Games\League of Legends"]
 
@@ -20,6 +24,34 @@ def parse_lockfile(text: str) -> tuple[str, str] | None:
     if len(parts) == 5 and parts[2].isdigit() and parts[3]:
         return parts[2], parts[3]
     return None
+
+
+def parse_cmdline(text: str) -> tuple[str, str] | None:
+    """Puerto y token de la línea de comandos de LeagueClientUx.exe (`--app-port=…`,
+    `--remoting-auth-token=…`, con comillas o sin ellas)."""
+    port = re.search(r"--app-port=(\d+)", text or "")
+    tok = re.search(r'--remoting-auth-token=([^"\s]+)', text or "")
+    return (port.group(1), tok.group(1)) if port and tok else None
+
+
+def client_cmdlines() -> list[str]:
+    """Líneas de comandos de LeagueClientUx.exe: con la API de Windows (sin abrir nada) y, si esa
+    falla de forma inesperada, con PowerShell sin ventana. Fuera de Windows, ninguna."""
+    if sys.platform != "win32":
+        return []
+    try:
+        return winproc.cmdlines(CLIENT_EXE)
+    except Exception:
+        pass
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f"(Get-CimInstance Win32_Process -Filter \"Name='{CLIENT_EXE}'\").CommandLine"],
+            capture_output=True, text=True, timeout=15, **winproc.hidden(),
+        ).stdout  # fmt: skip
+    except Exception:
+        return []
+    return [line for line in (out or "").splitlines() if line.strip()]
 
 
 def install_dirs(metadata_text: str = "") -> list[str]:
@@ -57,23 +89,11 @@ class LCU:
 
     @staticmethod
     def _from_cmdline():
-        try:
-            out = subprocess.run(
-                [
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "(Get-CimInstance Win32_Process -Filter \"Name='LeagueClientUx.exe'\").CommandLine",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            ).stdout
-        except Exception:
-            return None
-        port = re.search(r'"--app-port=(\d+)"', out or "")
-        tok = re.search(r'"--remoting-auth-token=([^"]+)"', out or "")
-        return (port.group(1), tok.group(1)) if port and tok else None
+        for line in client_cmdlines():
+            found = parse_cmdline(line)
+            if found:
+                return found
+        return None
 
     @staticmethod
     def _from_lockfile():

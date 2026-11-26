@@ -269,7 +269,7 @@ def test_set_app_model_id_invoca_shell32_en_win32(monkeypatch):
         shell32 = FakeShell32()
 
     monkeypatch.setattr(desktop, "WIN", True)
-    monkeypatch.setattr(desktop.ctypes, "windll", FakeWinDLL())
+    monkeypatch.setattr(desktop.ctypes, "windll", FakeWinDLL(), raising=False)
     desktop.set_app_model_id()
     assert called == [desktop.APP_MODEL_ID]
 
@@ -299,7 +299,7 @@ def test_set_window_icon_invoca_loadimagew_y_sendmessage(tmp_path, monkeypatch):
             self.SendMessageW = FakeFunc(lambda hwnd, msg, wp, lp: sent.append((hwnd, msg, wp, lp)))
 
     monkeypatch.setattr(desktop, "WIN", True)
-    monkeypatch.setattr(desktop.ctypes, "WinDLL", lambda name, use_last_error=False: FakeUser32())
+    monkeypatch.setattr(desktop.ctypes, "WinDLL", lambda name, use_last_error=False: FakeUser32(), raising=False)
     ico = tmp_path / "test.ico"
     ico.write_bytes(b"\x00\x00\x01\x00")
     desktop.set_window_icon(5555, ico)
@@ -316,7 +316,7 @@ def test_set_window_icon_ignora_archivo_inexistente_o_sin_win32(tmp_path, monkey
         def SendMessageW(self, *a):
             sent.append(a)
 
-    monkeypatch.setattr(desktop.ctypes, "WinDLL", lambda name, use_last_error=False: FakeUser32())
+    monkeypatch.setattr(desktop.ctypes, "WinDLL", lambda name, use_last_error=False: FakeUser32(), raising=False)
     monkeypatch.setattr(desktop, "WIN", False)
     desktop.set_window_icon(1234, tmp_path / "no_existe.ico")
     assert sent == []

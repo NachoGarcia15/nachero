@@ -20,6 +20,12 @@ Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
   Igual con el ban y al confirmar.
 - Un fallo puntual al leer la fase del cliente ya no se toma por «Sin cliente»: al volver a la
   selección se borraba lo que llevaba marcado Nachero y su marca pasaba a parecer tuya.
+- **Sin destellos de consola** (#93): para encontrar el cliente, Nachero leía su línea de comandos
+  con PowerShell, que abría una consola un instante en cada intento (con el cliente cerrado, cada
+  10 s). Ahora la lee con la API de Windows (`clients/winproc.py`), sin abrir nada; PowerShell
+  queda de respaldo y sin ventana. Si el cliente va como administrador, sigue el `lockfile`.
+- El acceso directo del Menú Inicio (`--install-shortcut`) se crea sin ventanas y funciona con
+  carpetas de usuario con apóstrofo (O'Brien).
 
 ### Cambiado
 - Fuera de tu turno, lo marcado es tu **intención de pick** (lo que ven tus aliados), aunque la

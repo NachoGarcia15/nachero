@@ -111,6 +111,10 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   Si no depende de nadie pero tiene combos con un rol aún libre, la línea los lista («Combos de
   Ashe para tu Support: Seraphine (+2,4) o Lulu (+1,8) pp»), también para copiar.
   `Engine.synergy_table`, `Engine.combo_advice` y `Engine.combo_partners`.
+- **Combos del rival** (#85): si un rival ya elegido depende de su pareja de tu línea y esa pareja
+  sigue libre, tu rival de línea la coge más a menudo (η_combo = 0,3). Tu matchup contra ella entra
+  en el riesgo de counter, con su motivo («su Seraphine pide Ashe: −1,8 contra ti»). Con datos
+  propios.
 - **Builds con datos propios** (#90, primera parte): el recolector cuenta la pareja de hechizos y,
   con el catálogo de objetos de Data Dragon (público, en caché por parche), los objetos completos y
   las botas del final de cada partida. Los datos propios dan así la build de «En partida» (más

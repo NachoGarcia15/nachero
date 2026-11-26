@@ -593,6 +593,38 @@ class Engine:
         sig = BL.mix_sigma(sp["spread"], m, BL.SYN_PRIOR[role].get(ar, 0.6), th["prior_matchups"])
         return {kc: BL.posterior(v["d2"], v["n"], sig, v.get("wr"))[0] for kc, v in same.items()}, sig
 
+    ETA_COMBO = 0.3  # en soloq solo los dúos se coordinan: cuánto sube el rival la pareja de su combo (#85)
+
+    def rival_combo(self, cid, role, enemy_ids, probs, aprobs, gone) -> tuple[float, list]:
+        """Combo del rival (#85): si un rival ya elegido depende de su pareja (`combo_advice` con tu
+        línea) y esa pareja sigue libre, tu rival de línea la coge más a menudo (`ETA_COMBO`, si
+        elige después: `aprobs`). Devuelve (pp, motivos): tu matchup encogido contra esa pareja por
+        esa probabilidad. Se suma al riesgo de counter. Sin datos propios de sinergias, (0, [])."""
+        a = aprobs.get(role, 0.0)
+        if a <= 1e-3 or not callable(getattr(self.lola, "synergies", None)):
+            return 0.0, []
+        lanes = self.lola.matchups(cid, role, fetch=False) or {}
+        rows = lanes.get(role) or {}
+        if not rows:
+            return 0.0, []
+        sig = self.sigma(cid, role, role, lanes)
+        total, why = 0.0, []
+        for e in enemy_ids:
+            er = max((probs.get(e) or {}).items(), key=lambda kv: kv[1], default=(None, 0.0))[0] if e else None
+            if not er or er == role:
+                continue  # su pareja tiene que ser de tu línea y él, de otra
+            adv = self.combo_advice(e, er, [role], gone)
+            row = rows.get(str(adv["partner"])) if adv else None
+            if not row:
+                continue
+            mean, _ = BL.posterior(row["d2"], row["n"], sig, row.get("wr"))
+            v = a * self.ETA_COMBO * mean
+            total += v
+            if abs(v) >= 0.2:
+                partner = self.champs.name(adv["partner"])
+                why.append(("+" if v > 0 else "-", f"su {self.champs.name(e)} pide {partner}: {mean:+.1f} contra ti"))
+        return total, why
+
     def combo_partners(self, cid, role, ar, gone=(), k=3) -> list[tuple[int, float]]:
         """Las `k` mejores parejas de combo (≥ `COMBO_MIN` pp) de `cid` en el rol `ar`, disponibles."""
         means = self.pair_synergies(cid, role, ar)
@@ -686,6 +718,7 @@ class Engine:
         lane_v, rest_v, mu_items, loaded = self.vs_enemy(cid, role, probs)
         gone = set(unavailable) | {e for e in enemy_ids if e} | {a for a, _ in allies}
         br = self.blind_risk(cid, role, aprobs, gone)
+        combo_v, combo_why = self.rival_combo(cid, role, enemy_ids, probs, aprobs, gone)
         fit, fit_why = self.ally_fit(cid, allies)
         syn, syn_why, has_syn = self.synergy(cid, role, allies, ally_roles)
         vc, vc_why = self.vs_comp(cid, enemy_ids)
@@ -696,7 +729,7 @@ class Engine:
             "enemies": rest_v * self.w("matchup"),
             "allies": (fit + self.style(cid)) * self.w("comp"),
             "vs_comp": vc * self.w("comp"),
-            "risk": br["risk"] * self.w("matchup"),
+            "risk": (br["risk"] + combo_v) * self.w("matchup"),
         }
         if has_syn:
             parts["synergy"] = syn * self.w("comp")
@@ -727,7 +760,7 @@ class Engine:
             "est": round(50 + total, 1),
             "total": total,
             "parts": {k: round(v, 1) for k, v in parts.items()},
-            "why": [{"sign": s, "text": t} for s, t in why_af + why_bl + fit_why + syn_why + vc_why],
+            "why": [{"sign": s, "text": t} for s, t in why_af + why_bl + combo_why + fit_why + syn_why + vc_why],
             "dmg": self.champs.info(cid)["dmg"],
             "games": you["games"],
             "wr": round(100 * you["wins"] / you["games"]) if you["games"] else None,

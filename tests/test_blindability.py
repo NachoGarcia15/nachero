@@ -430,6 +430,26 @@ def test_linea_de_combo_en_la_champ_select(champs, monkeypatch):
     assert Draft(None, champs, dependiente(champs)).tick(s, False, pickable=set(), bannable=set())["combo"] is None
 
 
+def test_el_combo_del_rival_cuenta_en_tu_linea(champs):
+    """El support rival (Enchanter) depende de su ADC y su mejor pareja (Marksman) sigue libre: tu
+    rival de línea la coge más a menudo, y Shooter pierde mucho contra ella."""
+    syn = {(6, "utility"): {f"{c}:bottom": {"wr": wr, "n": 30000} for c, wr in PAREJAS.items()}}
+    rows = {(10, "bottom"): {"bottom": {4: (-5.0, 20000, 10.0), **{c: (0.0, 20000, 10.0) for c in range(100, 108)}}}}
+    tiers = all_roles(bottom={c: (50, 9000, 5, 90) for c in PAREJAS}, utility={6: (51, 9000, 8, 90)})
+    cfg = {"pick_mode": "meta", "weights": {}}
+    con = Engine(champs, SynLola(tiers, rows, syn), player(), cfg)
+    sin = Engine(champs, SynLola(tiers, rows, {}), player(), cfg)
+    args = ("bottom", [], [6], {6: {"utility": 1.0}}, 4)
+    a, b = con.score(10, *args, enemy_open=4), sin.score(10, *args, enemy_open=4)
+    assert a["parts"]["risk"] < b["parts"]["risk"] - 0.5
+    assert any(w["text"].startswith("su Enchanter pide Marksman: -") for w in a["why"])
+    # si ya no puede cogerla (baneada) o tu rival de línea ya ha elegido, nada
+    sin_4 = sin.score(10, *args, unavailable={4}, enemy_open=4)["parts"]["risk"]
+    assert con.score(10, *args, unavailable={4}, enemy_open=4)["parts"]["risk"] == sin_4
+    ya = con.score(10, "bottom", [], [6, 8], {6: {"utility": 1.0}, 8: {"bottom": 1.0}}, 3, enemy_open=3)
+    assert not any("pide" in w["text"] for w in ya["why"])
+
+
 # ------------------------------------------------------------------ simulador pro (#76)
 def test_simulador_pro_usa_blindability(champs):
     e = eng(champs, {(1, "jungle"): risky_rows(0.8), (5, "jungle"): risky_rows(2.6)},

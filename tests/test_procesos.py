@@ -109,3 +109,50 @@ def test_api_de_windows_lee_este_proceso():
     assert line and "pytest" in line.lower()
     assert winproc.cmdline(0) is None  # el proceso inactivo del sistema no se puede abrir
     assert winproc.pids("no-existe-nachero.exe") == []
+
+
+# ------------------------------------------------------------------ peticiones a la API local
+def test_peticiones_a_la_api_local_y_motivo_de_los_errores():
+    """LCU.raw/req/get contra un servidor local: JSON, cuerpo vacío y el mensaje de un error HTTP."""
+    import json as _json
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Api(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def reply(self, code, body=b""):
+            self.send_response(code)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            assert self.headers["Authorization"].startswith("Basic ")
+            if self.path == "/fase":
+                return self.reply(200, b'"ChampSelect"')
+            if self.path == "/vacio":
+                return self.reply(204)
+            self.reply(404, _json.dumps({"errorCode": "RESOURCE_NOT_FOUND", "message": "No hay sesión"}).encode())
+
+        def do_PATCH(self):
+            n = int(self.headers.get("Content-Length", 0))
+            body = _json.loads(self.rfile.read(n))
+            if body.get("championId") == 999:
+                return self.reply(500, _json.dumps({"message": "Champion not owned"}).encode())
+            self.reply(204)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Api)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        lcu = L.LCU()
+        lcu.base, lcu.auth = f"http://127.0.0.1:{srv.server_address[1]}", "Basic eDp5"
+        assert lcu.get("/fase") == "ChampSelect" and lcu.last_error is None
+        assert lcu.get("/vacio") is None and lcu.last_error is None
+        assert lcu.get("/otra") is None and lcu.last_error == "HTTP 404: No hay sesión"
+        assert lcu.raw("PATCH", "/accion", {"championId": 7}) == b"" and lcu.last_error is None
+        assert lcu.raw("PATCH", "/accion", {"championId": 999}) is None
+        assert lcu.last_error == "HTTP 500: Champion not owned"
+    finally:
+        srv.shutdown()
+        srv.server_close()

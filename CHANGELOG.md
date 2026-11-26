@@ -73,6 +73,10 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   otro `Host` u otro `Origin` y los POST que no son JSON (desde otra web, eso exige un permiso
   CORS que el panel nunca da). Cuerpos de más de 1 MiB o que no son un objeto JSON, 413 y 400.
 
+- Datos propios descargados (`stats_url`): las rutas del manifiesto solo pueden ser
+  `<parche>/<región>/<liga>.json[.gz]` (antes, una con letra de unidad de Windows podía escribir
+  fuera de la caché) y un `index.json` que no es un objeto ya no rompe la descarga en un hilo.
+
 ### Cambiado
 - Si el cliente rechaza confirmar con `PATCH` (`completed`), Nachero confirma lo que ya está
   marcado con el otro camino de la API local (`POST …/actions/{id}/complete`): un rechazo

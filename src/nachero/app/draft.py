@@ -4,9 +4,10 @@ import time
 import webbrowser
 
 from nachero.app.state import SPELL_IDS, TIMER_ES, log
+from nachero.app.trace import Trace, session_view
 from nachero.config import CFG
 from nachero.domain import blind as BL
-from nachero.domain import calibration
+from nachero.domain import calibration, cstimer
 from nachero.domain import pool as POOL
 from nachero.domain import runes as R
 from nachero.domain import swaps as SW
@@ -16,10 +17,24 @@ from nachero.domain.engine import ban_context, comp_notes, comp_summary
 from nachero.domain.queues import has_bans
 
 
+def pick_shown(action: dict, intent: int) -> int:
+    """Lo marcado en tu pick pendiente: en tu turno, la acción (o tu intención si sigue vacía);
+    fuera de él, tu intención de pick, que es lo que ven tus aliados (y la acción si no la hay)."""
+    cid = action.get("championId") or 0
+    return (cid or intent) if action.get("isInProgress") else (intent or cid)
+
+
 class Draft:
+    # s: en ranked el cliente espera al servidor para marcar o confirmar y a veces tarda más de 5 s
+    ACTION_TIMEOUT = 10
+
     def __init__(self, lcu, champs, engine, runes=None):
         self.lcu, self.champs, self.engine, self.runes = lcu, champs, engine, runes
         self.pool_plans: dict = {}  # plan de Tu pool por rol (#75), lo pone el bucle
+        self.clock = time.time  # reloj de este PC (el del cliente para su cuenta atrás)
+        self.trace = Trace()  # registro de diagnóstico de la selección; el bucle le da carpeta
+        self.tracing = False  # solo en selecciones de verdad (no en la demo)
+        self.last_error: str | None = None  # por qué no aceptó el cliente el último PATCH
         self.reset()
 
     def reset(self) -> None:
@@ -35,6 +50,7 @@ class Draft:
         self.confirmed: set[int] = set()
         self.last_ids: dict[str, set[int]] = {}  # última lista válida de pickable/bannable en esta selección
         self.timings: dict[str, float] = {}  # cuánto tarda cada parte del último tick (registro)
+        self.timer_seen: tuple = (None, 0.0)  # foto del reloj de la sesión y cuándo la vio Nachero
         self.context = None  # rol, aliados y rivales del último tick (para «Evaluar cualquier campeón»)
         # ARAM: campeón que tienes, desde cuándo (los rerolls van rápido) y para cuál se importaron
         self.aram_seen: tuple[int, float] = (0, 0.0)
@@ -45,11 +61,26 @@ class Draft:
         self.recorded = False
         self.record_ready = False  # con el orden de picks completo (#71)
         self.pre: dict = {}  # tu situación en el último tick antes de confirmar (hueco, riesgo)
+        self.trace.start()
 
     def note(self, msg, kind="action"):
         if msg not in self.seen:
             self.seen.add(msg)
             log(msg, kind)
+
+    def log_trace(self, kind, data, key=None, **extra):
+        """Apunte en el registro de diagnóstico de la selección (ver app/trace.py)."""
+        if self.tracing:
+            self.trace.write(kind, data, key, **extra)
+
+    def time_left(self, timer):
+        """Segundos que quedan de verdad de la fase, o None si la sesión no trae reloj. El `timer`
+        de la sesión es una foto del último cambio (ver domain/cstimer.py)."""
+        now = self.clock() * 1000
+        key = cstimer.snapshot_key(timer)
+        if self.timer_seen[0] != key:
+            self.timer_seen = (key, now)
+        return cstimer.time_left(timer, now, self.timer_seen[1])
 
     def tick(self, s, acting, pickable=None, bannable=None, queue=None):
         """Recomienda (y en modo activo actua) en la champ select `s`. `queue` es el tipo de cola
@@ -65,6 +96,7 @@ class Draft:
 
         ch, eng = self.champs, self.engine
         queue = queue or {}
+        self.tracing = not queue.get("demo")
         # a ciegas (sin bans): nadie ve los picks del otro, asi que no hay riesgo de counter
         blind = queue.get("kind") == "blind" and not has_bans(s)
         me = s["localPlayerCellId"]
@@ -96,11 +128,15 @@ class Draft:
         mine_bans = [a for a in acts if a["actorCellId"] == me and a["type"] == "ban" and not a["completed"]]
         my_ban = next((a for a in mine_bans if a.get("isInProgress")), mine_bans[0] if mine_bans else None)
         my_pick = next((a for a in acts if a["actorCellId"] == me and a["type"] == "pick"), None)
-        if my_pick and not my_pick["completed"] and not my_pick.get("championId") and my.get("championPickIntent"):
-            # tu intención de pick (planificación) cuenta como lo marcado en la acción
-            my_pick = {**my_pick, "championId": my["championPickIntent"]}
-        timer = s.get("timer", {})
-        left = max(0, timer.get("adjustedTimeLeftInPhase", 0) / 1000)
+        if my_pick and not my_pick["completed"]:
+            # tu intención de pick (planificación y turnos de otros) cuenta como lo marcado en la acción
+            shown = pick_shown(my_pick, my.get("championPickIntent") or 0)
+            if shown != (my_pick.get("championId") or 0):
+                my_pick = {**my_pick, "championId": shown}
+        timer = s.get("timer") or {}
+        left = self.time_left(timer)  # None: sin reloj (no se confirma a ciegas)
+        self.log_trace("session", session_view(s), key="session")
+        self.log_trace("timer", dict(timer), key="timer", left=None if left is None else round(left, 1))
         # en planificación el cliente ya da los bans como «en curso», pero ignora lo que se marque
         # en ellos (sin error): el turno de ban empieza de verdad en BAN_PICK
         planning = timer.get("phase") == "PLANNING"
@@ -260,12 +296,15 @@ class Draft:
             turn = self.ban_turn(my_ban, bans[0] if bans else None, taken, acting, status)
             choose = {"kind": "ban", "options": [ch.brief(b["id"]) for b in bans[:5]], **turn}
         if my_pick and not my_pick["completed"] and best:
+            # con tu ban en curso no se toca tu pick: su intención se pone en la planificación y
+            # se sigue al acabar los bans (como el propio cliente, un turno cada vez)
+            banning = bool(my_ban and my_ban["isInProgress"])
             turn = self.turn(
                 my_pick,
                 best,
                 taken,
                 acting,
-                CFG.get("auto_hover_pick", False),
+                CFG.get("auto_hover_pick", False) and not banning,
                 CFG.get("auto_lock_pick", False),
                 left,
                 status,
@@ -349,7 +388,7 @@ class Draft:
         return {
             "role": role,
             "role_es": ROLE_ES.get(role, role),
-            "timer_left": round(left),
+            "timer_left": round(left or 0),
             "timer_phase": TIMER_ES.get(timer.get("phase", ""), timer.get("phase", "")),
             "my_turn": my_turn,
             "my_team": my_team,
@@ -396,19 +435,21 @@ class Draft:
         """Tu pick en la acción pendiente `action` (los bans solo se recomiendan, no se tocan).
 
         Con `hover`, Nachero marca la recomendación `target` y la sigue: si cambia la recomendación,
-        cambia la marca. Si lo marcado no es nada que haya marcado Nachero, es la elección del
-        jugador y manda en ese turno (ya no se toca). Las marcas anteriores de Nachero que el
-        cliente aún devuelva (un tick tarde) no cuentan como elección del jugador. Con `lock`,
-        confirma lo que esté marcado a falta de `lock_when_seconds_left` s.
-        Devuelve qué hay marcado y quién lo marcó, para el panel."""
+        cambia la marca (también fuera de tu turno, como intención de pick). Si lo marcado no es
+        nada que haya marcado Nachero, es la elección del jugador y manda en ese turno (ya no se
+        toca). Las marcas anteriores de Nachero que el cliente aún devuelva (un tick tarde) no
+        cuentan como elección del jugador, ni una que el cliente aplique sin responder a tiempo.
+        Con `lock`, confirma lo que esté marcado cuando queden `lock_when_seconds_left` s de verdad
+        (`left`, None sin reloj). Devuelve qué hay marcado y quién lo marcó, para el panel."""
         name = self.champs.name
         aid, cur = action["id"], action.get("championId") or 0
         secs = CFG.get("lock_when_seconds_left", 8)
         if cur and cur == self.hovered.get(aid):  # el cliente ya muestra la última marca
             self.earlier.pop(aid, None)
         ours = {self.hovered.get(aid), *self.earlier.get(aid, ())}  # lo que ha marcado Nachero
-        if cur and cur not in ours:  # lo ha marcado el jugador (el registro lo dice el estado)
+        if cur and cur not in ours and self.choice.get(aid) != cur:  # lo ha marcado el jugador
             self.choice[aid] = cur
+            self.log_trace("player", {"aid": aid, "cur": cur, "ours": sorted(c for c in ours if c)}, key=f"player{aid}")
         choice = self.choice.get(aid)
         if choice and choice in taken:  # lo ha elegido o baneado otro: vuelve la recomendación
             self.choice.pop(aid)
@@ -425,24 +466,53 @@ class Draft:
             now = self.action_now(aid)
             if now and now not in ours and now not in taken:  # lo acaba de marcar el jugador
                 self.choice[aid] = choice = marked = now
+                self.log_trace(
+                    "player", {"aid": aid, "cur": now, "ours": sorted(c for c in ours if c)}, key=f"player{aid}"
+                )
             elif now == target["id"] == self.hovered.get(aid):  # ya está: solo la sesión iba con retraso
                 marked = now
-            elif now is not None and self.patch(aid, {"championId": target["id"]}):
+            elif now is not None:
                 prev = self.hovered.get(aid)
-                if prev and prev != target["id"]:  # el cliente puede devolverla aún un tick
-                    self.earlier.setdefault(aid, set()).add(prev)
-                self.hovered[aid] = marked = target["id"]
-            elif now is not None:  # se reintenta en el siguiente tick
-                self.note(f"El cliente no deja marcar {name(target['id'])}: lo reintento", "warn")
+                ok = self.patch(aid, {"championId": target["id"]})
+                if ok is not False:  # aceptado o sin respuesta a tiempo (puede haberlo aplicado): es suyo
+                    if prev and prev != target["id"]:  # el cliente puede devolver la anterior aún un tick
+                        self.earlier.setdefault(aid, set()).add(prev)
+                    self.hovered[aid] = target["id"]
+                if ok:
+                    marked = target["id"]
+                    if prev and prev != target["id"] and acting:
+                        self.note(f"Marco {name(target['id'])} en lugar de {name(prev)}: ha cambiado la recomendación")
+                elif ok is None:  # se comprueba en el siguiente tick
+                    self.note(f"El cliente tarda en marcar {name(target['id'])}: lo compruebo", "warn")
+                else:  # se reintenta en el siguiente tick
+                    why = f" ({self.last_error})" if self.last_error else ""
+                    self.note(f"El cliente no deja marcar {name(target['id'])}{why}: lo reintento", "warn")
         by = "player" if choice else ("nachero" if marked and marked == self.hovered.get(aid) else None)
+        self.log_trace(
+            "pick",
+            {"aid": aid, "cur": cur, "target": target["id"] if target else 0, "hovered": self.hovered.get(aid),
+             "earlier": sorted(self.earlier.get(aid, ())), "choice": choice, "marked": marked, "by": by,
+             "in_progress": bool(action.get("isInProgress")), "acting": acting, "hover": bool(hover),
+             "lock": bool(lock)},
+            key=f"pick{aid}",
+            left=None if left is None else round(left, 1),
+        )  # fmt: skip
         if action["isInProgress"]:
             final = marked or (target["id"] if target else 0)
-            if acting and lock and final and 0 < left <= secs:  # sin reloj (0) no se confirma a ciegas
+            # sin reloj no se confirma a ciegas; con 0 s (se acaba el turno), se intenta igual
+            if acting and lock and final and left is not None and left <= secs:
                 now = self.action_now(aid) if aid not in self.confirmed else None
                 final = now if now and now not in taken else final  # lo marcado en este momento
-                if aid not in self.confirmed and self.patch(aid, {"championId": final, "completed": True}):
-                    self.confirmed.add(aid)
-                    self.note(f"Confirmado {name(final)}")
+                if aid not in self.confirmed:
+                    ok = self.patch(aid, {"championId": final, "completed": True})
+                    if ok:
+                        self.confirmed.add(aid)
+                        self.note(f"Confirmado {name(final)}")
+                    elif ok is None:  # si lo ha aplicado, el siguiente tick ya lo trae confirmado
+                        self.note(f"El cliente tarda en confirmar {name(final)}: lo compruebo", "warn")
+                    else:
+                        why = f" ({self.last_error})" if self.last_error else ""
+                        self.note(f"El cliente no deja confirmar {name(final)}{why}: lo reintento", "warn")
             elif acting and lock and final:
                 if by == "player":
                     msg = f"Has elegido {name(final)}: se confirmará {name(final)}"
@@ -479,11 +549,18 @@ class Draft:
             now = self.action_now(aid)  # la sesión del tick puede ir con retraso
             if now and now != mine and now not in taken:
                 self.choice[aid] = choice = now
-            elif now is not None and self.patch(aid, {"championId": target["id"]}):
-                self.hovered[aid] = target["id"]
             elif now is not None:
-                self.note(f"El cliente no deja marcar {name(target['id'])}: lo reintento", "warn")
+                ok = self.patch(aid, {"championId": target["id"]})
+                if ok is not False:  # sin respuesta a tiempo puede haberlo aplicado: cuenta como suyo
+                    self.hovered[aid] = target["id"]
+                if ok is None:
+                    self.note(f"El cliente tarda en marcar {name(target['id'])}: lo compruebo", "warn")
+                elif not ok:
+                    why = f" ({self.last_error})" if self.last_error else ""
+                    self.note(f"El cliente no deja marcar {name(target['id'])}{why}: lo reintento", "warn")
         mine = self.hovered.get(aid)
+        self.log_trace("ban", {"aid": aid, "cur": cur, "target": target["id"] if target else 0, "hovered": mine,
+                               "choice": choice}, key=f"ban{aid}")  # fmt: skip
         if choice:
             status.append(("turn", f"Has elegido banear {name(choice)}"))
             return {"marked": choice, "by": "player"}
@@ -509,22 +586,37 @@ class Draft:
 
     def action_now(self, aid):
         """El campeón marcado ahora mismo en la acción `aid` (0 si ninguno), leído del cliente; en un
-        pick sin campeón, tu intención. None si no se puede leer."""
-        s = self.lcu.get("/lol-champ-select/v1/session")
+        pick pendiente, como `pick_shown`. None si no se puede leer."""
+        try:
+            s = self.lcu.get("/lol-champ-select/v1/session")
+        except Exception:  # sin respuesta a tiempo: se vuelve a mirar en el siguiente tick
+            return None
         if not isinstance(s, dict):
             return None
         action = next((a for grp in s.get("actions") or [] for a in grp if a.get("id") == aid), None)
         if action is None:
             return None
-        cid = action.get("championId") or 0
-        if not cid and action.get("type") == "pick":
+        if action.get("type") == "pick" and not action.get("completed"):
             me = s.get("localPlayerCellId")
-            cid = next((m.get("championPickIntent") or 0 for m in s.get("myTeam", []) if m.get("cellId") == me), 0)
-        return cid
+            intent = next((m.get("championPickIntent") or 0 for m in s.get("myTeam", []) if m.get("cellId") == me), 0)
+            return pick_shown(action, intent)
+        return action.get("championId") or 0
 
     def patch(self, aid, body):
-        """Cambia la acción `aid` de la champ select. True si el cliente lo acepta."""
-        return self.lcu.raw("PATCH", f"/lol-champ-select/v1/session/actions/{aid}", body) is not None
+        """Cambia la acción `aid` de la champ select: True si el cliente lo acepta, False si lo
+        rechaza (el motivo, en `last_error`) y None si no responde a tiempo. Entonces no se sabe si
+        lo ha aplicado: en ranked el cliente espera al servidor, que a veces tarda. Un fallo de red
+        nunca corta el tick (antes se perdía la vuelta y la marca de Nachero parecía del jugador)."""
+        t0 = time.perf_counter()
+        path = f"/lol-champ-select/v1/session/actions/{aid}"
+        try:
+            ok = self.lcu.raw("PATCH", path, body, timeout=self.ACTION_TIMEOUT) is not None
+            self.last_error = None if ok else (getattr(self.lcu, "last_error", None) or "sin motivo")
+        except Exception as e:
+            ok, self.last_error = None, f"sin respuesta ({e.__class__.__name__})"
+        ms = round((time.perf_counter() - t0) * 1000)
+        self.log_trace("patch", {"aid": aid, "body": body, "ok": ok, "error": self.last_error, "ms": ms})
+        return ok
 
     def choose(self, kind, cid):
         """Marca `cid` en tu ban o tu pick pendiente desde el panel: cuenta como elección del jugador.
@@ -543,12 +635,15 @@ class Draft:
         name = self.champs.name(cid)
         prev = self.choice.get(action["id"])
         self.choice[action["id"]] = cid  # antes del cambio: que el bucle no lo pise mientras tanto
-        if not self.patch(action["id"], {"championId": cid}):
+        ok = self.patch(action["id"], {"championId": cid})
+        if ok is False:
             if prev is None:
                 self.choice.pop(action["id"], None)
             else:
                 self.choice[action["id"]] = prev
             return False, f"El cliente no deja marcar {name}"
+        if ok is None:  # sin respuesta a tiempo: puede haberlo aplicado, sigue siendo tu elección
+            self.note(f"El cliente tarda en marcar {name}: comprueba que sale marcado", "warn")
         self.note(f"Has elegido {'banear ' if kind == 'ban' else ''}{name} desde el panel")
         return True, name
 

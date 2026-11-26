@@ -86,7 +86,15 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    marcado no es nada que haya marcado Nachero (o se eligió en el panel con
    `POST /api/draft/choose`), es la elección del jugador: no se vuelve a marcar en ese turno. Las
    marcas anteriores de Nachero que el cliente aún devuelva (`Draft.earlier`) no cuentan como
-   elección del jugador.
+   elección del jugador, ni una que el cliente aplique sin responder a tiempo (`Draft.patch`
+   devuelve None y la marca cuenta como de Nachero). Fuera de tu turno, lo marcado es tu
+   intención de pick (`pick_shown`); con tu ban en curso no se toca el pick.
+   - **Reloj**: el `timer` de la sesión es una foto del último cambio. Lo que queda de verdad es
+     `adjustedTimeLeftInPhase − (ahora − internalNowInEpochMs)` (`domain/cstimer.py`); si la marca
+     de tiempo no es creíble, lo que ha pasado desde que Nachero vio esa foto.
+   - **Diagnóstico**: `app/trace.py` apunta en `logs/selecciones/<fecha>.jsonl` (las 10 últimas)
+     la sesión sin datos de jugadores, el reloj, cada decisión y cada PATCH con su respuesta,
+     solo cuando cambian. No en la demo.
 7. El panel consulta `/api/state` cada segundo y pinta.
 
 ## En partida (#88)

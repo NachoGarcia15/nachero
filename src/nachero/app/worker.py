@@ -12,6 +12,7 @@ from nachero.app.demo import Demo
 from nachero.app.draft import Draft
 from nachero.app.runes import RuneImporter
 from nachero.app.state import APP, CTX, LOCK, OPTS, PHASE_ES, TASKS, demo_must_stop, log, set_demo
+from nachero.app.trace import Trace
 from nachero.clients.cdragon import CDragon, latest_patch
 from nachero.clients.lcu import LCU
 from nachero.config import BUILD_TIERS, CFG, LEAGUE_NAMES
@@ -431,6 +432,12 @@ class Restart(Exception):
     """Reinicia la sesion (p. ej. al abrirse o cerrarse el cliente)."""
 
 
+class NoPhase(Exception):
+    """El cliente responde sin fase (error o respuesta vacía): cuenta como un fallo de lectura. Si
+    pasara a «Sin cliente», al volver a la champ select se borraría lo que lleva marcado Nachero y
+    su propia marca parecería del jugador."""
+
+
 def worker():
     while True:
         try:
@@ -617,6 +624,7 @@ def run_session():
     runes = RuneImporter(src)
     runes.preload()  # catálogo de runas en segundo plano: el bucle no lo espera
     draft = Draft(lcu, champs, engine, runes)
+    draft.trace = Trace(paths.log_dir() / "selecciones")  # diagnóstico de cada selección real
     CTX["draft"] = draft  # el buscador del panel evalúa con el draft actual
     items = CTX["items"] = Items(src)  # objetos y hechizos de la vista «En partida»
     items.preload()
@@ -639,6 +647,8 @@ def run_session():
         else:
             try:
                 real = lcu.get("/lol-gameflow/v1/gameflow-phase", timeout=10)
+                if not isinstance(real, str):
+                    raise NoPhase("sin fase")
                 if demo_must_stop(real):
                     set_demo(False)
                     log("Demo cerrada: empieza tu partida de verdad", "ok")
@@ -737,8 +747,9 @@ def run_session():
                             draft.reset()
                         last_demo_step = step
                         d = draft.tick(
-                            s, False, pickable=set(), bannable=set(), queue={"kind": "draft", "name": "Demo"}
-                        )
+                            s, False, pickable=set(), bannable=set(),
+                            queue={"kind": "draft", "name": "Demo", "demo": True},
+                        )  # fmt: skip
                     else:
                         if queue is None:
                             # tres intentos; si el cliente no la da, se recomienda como en la Grieta

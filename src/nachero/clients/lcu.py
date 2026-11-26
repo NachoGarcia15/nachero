@@ -29,9 +29,20 @@ def install_dirs(metadata_text: str = "") -> list[str]:
     return found + [d for d in DEFAULT_DIRS if d not in found]
 
 
+def http_error_text(e: urllib.error.HTTPError) -> str:
+    """«HTTP 500: mensaje», con el mensaje que da el cliente en su respuesta (JSON con `message`)."""
+    try:
+        body = json.loads(e.read() or b"{}")
+    except (ValueError, OSError):
+        body = {}
+    msg = body.get("message") if isinstance(body, dict) else None
+    return f"HTTP {e.code}" + (f": {str(msg)[:160]}" if msg else "")
+
+
 class LCU:
     def __init__(self):
         self.base = self.auth = None
+        self.last_error: str | None = None  # por qué falló la última petición (para el registro)
 
     def connect(self):
         """Puerto y token del cliente: de la linea de comandos de LeagueClientUx.exe o, si Windows no
@@ -89,10 +100,12 @@ class LCU:
             method=method,
             headers={"Authorization": self.auth, "Content-Type": "application/json"},
         )
+        self.last_error = None
         try:
             with urllib.request.urlopen(req, context=_CTX, timeout=timeout) as resp:
                 return resp.read()
-        except urllib.error.HTTPError:
+        except urllib.error.HTTPError as e:
+            self.last_error = http_error_text(e)
             return None
 
     def req(self, method, path, body=None, timeout=5):

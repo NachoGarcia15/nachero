@@ -3,6 +3,35 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.31.2] - 2026-11-26
+
+Marcar y confirmar pick en ranked: lo que no funcionaba en el cliente real.
+
+### Corregido
+- **Confirmar pick no confirmaba**: el reloj de la sesión del cliente es una foto del último
+  cambio (`adjustedTimeLeftInPhase` en el instante `internalNowInEpochMs`), no una cuenta atrás.
+  Si nadie tocaba nada al final de tu turno, Nachero seguía leyendo los ~30 s del principio y
+  nunca llegaba a «a falta de 8 s» (en ranked, sin confirmar se esquiva). Ahora descuenta lo que ha
+  pasado desde la foto, como el propio cliente, y el reloj del panel también cuenta de verdad.
+- **La marca dejaba de seguir la recomendación**: si el cliente tardaba más de 5 s en responder al
+  marcar (en ranked espera al servidor), la vuelta se cortaba con un error aunque el cliente lo
+  aplicara, y en la siguiente la marca de Nachero parecía tuya («Has elegido…») y ya no la
+  cambiaba. Ahora espera hasta 10 s y, sin respuesta, la marca sigue contando como de Nachero.
+  Igual con el ban y al confirmar.
+- Un fallo puntual al leer la fase del cliente ya no se toma por «Sin cliente»: al volver a la
+  selección se borraba lo que llevaba marcado Nachero y su marca pasaba a parecer tuya.
+
+### Cambiado
+- Fuera de tu turno, lo marcado es tu **intención de pick** (lo que ven tus aliados), aunque la
+  acción guarde una marca anterior. Con tu ban en curso no se toca tu pick: se sigue al acabar los
+  bans.
+- Si el cliente no deja marcar o confirmar, el registro dice por qué (su mensaje de error).
+
+### Añadido
+- **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
+  10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
+  nombres ni ids de cuenta.
+
 ## [0.31.1] - 2026-11-24
 
 ### Cambiado

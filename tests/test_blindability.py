@@ -388,18 +388,39 @@ def test_pareja_de_la_que_depende_tu_pick(champs):
     assert eng(champs, {}).combo_advice(1, "jungle", ["bottom"]) is None  # sin datos propios
 
 
-def test_linea_de_combo_en_la_champ_select(champs, monkeypatch):
-    from nachero.app.draft import Draft
+def sesion_support(monkeypatch):
+    """Tú de support (sin elegir) y tu ADC sin elegir; sin hechizos, runas ni marcar."""
     from nachero.config import CFG
 
     for k, v in {"auto_spells": False, "spells_by_role": {}, "import_runes": False, "auto_hover_pick": False}.items():
         monkeypatch.setitem(CFG, k, v)
     me = {"cellId": 0, "assignedPosition": "utility", "championId": 0, "championPickIntent": 0}
     adc = {"cellId": 1, "assignedPosition": "bottom", "championId": 0, "championPickIntent": 0}
-    s = {"localPlayerCellId": 0, "myTeam": [me, adc], "theirTeam": [],
-         "actions": [[{"id": 1, "actorCellId": 0, "championId": 0, "completed": False, "isAllyAction": True,
-                       "isInProgress": True, "type": "pick"}]],
-         "bans": {"myTeamBans": [], "theirTeamBans": []}, "timer": {}}  # fmt: skip
+    return {"localPlayerCellId": 0, "myTeam": [me, adc], "theirTeam": [],
+            "actions": [[{"id": 1, "actorCellId": 0, "championId": 0, "completed": False, "isAllyAction": True,
+                          "isInProgress": True, "type": "pick"}]],
+            "bans": {"myTeamBans": [], "theirTeamBans": []}, "timer": {}}  # fmt: skip
+
+
+def test_ancla_con_combos_para_copiar(champs, monkeypatch):
+    from nachero.app.draft import Draft
+
+    # Enchanter casi no depende de su ADC (spread bajo), pero con Marksman gana bastante más
+    wrs = {4: 53.0, 10: 50.5, 100: 49.5, 101: 50.2, 102: 49.8, 103: 50.0, 104: 50.3, 105: 49.7, 106: 50.1, 107: 49.9}
+    e = dependiente(champs, wrs)
+    assert e.combo_advice(6, "utility", ["bottom"]) is None and e.combo_partners(6, "utility", "bottom")[0][0] == 4
+    out = Draft(None, champs, e).tick(sesion_support(monkeypatch), False, pickable=set(), bannable=set())
+    c = out["combo"]
+    assert c["kind"] == "anchor" and c["role"] == "bottom" and c["partners"][0]["id"] == 4
+    assert c["text"].startswith("Combos de Enchanter para tu ADC: Marksman (+")
+    assert c["chat"].startswith("Tengo Enchanter: hace combo con Marksman +")
+
+
+def test_linea_de_combo_en_la_champ_select(champs, monkeypatch):
+    from nachero.app.draft import Draft
+
+    s = sesion_support(monkeypatch)
+    adc = s["myTeam"][1]
     out = Draft(None, champs, dependiente(champs)).tick(s, False, pickable=set(), bannable=set())
     assert out["hero"]["id"] == 6 and out["combo"]["partner"] == 4
     assert out["combo"]["text"].startswith("Enchanter rinde mucho más con Marksman (+")

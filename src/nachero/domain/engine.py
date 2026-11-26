@@ -593,6 +593,12 @@ class Engine:
         sig = BL.mix_sigma(sp["spread"], m, BL.SYN_PRIOR[role].get(ar, 0.6), th["prior_matchups"])
         return {kc: BL.posterior(v["d2"], v["n"], sig, v.get("wr"))[0] for kc, v in same.items()}, sig
 
+    def combo_partners(self, cid, role, ar, gone=(), k=3) -> list[tuple[int, float]]:
+        """Las `k` mejores parejas de combo (≥ `COMBO_MIN` pp) de `cid` en el rol `ar`, disponibles."""
+        means = self.pair_synergies(cid, role, ar)
+        good = [(int(c), round(s, 1)) for c, s in means.items() if s >= self.COMBO_MIN and int(c) not in gone]
+        return sorted(good, key=lambda x: -x[1])[:k]
+
     def combo_advice(self, cid, role, open_roles, gone=(), planned=None):
         """Si `cid` depende de su pareja (spread de sinergia ≥ `DEP_SIGMA` con un rol aún libre en
         tu equipo) y su mejor pareja disponible da `COMBO_MIN` pp o más: {"role", "partner", "gain",

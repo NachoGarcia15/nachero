@@ -733,18 +733,40 @@ class Draft:
         others = [m for m in s["myTeam"] if m["cellId"] != me and m.get("assignedPosition") in ROLES]
         open_roles = [m["assignedPosition"] for m in others if not m["championId"]]
         planned = {m["assignedPosition"]: m.get("championPickIntent") for m in others if m.get("championPickIntent")}
+        name = self.champs.name(hero)
+
+        def pp(v):
+            return f"{v:+.1f}".replace(".", ",")
+
         adv = self.engine.combo_advice(hero, role, open_roles, gone, planned)
-        if not adv:
+        if adv:  # depende de su pareja: a quién proponérselo
+            partner, role_es = self.champs.name(adv["partner"]), ROLE_ES.get(adv["role"], adv["role"])
+            return {
+                **adv,
+                "kind": "depends",
+                "champ": self.champs.brief(adv["partner"]),
+                "role_es": role_es,
+                "text": f"{name} rinde mucho más con {partner} ({pp(adv['gain'])} pp): propónselo a tu {role_es}.",
+                "chat": f"Si te va bien, coge {partner}: hace combo con mi {name}.",
+            }
+        # ancla: no depende de nadie, pero tiene combos con un rol aún libre (el mejor de ellos)
+        best_role, partners = None, []
+        for ar in open_roles:
+            got = self.engine.combo_partners(hero, role, ar, gone)
+            if got and (not partners or got[0][1] > partners[0][1]):
+                best_role, partners = ar, got
+        if not partners or planned.get(best_role) in {c for c, _ in partners}:
             return None
-        name, partner = self.champs.name(hero), self.champs.name(adv["partner"])
-        gain = f"{adv['gain']:+.1f}".replace(".", ",")
-        role_es = ROLE_ES.get(adv["role"], adv["role"])
+        names = [f"{self.champs.name(c)} ({pp(s)})" for c, s in partners]
+        role_es = ROLE_ES.get(best_role, best_role)
+        listed = ", ".join(names[:-1]) + " o " + names[-1] if len(names) > 1 else names[0]
         return {
-            **adv,
-            "champ": self.champs.brief(adv["partner"]),
+            "kind": "anchor",
+            "role": best_role,
             "role_es": role_es,
-            "text": f"{name} rinde mucho más con {partner} ({gain} pp): propónselo a tu {role_es}.",
-            "chat": f"Si te va bien, coge {partner}: hace combo con mi {name}.",
+            "partners": [{**self.champs.brief(c), "gain": s} for c, s in partners],
+            "text": f"Combos de {name} para tu {role_es}: {listed} pp.",
+            "chat": f"Tengo {name}: hace combo con {listed.replace(' (', ' ').replace(')', '')}.",
         }
 
     def swap(self, op, swap_id):

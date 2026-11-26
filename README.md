@@ -249,7 +249,8 @@ Ideas de los vídeos de MachineLoLing ([1](https://www.youtube.com/watch?v=3t5dE
 - **Combos de soloq** (con datos propios): si tu pick depende de su pareja (su sinergia cambia
   mucho según con quién juegue) y el aliado de ese rol aún no ha elegido, Nachero dice con quién
   rinde más («Seraphine rinde mucho más con Ashe (+2,4 pp): propónselo a tu ADC») y deja un
-  mensaje para **copiar** al chat; nunca escribe solo.
+  mensaje para **copiar** al chat; nunca escribe solo. Si no depende de nadie pero tiene combos
+  claros con un rol libre, los lista («Combos de Ashe para tu Support: Seraphine o Lulu»).
 - **Tu pool** dice qué campeones son seguros a ciegas y cuáles de counter, el tamaño de tu pool
   (los que suman el 80 % de tu maestría o de tus partidas en el rol) y qué te falta. En la champ
   select, una línea dice qué toca según tu hueco («Eliges 2.º: tu rival de línea elige después

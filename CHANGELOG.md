@@ -101,7 +101,9 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   sinergia de tu pick con un rol aún libre en tu equipo es alto (≥ 1,5 pp) y su mejor pareja
   disponible da 1,5 pp o más, el panel lo dice («Taliyah rinde mucho más con Ahri (+2,1 pp):
   propónselo a tu Mid») con «Copiar mensaje» para el chat. Si tu aliado ya la ha marcado, no sale.
-  `Engine.synergy_table` y `Engine.combo_advice`.
+  Si no depende de nadie pero tiene combos con un rol aún libre, la línea los lista («Combos de
+  Ashe para tu Support: Seraphine (+2,4) o Lulu (+1,8) pp»), también para copiar.
+  `Engine.synergy_table`, `Engine.combo_advice` y `Engine.combo_partners`.
 - **Builds con datos propios** (#90, primera parte): el recolector cuenta la pareja de hechizos y,
   con el catálogo de objetos de Data Dragon (público, en caché por parche), los objetos completos y
   las botas del final de cada partida. Los datos propios dan así la build de «En partida» (más

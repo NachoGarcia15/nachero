@@ -1051,6 +1051,7 @@ small.err { color: var(--neg); }
 }
 .swap.propose, .swap.accept { border-color: rgba(92,195,148,.3); }
 .swap.decline { border-color: rgba(240,117,122,.3); }
+.swap.combo { border-color: rgba(110,168,255,.3); }
 .swap .lbl { font: 500 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 .swap p { margin: 0; flex: 1 1 260px; }
 .swap .btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

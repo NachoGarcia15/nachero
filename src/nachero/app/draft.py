@@ -12,7 +12,7 @@ from nachero.domain import pool as POOL
 from nachero.domain import runes as R
 from nachero.domain import swaps as SW
 from nachero.domain import tags as T
-from nachero.domain.common import ROLE_ES, ROLE_SHORT
+from nachero.domain.common import ROLE_ES, ROLE_SHORT, ROLES
 from nachero.domain.engine import ban_context, comp_notes, comp_summary
 from nachero.domain.queues import has_bans
 
@@ -380,6 +380,7 @@ class Draft:
             slot_line = POOL.slot_line(
                 BL.ally_slot(order, me), ctx["lane_after"], ctx["lane_p"], self.pool_plans.get(role)
             )
+        combo = self.combo_line(s, me, role, my_pick, best, banned | set(ally_ids) | set(enemy_ids), blind)
         my_turn = None
         if my_ban and my_ban["isInProgress"]:
             my_turn = "ban"
@@ -408,6 +409,7 @@ class Draft:
             "ban_suggestions": bans,
             "ban_context": ban_context(None if blind else (my_after if my_ban else None)),
             "swap": swap,
+            "combo": combo,
             "slot_line": slot_line,
             "lane_p": ctx["lane_p"],
             "risk_open": ctx["risk_open"],
@@ -719,6 +721,30 @@ class Draft:
             "chat": SW.chat_line(adv, ch.name(my_cid), ally_name),
             "ally": adv["ally"],
             "can_act": bool(acting and adv.get("swap_id") is not None),
+        }
+
+    def combo_line(self, s, me, role, my_pick, best, gone, blind):
+        """Combo de soloq (#85): si tu pick (lo marcado o la recomendación) depende de su pareja y el
+        aliado de ese rol aún no ha elegido, a quién proponérselo y un mensaje para copiar al chat
+        (nunca se escribe solo). Sin datos propios de sinergias, None."""
+        hero = (my_pick or {}).get("championId") or (best or {}).get("id")
+        if blind or not hero or not my_pick or my_pick["completed"]:
+            return None
+        others = [m for m in s["myTeam"] if m["cellId"] != me and m.get("assignedPosition") in ROLES]
+        open_roles = [m["assignedPosition"] for m in others if not m["championId"]]
+        planned = {m["assignedPosition"]: m.get("championPickIntent") for m in others if m.get("championPickIntent")}
+        adv = self.engine.combo_advice(hero, role, open_roles, gone, planned)
+        if not adv:
+            return None
+        name, partner = self.champs.name(hero), self.champs.name(adv["partner"])
+        gain = f"{adv['gain']:+.1f}".replace(".", ",")
+        role_es = ROLE_ES.get(adv["role"], adv["role"])
+        return {
+            **adv,
+            "champ": self.champs.brief(adv["partner"]),
+            "role_es": role_es,
+            "text": f"{name} rinde mucho más con {partner} ({gain} pp): propónselo a tu {role_es}.",
+            "chat": f"Si te va bien, coge {partner}: hace combo con mi {name}.",
         }
 
     def swap(self, op, swap_id):

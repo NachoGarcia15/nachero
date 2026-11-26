@@ -569,10 +569,15 @@ class Engine:
         rol `ar`: {cid del aliado (str): pp}. Es el WR del dúo menos el esperado por la fuerza de los
         dos (producto de odds), encogido con el spread de sinergia de `cid` con ese rol, mezclado con
         el previo de la pareja de roles. Vacío sin datos (Lolalytics no da sinergias)."""
+        return self.synergy_table(cid, role, ar)[0]
+
+    def synergy_table(self, cid, role, ar):
+        """(`pair_synergies`, spread de sinergia de `cid` con el rol `ar`): cuánto le cambia la
+        pareja. Alto = depende de con quién juegue (#85). Sin datos, ({}, 0)."""
         fn = getattr(self.lola, "synergies", None)
         rows = fn(cid, role) if callable(fn) else None
         if not rows or role not in BL.SYN_PRIOR:
-            return {}
+            return {}, 0.0
         th = self.bl
         base = 50 + self.meta(cid, role)[0]
         same = {}
@@ -582,11 +587,30 @@ class Engine:
                 exp = BL.expected_duo(base, 50 + self.meta(int(kc), ar)[0])
                 same[kc] = {"d2": r["wr"] - exp, "n": r["n"], "wr": r["wr"]}
         if not same:
-            return {}
+            return {}, 0.0
         sp = BL.spread(same)
         m = sp["m"] if sp["m"] >= th["min_matchups"] else 0
         sig = BL.mix_sigma(sp["spread"], m, BL.SYN_PRIOR[role].get(ar, 0.6), th["prior_matchups"])
-        return {kc: BL.posterior(v["d2"], v["n"], sig, v.get("wr"))[0] for kc, v in same.items()}
+        return {kc: BL.posterior(v["d2"], v["n"], sig, v.get("wr"))[0] for kc, v in same.items()}, sig
+
+    def combo_advice(self, cid, role, open_roles, gone=(), planned=None):
+        """Si `cid` depende de su pareja (spread de sinergia ≥ `DEP_SIGMA` con un rol aún libre en
+        tu equipo) y su mejor pareja disponible da `COMBO_MIN` pp o más: {"role", "partner", "gain",
+        "sigma"} (la de más ganancia); si no, None (#85). `gone`: no disponibles (baneados y
+        elegidos); `planned`: {rol: campeón que ya marca ese aliado} (si es la pareja, no hace falta)."""
+        planned = planned or {}
+        best = None
+        for ar in open_roles:
+            means, sig = self.synergy_table(cid, role, ar)
+            if sig < self.DEP_SIGMA:
+                continue
+            for kc, s in sorted(means.items(), key=lambda kv: -kv[1]):
+                if int(kc) in gone:
+                    continue
+                if s >= self.COMBO_MIN and planned.get(ar) != int(kc) and (not best or s > best["gain"]):
+                    best = {"role": ar, "partner": int(kc), "gain": round(s, 1), "sigma": round(sig, 2)}
+                break  # la mejor disponible de ese rol
+        return best
 
     def synergy(self, cid, role, allies, ally_roles=None):
         """Sinergia medida con tus aliados (`pair_synergies`). `allies`: [(cid, peso)] (elegido 1,
@@ -784,6 +808,7 @@ class Engine:
 
     BAN_PROTECT = 2.0  # escala de la protección frente a la fuerza (0,4 × fuerza, que puede caer en tu equipo)
     COMBO_MIN = 1.5  # pp de sinergia medida para llamarlo combo (#85)
+    DEP_SIGMA = 1.5  # pp de spread de sinergia con un rol: el campeón depende de su pareja (#85)
 
     def bans(self, role, my_top, blocked, allies=(), my_after=None):
         """Bans recomendados (#73). my_top: tus picks recomendados (el primero, el que juegas); allies:

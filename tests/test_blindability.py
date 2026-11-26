@@ -364,6 +364,51 @@ def test_no_banea_el_combo_de_lo_que_marca_tu_aliado(champs):
     assert cerrado[0] == 4
 
 
+# ------------------------------------------------------------------ tu pick depende de su pareja (#85)
+PAREJAS = {4: 60.0, 10: 42.0, 100: 46.0, 101: 55.0, 102: 48.0, 103: 52.0, 104: 44.0, 105: 50.0, 106: 51.0, 107: 49.0}
+
+
+def dependiente(champs, wrs=None):
+    """Enchanter (6) de support: con Marksman (4) gana mucho y con Shooter (10) pierde mucho."""
+    syn = {(6, "utility"): {f"{c}:bottom": {"wr": wr, "n": 30000} for c, wr in (wrs or PAREJAS).items()}}
+    tiers = all_roles(bottom={c: (50, 9000, 5, 90) for c in PAREJAS}, utility={6: (51, 9000, 8, 90)})
+    return Engine(champs, SynLola(tiers, {}, syn), player(), {"pick_mode": "meta", "weights": {}})
+
+
+def test_pareja_de_la_que_depende_tu_pick(champs):
+    e = dependiente(champs)
+    adv = e.combo_advice(6, "utility", ["bottom", "top"])
+    assert adv["role"] == "bottom" and adv["partner"] == 4 and adv["gain"] >= e.COMBO_MIN
+    assert adv["sigma"] >= e.DEP_SIGMA
+    assert e.combo_advice(6, "utility", ["bottom"], gone={4})["partner"] == 101  # la siguiente libre
+    assert e.combo_advice(6, "utility", ["top"]) is None  # el ADC ya ha elegido: no hay a quién
+    assert e.combo_advice(6, "utility", ["bottom"], planned={"bottom": 4}) is None  # ya la ha marcado
+    plano = dependiente(champs, {c: 50.0 for c in PAREJAS})  # le da igual la pareja
+    assert plano.combo_advice(6, "utility", ["bottom"]) is None
+    assert eng(champs, {}).combo_advice(1, "jungle", ["bottom"]) is None  # sin datos propios
+
+
+def test_linea_de_combo_en_la_champ_select(champs, monkeypatch):
+    from nachero.app.draft import Draft
+    from nachero.config import CFG
+
+    for k, v in {"auto_spells": False, "spells_by_role": {}, "import_runes": False, "auto_hover_pick": False}.items():
+        monkeypatch.setitem(CFG, k, v)
+    me = {"cellId": 0, "assignedPosition": "utility", "championId": 0, "championPickIntent": 0}
+    adc = {"cellId": 1, "assignedPosition": "bottom", "championId": 0, "championPickIntent": 0}
+    s = {"localPlayerCellId": 0, "myTeam": [me, adc], "theirTeam": [],
+         "actions": [[{"id": 1, "actorCellId": 0, "championId": 0, "completed": False, "isAllyAction": True,
+                       "isInProgress": True, "type": "pick"}]],
+         "bans": {"myTeamBans": [], "theirTeamBans": []}, "timer": {}}  # fmt: skip
+    out = Draft(None, champs, dependiente(champs)).tick(s, False, pickable=set(), bannable=set())
+    assert out["hero"]["id"] == 6 and out["combo"]["partner"] == 4
+    assert out["combo"]["text"].startswith("Enchanter rinde mucho más con Marksman (+")
+    assert out["combo"]["text"].endswith("propónselo a tu ADC.")
+    assert out["combo"]["chat"] == "Si te va bien, coge Marksman: hace combo con mi Enchanter."
+    adc["championId"] = 10  # tu ADC ya ha elegido: nada que proponer
+    assert Draft(None, champs, dependiente(champs)).tick(s, False, pickable=set(), bannable=set())["combo"] is None
+
+
 # ------------------------------------------------------------------ simulador pro (#76)
 def test_simulador_pro_usa_blindability(champs):
     e = eng(champs, {(1, "jungle"): risky_rows(0.8), (5, "jungle"): risky_rows(2.6)},

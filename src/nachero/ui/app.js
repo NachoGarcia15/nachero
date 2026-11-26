@@ -469,6 +469,7 @@ function renderDraft([d, idle, s]) {
       ${roleFitLine(d)}
       ${d.slot_line ? `<p class="info-line slotline">${esc(d.slot_line)}</p>` : ""}
       ${swapBox(d.swap)}
+      ${comboBox(d.combo)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${d.focus === "ban" ? banHero(d.ban_suggestions[0], best) : best ? `
       <article class="hero">
@@ -536,6 +537,8 @@ function renderDraft([d, idle, s]) {
   el.querySelectorAll(".swap [data-op]").forEach((b) => (b.onclick = () => swapOp(b.dataset.op, Number(b.dataset.id))));
   const chat = el.querySelector(".swap [data-chat]");
   if (chat) chat.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(d.swap.chat); SWAP_MSG = { text: "Copiado: pégalo en el chat", err: false, until: Date.now() + 3000 }; delete memo.draft; poll(); };
+  const comboChat = el.querySelector(".combo [data-combo-chat]");
+  if (comboChat) comboChat.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(d.combo.chat); COMBO_MSG = { text: "Copiado: pégalo en el chat", until: Date.now() + 3000 }; delete memo.draft; poll(); };
 }
 
 /* ------------------------------------------------------------------ en partida (#88) */
@@ -660,6 +663,14 @@ function swapBox(w) {
   }
   const chat = w.chat ? `<button data-chat="1" class="ghost">Copiar mensaje</button>` : "";
   return `<div class="swap ${esc(w.kind)} ${esc(w.verdict)}" role="status"><span class="lbl">Orden de pick</span><p>${esc(w.text)} <small class="muted">El equipo gana ${f1(w.gain)} pp.</small></p><div class="btns">${btns}${chat}${msg}</div></div>`;
+}
+
+/* Combo de soloq (#85): tu pick depende de su pareja. Solo copia el mensaje: nunca escribe en el chat. */
+let COMBO_MSG = null;
+function comboBox(c) {
+  if (!c) return "";
+  const msg = COMBO_MSG && COMBO_MSG.until > Date.now() ? `<span class="who">${esc(COMBO_MSG.text)}</span>` : "";
+  return `<div class="swap combo" role="status"><span class="lbl">Combo</span><p>${esc(c.text)}</p><div class="btns"><button data-combo-chat="1" class="ghost">Copiar mensaje</button>${msg}</div></div>`;
 }
 
 async function swapOp(op, id) {

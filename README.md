@@ -246,6 +246,10 @@ Ideas de los vídeos de MachineLoLing ([1](https://www.youtube.com/watch?v=3t5dE
 - **Quién elige primero depende del campeón, no del rol**: si un aliado que elige después marca
   un campeón más ciego que el tuyo, Nachero sugiere el **intercambio de orden** (o aconseja aceptar
   o rechazar el que te piden). Solo aconseja: pedir, aceptar o rechazar es un clic tuyo.
+- **Combos de soloq** (con datos propios): si tu pick depende de su pareja (su sinergia cambia
+  mucho según con quién juegue) y el aliado de ese rol aún no ha elegido, Nachero dice con quién
+  rinde más («Seraphine rinde mucho más con Ashe (+2,4 pp): propónselo a tu ADC») y deja un
+  mensaje para **copiar** al chat; nunca escribe solo.
 - **Tu pool** dice qué campeones son seguros a ciegas y cuáles de counter, el tamaño de tu pool
   (los que suman el 80 % de tu maestría o de tus partidas en el rol) y qué te falta. En la champ
   select, una línea dice qué toca según tu hueco («Eliges 2.º: tu rival de línea elige después

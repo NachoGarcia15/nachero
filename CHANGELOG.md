@@ -85,6 +85,11 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   roles aún libres en tu equipo: no banea Ashe si tu support ha marcado Seraphine. Si aun así sale,
   lo dice («pero hace combo con tu …»). Con Lolalytics (sin sinergias) no cambia nada.
   `Engine.pair_synergies` reúne el cálculo de la sinergia que ya usaba el pick (#77).
+- **Tu pick depende de su pareja** (#85, segunda parte): con datos propios, si el spread de
+  sinergia de tu pick con un rol aún libre en tu equipo es alto (≥ 1,5 pp) y su mejor pareja
+  disponible da 1,5 pp o más, el panel lo dice («Taliyah rinde mucho más con Ahri (+2,1 pp):
+  propónselo a tu Mid») con «Copiar mensaje» para el chat. Si tu aliado ya la ha marcado, no sale.
+  `Engine.synergy_table` y `Engine.combo_advice`.
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
   10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
   nombres ni ids de cuenta.

@@ -4,6 +4,7 @@ import math
 import time
 import webbrowser
 
+from nachero import __version__
 from nachero.app.state import SPELL_IDS, TIMER_ES, log
 from nachero.app.trace import Trace, session_view
 from nachero.config import CFG
@@ -16,6 +17,9 @@ from nachero.domain import tags as T
 from nachero.domain.common import ROLE_ES, ROLE_SHORT, ROLES
 from nachero.domain.engine import ban_context, comp_notes, comp_summary
 from nachero.domain.queues import has_bans
+
+# ajustes que se apuntan al principio del registro de cada selección (lo que decide qué hace Nachero)
+TRACE_SETTINGS = ("auto_hover_pick", "auto_lock_pick", "lock_when_seconds_left", "auto_ban", "pick_mode")
 
 
 def pick_shown(action: dict, intent: int) -> int:
@@ -136,6 +140,8 @@ class Draft:
                 my_pick = {**my_pick, "championId": shown}
         timer = s.get("timer") or {}
         left = self.time_left(timer)  # None: sin reloj (no se confirma a ciegas)
+        self.log_trace("meta", {"version": __version__, "acting": acting, "queue": queue.get("name"),
+                                **{k: CFG.get(k) for k in TRACE_SETTINGS}}, key="meta")  # fmt: skip
         self.log_trace("timer", dict(timer), key="timer", left=None if left is None else round(left, 1))
         self.log_trace("session", session_view(s), key="session")
         # en planificación el cliente ya da los bans como «en curso», pero ignora lo que se marque

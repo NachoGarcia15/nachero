@@ -85,7 +85,14 @@ def timeline(lines: list[dict], name=str) -> list[str]:
     phase, mine, decided, ban = None, None, None, None
     for ln in lines:
         kind, at = ln.get("kind"), _hms(ln.get("t"))
-        if kind == "timer" and ln.get("phase") != phase:
+        if kind == "meta":
+            labels = {"auto_hover_pick": "marcar pick", "auto_lock_pick": "confirmar pick", "auto_ban": "banear"}
+            on = ", ".join(v for k, v in labels.items() if ln.get(k)) or "sin decisiones automáticas"
+            mode = "Activo" if ln.get("acting") else "Observar"
+            secs = ln.get("lock_when_seconds_left")
+            out.append(f"{at}  Nachero {ln.get('version', '?')} · {ln.get('queue') or 'cola ?'} · modo {mode} · {on}"
+                       + (f" · confirma a falta de {secs} s" if ln.get("auto_lock_pick") else ""))  # fmt: skip
+        elif kind == "timer" and ln.get("phase") != phase:
             phase = ln.get("phase")
             left = ln.get("left")
             clock = f" · quedan {left:.0f} s" if isinstance(left, (int, float)) else ""

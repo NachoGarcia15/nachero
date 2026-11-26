@@ -479,6 +479,7 @@ def test_cronologia_legible_del_registro(champs, auto, tmp_path):
     tick(d, lcu)  # la vuelta siguiente ya ve el pick confirmado
     lines = [json.loads(x) for x in next(tmp_path.glob("*.jsonl")).read_text(encoding="utf-8").splitlines()]
     text = "\n".join(timeline(lines, lambda c: f"C{c}"))
+    assert "modo Activo · marcar pick, confirmar pick · confirma a falta de 8 s" in text.splitlines()[0]
     assert "Fase PLANNING · quedan 30 s" in text and "Fase BAN_PICK" in text
     assert f"Marcar C{b1} → aceptado" in text and f"Confirmar C{b1} → aceptado" in text
     assert f"Nachero recomienda C{b1} · marcado C{b1} (de Nachero)" in text

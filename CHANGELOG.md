@@ -98,6 +98,12 @@ interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
   disponible da 1,5 pp o más, el panel lo dice («Taliyah rinde mucho más con Ahri (+2,1 pp):
   propónselo a tu Mid») con «Copiar mensaje» para el chat. Si tu aliado ya la ha marcado, no sale.
   `Engine.synergy_table` y `Engine.combo_advice`.
+- **Builds con datos propios** (#90, primera parte): el recolector cuenta la pareja de hechizos y,
+  con el catálogo de objetos de Data Dragon (público, en caché por parche), los objetos completos y
+  las botas del final de cada partida. Los datos propios dan así la build de «En partida» (más
+  jugada y de mayor WR, con opciones para el 4.º objeto). Campos nuevos y opcionales del esquema 1:
+  los archivos anteriores siguen valiendo. Sin el *timeline* aún no hay orden de compra ni de
+  habilidades.
 - **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
   10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
   nombres ni ids de cuenta.

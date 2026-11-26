@@ -42,6 +42,12 @@ hasta entonces se le suponen 50 páginas.
 5. Guarda su estado privado (`state/collector.json`, por liga: por dónde va la rotación de cada
    fuente y qué ids ya contó, un día más de los que se piden: uno más viejo ya no puede salir) —
    no se publica. El estado de versiones anteriores (solo Master+) se convierte sin perder nada.
+6. **Builds** (#90): cuenta la pareja de hechizos y, con el catálogo de objetos del parche, los
+   objetos completos y las botas que llevaba cada uno al final. El catálogo sale de **Data Dragon**
+   (público, sin clave: la de Riot nunca va en esa petición), una vez por parche, y se guarda junto
+   al estado (`state/items-<parche>.json`). Si no se puede leer, esa pasada no cuenta objetos y el
+   resto sigue igual. El orden de compra y el de habilidades necesitan el *timeline* (una petición
+   más por partida): de momento no se piden.
 
 Límites de la clave personal: 20 peticiones/s y 100 cada 2 min (~3000 por hora). Con los valores
 por defecto, una pasada ronda 2500 peticiones. En un 429 se espera lo que diga `Retry-After`; los

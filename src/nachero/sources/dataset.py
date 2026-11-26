@@ -19,6 +19,7 @@ SCHEMA = 1
 MERGE_K = {"champ": 1000, "matchup": 150, "rune": 300}  # partidas a las que el parche anterior pesa la mitad
 RUNE_MIN_SHARE = 0.05  # la página de mayor WR necesita al menos el 5 % de las partidas (y 30)
 RUNE_MIN_GAMES = 30
+BUILD_OPTIONS = 3  # objetos alternativos tras el núcleo (#90)
 
 
 def load_file(path) -> dict:
@@ -40,6 +41,28 @@ def _page_ok(page) -> bool:
         isinstance(page.get(k), list) and len(page[k]) == n and all(isinstance(x, int) for x in page[k])
         for k, n in sizes.items()
     )
+
+
+def _counts_ok(row) -> bool:
+    if not isinstance(row, dict) or not _count(row.get("games")) or not _count(row.get("wins")):
+        return False
+    return row["wins"] <= row["games"]
+
+
+def _build_ok(r: dict) -> bool:
+    """Objetos completos y botas ({"<id>": conteos}) y parejas de hechizos (opcionales, #90)."""
+    for key in ("items", "boots"):
+        block = r.get(key, {})
+        if not isinstance(block, dict) or not all(str(i).isdigit() and _counts_ok(v) for i, v in block.items()):
+            return False
+    spells = r.get("spells", [])
+    if not isinstance(spells, list):
+        return False
+    return all(
+        _counts_ok(s) and isinstance(s.get("ids"), list) and len(s["ids"]) == 2
+        and all(isinstance(x, int) and not isinstance(x, bool) for x in s["ids"])
+        for s in spells
+    )  # fmt: skip
 
 
 def _key(k) -> tuple[str, str] | None:
@@ -80,6 +103,8 @@ def validate(doc) -> list[str]:
                 if not _page_ok(page) or not _count(page.get("games")) or not _count(page.get("wins")):
                     errors.append(f"runas de {cid}:{role} no válidas")
                     break
+            if isinstance(r, dict) and not _build_ok(r):
+                errors.append(f"objetos o hechizos de {cid}:{role} no válidos")
     for section in ("matchups", "synergies"):
         block = doc.get(section, {})
         if not isinstance(block, dict):
@@ -142,6 +167,16 @@ def merge(doc: dict, prev: dict | None) -> dict:
                 key = json.dumps([p["pri"], p["sec"], p["mod"]])
                 pages[key] = {**p, **(_blend(pages.get(key), p, MERGE_K["rune"]) or {})}
             r["runes"] = list(pages.values())
+            for key in ("items", "boots"):  # objetos de la build (#90), como las runas
+                cb, pb = (cr or {}).get(key) or {}, (pr or {}).get(key) or {}
+                if cb or pb:
+                    r[key] = {i: _blend(cb.get(i), pb.get(i), MERGE_K["rune"]) for i in set(cb) | set(pb)}
+            sp = {json.dumps(s["ids"]): s for s in (cr or {}).get("spells", [])}
+            for s in (pr or {}).get("spells", []):
+                key = json.dumps(s["ids"])
+                sp[key] = {**s, **(_blend(sp.get(key), s, MERGE_K["rune"]) or {})}
+            if sp:
+                r["spells"] = list(sp.values())
             roles[role] = r
         champs[cid] = {"bans": cur_c.get("bans", 0), "roles": roles}
     out = {**doc, "champions": champs, "merged_with": prev.get("patch")}
@@ -188,6 +223,48 @@ def _rune_pages(pages: list, games: float) -> dict:
     return {"pick": page(pick), "win": page(win)}
 
 
+def _shrunk(row) -> float:
+    return (row["wins"] + 25) / (row["games"] + 50)  # WR encogido hacia el 50 %
+
+
+def _builds(r: dict) -> dict:
+    """Builds del formato de `StatsProvider.build` (#90) con lo que hay sin el timeline: objetos
+    completos y botas del final de la partida y la pareja de hechizos. «pick»: lo más jugado; «win»:
+    lo de mayor WR (encogido) entre lo que tiene el 5 % de las partidas y 30. Sin orden de compra
+    ni de habilidades (hace falta el timeline): `start`, `skills` y `order` vacíos."""
+    games = r.get("games") or 0
+    items = {int(i): v for i, v in (r.get("items") or {}).items() if v and v.get("games")}
+    boots = {int(i): v for i, v in (r.get("boots") or {}).items() if v and v.get("games")}
+    spells = [s for s in r.get("spells") or [] if s.get("games")]
+    if not items and not spells:
+        return {}
+    floor = max(RUNE_MIN_GAMES, RUNE_MIN_SHARE * games)
+
+    def best(rows: dict | list, key, by_wr: bool):
+        rows = list(rows.items()) if isinstance(rows, dict) else [(None, s) for s in rows]
+        if by_wr:
+            rows = [x for x in rows if x[1]["games"] >= floor] or rows
+        return max(rows, key=lambda x: _shrunk(x[1]) if by_wr else x[1]["games"], default=(None, None))
+
+    popular = sorted(items, key=lambda i: -items[i]["games"])
+    winning = sorted((i for i in items if items[i]["games"] >= floor), key=lambda i: -_shrunk(items[i]))
+
+    def page(core: list[int], by_wr: bool) -> dict:
+        rest = [i for i in popular if i not in core][:BUILD_OPTIONS]
+        options = [{"id": i, "wr": round(_wr(items[i]), 1), "n": round(items[i]["games"])} for i in rest]
+        sp = best(spells, None, by_wr)[1]
+        return {
+            "start": [], "core": core, "core_wr": None, "core_n": None, "boots": best(boots, None, by_wr)[0],
+            "options": [options, [], []] if options else [], "skills": "", "order": "",
+            "spells": list(sp["ids"]) if sp else [],
+        }  # fmt: skip
+
+    out = {"pick": page(popular[:3], False)}
+    if winning:
+        out["win"] = page(winning[:3], True)
+    return out
+
+
 def derive(doc: dict, prev: dict | None = None) -> dict:
     """Del esquema 1 (con el parche anterior mezclado si se da) al formato del motor:
     {"patch", "generated", "roles": {rol: {"avg", "games", "champs"}}, "matchups", "runes", "synergies"}."""
@@ -195,6 +272,7 @@ def derive(doc: dict, prev: dict | None = None) -> dict:
     total = doc["totals"]["games"]
     roles: dict = {r: {} for r in ROLES}
     runes = {}
+    builds = {}
     for cid, c in doc["champions"].items():
         champ_games = sum(r.get("games", 0) for r in c.get("roles", {}).values())
         for role, r in c.get("roles", {}).items():
@@ -211,6 +289,9 @@ def derive(doc: dict, prev: dict | None = None) -> dict:
             pages = _rune_pages(r.get("runes", []), r["games"])
             if pages:
                 runes[f"{cid}:{role}"] = pages
+            build = _builds(r)
+            if build:
+                builds[f"{cid}:{role}"] = build
     out_roles = {}
     for role, rows in roles.items():
         if not rows:
@@ -263,5 +344,6 @@ def derive(doc: dict, prev: dict | None = None) -> dict:
         "roles": out_roles,
         "matchups": matchups,
         "runes": runes,
+        "builds": builds,
         "synergies": synergies,
     }

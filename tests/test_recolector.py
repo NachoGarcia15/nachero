@@ -18,6 +18,15 @@ from nachero_collector import history as H
 from nachero_collector.__main__ import main
 from nachero_collector.riot import PAGE, RateLimiter, Riot, RiotError
 
+CATALOGO = {"legendary": [3078, 6630, 3053, 3071, 6610], "boots": [3047, 3111]}
+
+
+@pytest.fixture(autouse=True)
+def sin_data_dragon(monkeypatch):
+    """Los tests no salen a la red: catálogo de objetos fijo (#90)."""
+    monkeypatch.setattr(C.I, "catalog", lambda patch, cache_dir: CATALOGO)
+
+
 DATA = Path(__file__).parent / "data" / "riot"
 MATCH = json.loads((DATA / "match.json").read_text(encoding="utf-8"))
 LEAGUE = json.loads((DATA / "challenger.json").read_text(encoding="utf-8"))

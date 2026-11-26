@@ -41,7 +41,10 @@ concretos, y el lector rechaza el archivo si los encuentra.
           "games": 900, "wins": 480,
           "runes": [
             {"pri": [8112, 8139, 8140, 8105], "sec": [8347, 8304], "mod": [5008, 5008, 5007], "games": 600, "wins": 318}
-          ]
+          ],
+          "spells": [{"ids": [4, 11], "games": 880, "wins": 470}],
+          "items": {"3118": {"games": 610, "wins": 330}, "4645": {"games": 420, "wins": 225}},
+          "boots": {"3020": {"games": 700, "wins": 372}}
         },
         "middle": {"games": 640, "wins": 330}
       }
@@ -66,6 +69,8 @@ concretos, y el lector rechaza el archivo si los encuentra.
 | `champions.<cid>.bans` | Partidas en las que se baneó. |
 | `champions.<cid>.roles.<rol>` | Partidas y victorias del campeón en ese rol (`top`, `jungle`, `middle`, `bottom`, `utility`). |
 | `…roles.<rol>.runes` | Páginas de runas jugadas (4 + 2 + 3 ids) con sus partidas y victorias. Basta con las más jugadas. |
+| `…roles.<rol>.spells` | Opcional (#90). Parejas de hechizos (ids ordenados) con sus partidas y victorias. |
+| `…roles.<rol>.items`, `…boots` | Opcionales (#90). Objetos completos y botas que se llevaban **al final** de la partida (`item0`–`item5` de match-v5, clasificados con Data Dragon), con partidas y victorias de cada uno. |
 | `matchups.<cid>:<rol>.<cid>:<rol>` | Partidas y victorias del primero contra el segundo, por pareja de líneas. `gold15`: diferencia media de oro a los 15 min, si se recoge (opcional). |
 | `synergies.<cid>:<rol>.<cid>:<rol>` | Lo mismo para dúos del mismo equipo (jungla con mid, ADC con support…). |
 
@@ -85,6 +90,10 @@ concretos, y el lector rechaza el archivo si los encuentra.
   (`expected_duo`), encogido con el spread de sinergia de la pareja de roles (#77).
 - **Runas**: «más popular» (más partidas) y «mayor WR» (WR encogido hacia el 50 %, entre las que
   tienen al menos el 5 % de las partidas y 30).
+- **Builds** (#90): «más jugada» = los tres objetos completos más llevados, las botas y los
+  hechizos más jugados; «mayor WR» = lo mismo con el WR encogido (mismo umbral que las runas). Las
+  opciones del 4.º objeto son los siguientes más llevados. Sin el *timeline* no hay orden de compra
+  ni de habilidades: `start`, `skills` y `order` van vacíos.
 
 ## Principio de parche
 

@@ -3,6 +3,144 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.32.0] - 2026-11-27
+
+Marcar y confirmar pick en ranked (lo que no funcionaba en el cliente real), seguridad del panel,
+#93 sin destellos de consola, validación de los datos propios (#21) y una revisión de bugs y de la
+interfaz. Probado sin el cliente: simulaciones, dobles y la CI de Windows.
+
+### Corregido
+- **Confirmar pick no confirmaba**: el reloj de la sesión del cliente es una foto del último
+  cambio (`adjustedTimeLeftInPhase` en el instante `internalNowInEpochMs`), no una cuenta atrás.
+  Si nadie tocaba nada al final de tu turno, Nachero seguía leyendo los ~30 s del principio y
+  nunca llegaba a «a falta de 8 s» (en ranked, sin confirmar se esquiva). Ahora descuenta lo que ha
+  pasado desde la foto, como el propio cliente, y el reloj del panel también cuenta de verdad.
+- **La marca dejaba de seguir la recomendación**: si el cliente tardaba más de 5 s en responder al
+  marcar (en ranked espera al servidor), la vuelta se cortaba con un error aunque el cliente lo
+  aplicara, y en la siguiente la marca de Nachero parecía tuya («Has elegido…») y ya no la
+  cambiaba. Ahora espera hasta 10 s y, sin respuesta, la marca sigue contando como de Nachero.
+  Igual con el ban y al confirmar.
+- Un fallo puntual al leer la fase del cliente ya no se toma por «Sin cliente»: al volver a la
+  selección se borraba lo que llevaba marcado Nachero y su marca pasaba a parecer tuya.
+- **Sin destellos de consola** (#93): para encontrar el cliente, Nachero leía su línea de comandos
+  con PowerShell, que abría una consola un instante en cada intento (con el cliente cerrado, cada
+  10 s). Ahora la lee con la API de Windows (`clients/winproc.py`), sin abrir nada; PowerShell
+  queda de respaldo y sin ventana. Si el cliente va como administrador, sigue el `lockfile`.
+- El acceso directo del Menú Inicio (`--install-shortcut`) se crea sin ventanas y funciona con
+  carpetas de usuario con apóstrofo (O'Brien).
+- **Al acabar una partida, un fallo del cliente reiniciaba toda la sesión**: el historial (hasta
+  60 s) y la maestría se leían fuera de la protección del bucle; si el cliente tardaba o fallaba,
+  Nachero volvía a cargarlo todo. Ahora se leen en segundo plano y una sola vez a la vez (antes,
+  dos: en PreEndOfGame y en EndOfGame, con el bucle parado), y si la maestría no llega se queda la
+  que había (antes se perdía).
+- Un fallo que se repite en cada vuelta del bucle se apunta una vez (y cuántas veces más se ha
+  repetido) en lugar de llenar la Actividad cada segundo; su traza completa va al archivo de
+  registro. «Selección lenta», como mucho una vez cada 30 s.
+- **Tu pool y la pantalla de espera daban otro WR para el mismo campeón**: Tu pool sumaba solo tu
+  parte y la fuerza en el parche; la recomendación cuenta además el riesgo de counter a ciegas,
+  tus puntos de «practicando» y tu estilo. Ahora Tu pool usa el mismo cálculo del motor y el mismo
+  campeón sale con el mismo número en las dos vistas (y el plan de Tu pool ordena con él).
+- **Ajustes rotos**: si `config.json` era JSON válido pero no un objeto, Nachero no arrancaba; si
+  estaba corrupto, seguía con los de por defecto sin avisar y el siguiente guardado lo pisaba (se
+  perdían tus ajustes). Ahora arranca, guarda una copia en `config.roto.json` y lo dice en la
+  Actividad. Un valor con un tipo que no toca (p. ej. `"weights": "x"`, que rompía el motor en cada
+  vuelta) no entra: se queda el de por defecto.
+- Historial y perfil guardados con un formato inesperado (otro tipo o partidas a medias) hacían
+  que la sesión fallara en cada intento («Reiniciando tras un error» cada 3 s). Ahora se ignora lo
+  que no vale, y una partida rara del historial del cliente no impide leer las demás.
+- **Barra superior en ventanas medianas** (~800-1000 px): las pestañas se montaban encima del
+  estado («Selección de campeón»). Ahora el estado se recorta con «…» y se ve entero al pasar el
+  ratón.
+- **Actividad: las pistas salían rotas** (todo lo de «Observando · …» y «Te toca elegir…»): su
+  tipo iba como clase CSS `hint`, la misma del botón «?» de ayuda, y cada entrada se pintaba
+  como un círculo de 17 px con el texto desbordado encima de las demás. Ahora el tipo va en
+  `data-kind`.
+- Simulador pro sin conexión con gol.gg: el selector de torneo se quedaba en «Cargando…» para
+  siempre. Ahora sale «Reintentar gol.gg».
+- «En partida»: los porcentajes de la ventaja de draft usaban los colores de daño físico y mágico
+  (naranja y morado); ahora, los de la barra y los equipos (azul y rojo).
+- Accesibilidad: la pestaña activa se anuncia (`aria-current`) y el modelo de matchups de Ajustes
+  dice cuál está elegido (`aria-checked`), como el resto de selectores.
+- Ajustes decía que Nachero marca su recomendación «una vez»: desde la 0.31.1 la va cambiando.
+- Plan de Tu pool: «Todos tus campeones son de elegir pronto» salía también con campeones
+  intermedios; ahora dice cuáles son de elegir pronto y que falta un counter.
+
+### Seguridad
+- **El panel solo atiende al propio panel.** Escucha en 127.0.0.1, pero cualquier web abierta en
+  el navegador podía mandarle órdenes: activar «Confirmar pick», cambiar la fuente de datos o el
+  inicio con Windows, marcar un campeón o pedir un intercambio. Con un nombre que apunte a
+  127.0.0.1 (DNS rebinding) podía además leer tu estado. Ahora rechaza (403) las peticiones con
+  otro `Host` u otro `Origin` y los POST que no son JSON (desde otra web, eso exige un permiso
+  CORS que el panel nunca da). Cuerpos de más de 1 MiB o que no son un objeto JSON, 413 y 400.
+
+- Datos propios descargados (`stats_url`): las rutas del manifiesto solo pueden ser
+  `<parche>/<región>/<liga>.json[.gz]` (antes, una con letra de unidad de Windows podía escribir
+  fuera de la caché) y un `index.json` que no es un objeto ya no rompe la descarga en un hilo.
+
+### Cambiado
+- **El panel ya no pide nada a Google**: las fuentes Geist y Geist Mono (SIL Open Font License,
+  `ui/geist-ofl.txt`) van dentro de la app (~140 KB) en lugar de cargarse de Google Fonts al abrir
+  el panel. Mejor para la privacidad (#27) y con la misma letra sin conexión.
+- **Caché de Lolalytics**: se escribía entera (más de 10 MB, ~2 s) tras cada página de matchups;
+  al empezar un parche, cerca de 1 GB de escrituras y la mitad del tiempo de descarga. Ahora se
+  escribe al vaciarse la cola o como mucho cada 30 s, y un fallo al guardarla ya no marca la página
+  como fallida.
+- Si el cliente rechaza confirmar con `PATCH` (`completed`), Nachero confirma lo que ya está
+  marcado con el otro camino de la API local (`POST …/actions/{id}/complete`): un rechazo
+  puntual ya no acaba en esquivar la partida.
+- Fuera de tu turno, lo marcado es tu **intención de pick** (lo que ven tus aliados), aunque la
+  acción guarde una marca anterior. Con tu ban en curso no se toca tu pick: se sigue al acabar los
+  bans.
+- Si el cliente no deja marcar o confirmar, el registro dice por qué (su mensaje de error).
+
+### Añadido
+- **Validar los datos propios frente a Lolalytics** (#21): `scripts/validar_datos.py` compara, por
+  rol, el WR relativo y el pick rate (correlación, diferencia media, sesgo), los campeones que más
+  se desvían (en errores típicos), cuánto de la muestra es ruido y los matchups de la misma liga.
+  Usa lo que ya tiene Nachero en tu carpeta de datos, sin descargar nada, y deja un informe en
+  Markdown. Detalle en `docs/DATOS.md`.
+- **Bans que no te quitan un combo** (#85, primera parte): con datos propios, la sinergia medida
+  de lo que han elegido o marcado tus aliados protege a sus parejas de combo (≥ 1,5 pp) de los
+  roles aún libres en tu equipo: no banea Ashe si tu support ha marcado Seraphine. Si aun así sale,
+  lo dice («pero hace combo con tu …»). Con Lolalytics (sin sinergias) no cambia nada.
+  `Engine.pair_synergies` reúne el cálculo de la sinergia que ya usaba el pick (#77).
+- **Tu pick depende de su pareja** (#85, segunda parte): con datos propios, si el spread de
+  sinergia de tu pick con un rol aún libre en tu equipo es alto (≥ 1,5 pp) y su mejor pareja
+  disponible da 1,5 pp o más, el panel lo dice («Taliyah rinde mucho más con Ahri (+2,1 pp):
+  propónselo a tu Mid») con «Copiar mensaje» para el chat. Si tu aliado ya la ha marcado, no sale.
+  Si no depende de nadie pero tiene combos con un rol aún libre, la línea los lista («Combos de
+  Ashe para tu Support: Seraphine (+2,4) o Lulu (+1,8) pp»), también para copiar.
+  `Engine.synergy_table`, `Engine.combo_advice` y `Engine.combo_partners`.
+- **Combos del rival** (#85): si un rival ya elegido depende de su pareja de tu línea y esa pareja
+  sigue libre, tu rival de línea la coge más a menudo (η_combo = 0,3). Tu matchup contra ella entra
+  en el riesgo de counter, con su motivo («su Seraphine pide Ashe: −1,8 contra ti»). Con datos
+  propios.
+- **Builds con datos propios** (#90, primera parte): el recolector cuenta la pareja de hechizos y,
+  con el catálogo de objetos de Data Dragon (público, en caché por parche), los objetos completos y
+  las botas del final de cada partida. Los datos propios dan así la build de «En partida» (más
+  jugada y de mayor WR, con opciones para el 4.º objeto). Campos nuevos y opcionales del esquema 1:
+  los archivos anteriores siguen valiendo. Recolector 0.3.0.
+- **Builds completas con `--timeline`** (#90): el recolector puede pedir los eventos de cada partida
+  (una petición más por partida, apagado por defecto) y contar el orden de habilidades, los objetos
+  iniciales y el núcleo en orden de compra. La build de «En partida» con datos propios trae entonces
+  inicio, núcleo con su WR y partidas, prioridad y orden de habilidades, como la de Lolalytics.
+- **`scripts/ver_seleccion.py`**: cuenta lo que pasó en una selección (la última, por defecto) a
+  partir de su registro: fase y reloj, tu pick en el cliente, qué recomendaba y marcaba Nachero y
+  qué respondió el cliente a cada marca o confirmación.
+- En tu turno, con «Confirmar pick», el panel dice cuánto falta para que Nachero confirme
+  («Nachero confirma lo marcado en 12 s»), con el reloj real.
+- **Avisos desde la bandeja** (Ajustes → App, activado): con la ventana oculta en la bandeja, un
+  aviso de Windows al empezar la selección y al llegar tu turno de ban o de pick, con la
+  recomendación. Uno de cada por selección; con la ventana abierta, ninguno.
+- **«Abrir registros»** en Actividad: abre la carpeta con `nachero.log` y `selecciones/` (lo que
+  pasó en cada champ select), para mandarla si algo falla. En Ajustes, **«Tus datos»**: todo se
+  queda en tu PC, con «Abrir carpeta de datos» y cómo borrarlo.
+- **`docs/PRIVACIDAD.md`** (#27): borrador de la política de privacidad con lo que la app guarda en
+  tu PC, lo que descarga y lo que publica el recolector.
+- **Registro de diagnóstico de cada selección** en `logs/selecciones` de tu carpeta de datos (las
+  10 últimas): acciones, intenciones, reloj y lo que marca, confirma y responde el cliente. Sin
+  nombres ni ids de cuenta.
+
 ## [0.31.1] - 2026-11-24
 
 ### Cambiado

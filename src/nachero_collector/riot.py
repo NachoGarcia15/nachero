@@ -131,6 +131,10 @@ class Riot:
     def match(self, match_id: str):
         return self.get(self.region, f"/lol/match/v5/matches/{match_id}")
 
+    def timeline(self, match_id: str):
+        """Eventos de la partida (compras y subidas de habilidad): una petición más por partida (#90)."""
+        return self.get(self.region, f"/lol/match/v5/matches/{match_id}/timeline")
+
     # -- account-v1 (solo para tu propio historial)
     def puuid_of(self, game_name: str, tag_line: str) -> str | None:
         path = f"/riot/account/v1/accounts/by-riot-id/{urllib.parse.quote(game_name)}/{urllib.parse.quote(tag_line)}"

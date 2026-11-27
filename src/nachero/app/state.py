@@ -46,8 +46,10 @@ LOCK = threading.RLock()
 TASKS = Tasks()  # qué está haciendo la app (pantalla de carga e indicador de la barra)
 # window: el panel está en la ventana de la app. demo_ui: la demo se abrió desde el panel (se
 # cierra sola al empezar una champ select de verdad); demo_since: cuándo, para empezarla de cero.
-# show_window: muestra la ventana (la pone desktop.open_window; la usa /api/show).
-OPTS: dict = {"demo": False, "window": False, "demo_ui": False, "demo_since": 0.0, "show_window": None}
+# show_window: muestra la ventana (la pone desktop.open_window; la usa /api/show). notify: aviso de
+# Windows desde la bandeja, solo con la ventana oculta (lo pone desktop.open_window; lo usa el bucle).
+OPTS: dict = {"demo": False, "window": False, "demo_ui": False, "demo_since": 0.0, "show_window": None,
+              "notify": None}  # fmt: skip
 APP: dict = {
     "mode": "observe",
     "connected": False,
@@ -93,6 +95,36 @@ def log(msg: str, kind: str = "info") -> None:
     with contextlib.suppress(OSError, ValueError, AttributeError):
         print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
     logger.log(logging.WARNING if kind == "warn" else logging.INFO, "%s", msg)
+
+
+def log_error(msg: str, exc: BaseException, kind: str = "warn") -> None:
+    """Un fallo: el panel y la consola ven `msg`; el archivo de log, además, la traza (para poder
+    arreglarlo después sin tener el cliente delante)."""
+    log(msg, kind)
+    logger.warning("Traza de «%s»", msg, exc_info=(type(exc), exc, exc.__traceback__))
+
+
+class Repeats:
+    """Un fallo que se repite en cada vuelta del bucle (cada segundo) se apunta una vez, con su
+    traza, en vez de llenar el registro: al llegar otro fallo o pasados `every` s, dice cuántas
+    veces más se ha repetido."""
+
+    def __init__(self, every: float = 60.0, clock=time.time):
+        self.every, self.clock = every, clock
+        self.key: str | None = None
+        self.since = 0.0
+        self.count = 0
+
+    def report(self, prefix: str, exc: BaseException) -> None:
+        text = f"{exc.__class__.__name__}: {exc}"
+        key, now = f"{prefix}|{text}", self.clock()
+        if key == self.key and now - self.since < self.every:
+            self.count += 1
+            return
+        if self.count:
+            log(f"El fallo anterior se ha repetido {self.count} {'vez' if self.count == 1 else 'veces'} más", "warn")
+        self.key, self.since, self.count = key, now, 0
+        log_error(f"{prefix} ({text}); reintento.", exc)
 
 
 def set_demo(on: bool, from_ui: bool = True) -> None:

@@ -135,8 +135,41 @@ def private_words() -> tuple[str, ...]:
     return tuple(words)
 
 
+MAX_BODY = 1 << 20  # 1 MiB: el cuerpo más grande del panel (el simulador pro) ocupa unos KB
+
+
+def refusal(headers, method: str, port: int) -> str | None:
+    """Por qué no se atiende una petición, o None. El panel solo escucha en 127.0.0.1, pero
+    cualquier web abierta en el navegador puede mandarle peticiones (no ve la respuesta, pero el
+    POST se haría: cambiar ajustes, marcar un campeón, pedir un intercambio):
+    - `Host` tiene que ser el del panel: con otro nombre que apunte a 127.0.0.1 (DNS rebinding),
+      una web podría leer también las respuestas;
+    - con `Origin` (los navegadores lo mandan en todo POST), tiene que ser el del panel;
+    - un POST tiene que ser JSON: desde otra web eso exige un permiso previo (CORS) que el panel
+      nunca da. La otra instancia de Nachero (`desktop.request_show`) ya manda JSON sin Origin."""
+    own = {f"127.0.0.1:{port}", f"localhost:{port}"}
+    if (headers.get("Host") or "").strip().lower() not in own:
+        return "host"
+    origin = (headers.get("Origin") or "").strip().lower()
+    if origin and origin not in {f"http://{h}" for h in own}:
+        return "origin"
+    if method == "POST":
+        ctype = (headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            return "content-type"
+    return None
+
+
 class Handler(BaseHTTPRequestHandler):
     img_cache: dict[tuple[str, int], bytes] = {}
+
+    def refused(self) -> bool:
+        """Rechaza (403) lo que no venga del propio panel; ver `refusal`."""
+        addr = self.server.server_address
+        why = refusal(self.headers, self.command, int(addr[1]) if isinstance(addr, tuple) else 0)
+        if why:
+            self.send(403, {"error": f"petición rechazada ({why})"})
+        return bool(why)
 
     def log_message(self, *a):
         pass
@@ -145,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
     def static_file(path):
         """Archivo del panel para una ruta, o None. Nunca sale de la carpeta ui/."""
         name = "index.html" if path in ("/", "/index.html") else path.lstrip("/")
-        if not re.fullmatch(r"[a-z0-9_-]+\.(html|css|js|svg|png|ico)", name):
+        if not re.fullmatch(r"[a-z0-9_-]+\.(html|css|js|svg|png|ico|woff2)", name):
             return None
         f = (paths.UI_DIR / name).resolve()
         return f if f.parent == paths.UI_DIR.resolve() and f.is_file() else None
@@ -162,9 +195,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.refused():
+            return
         path = self.path.split("?")[0]
         static = self.static_file(path)
         if static:
+            if static.suffix == ".woff2":  # las fuentes no cambian entre versiones: un día de caché
+                return self.send(200, static.read_bytes(), "font/woff2", cache=True)
             ctype = mimetypes.guess_type(static.name)[0] or "text/plain"
             return self.send(200, static.read_bytes(), ctype + "; charset=utf-8")
         if path == "/api/instance":  # para que un segundo Nachero en este puerto traiga al frente a este
@@ -194,6 +231,7 @@ class Handler(BaseHTTPRequestHandler):
                 "ban_priority": CFG.get("ban_priority", {}),
                 "spells": list(config.SPELLS),
                 "close_to_tray": bool(CFG.get("close_to_tray", True)),
+                "tray_notify": bool(CFG.get("tray_notify", True)),
                 "start_with_windows": bool(CFG.get("start_with_windows", False)),
                 "blind": {k: v for k, v in BL.settings(CFG).items() if k in config.BLIND_KEYS},
                 "build_tier": CFG.get("build_tier", "emerald_plus"),
@@ -278,10 +316,19 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, {"error": "not found"})
 
     def do_POST(self):
-        n = int(self.headers.get("Content-Length", 0) or 0)
+        if self.refused():
+            return
+        try:
+            n = int(self.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            return self.send(400, {"error": "json"})
+        if not 0 <= n <= MAX_BODY:
+            return self.send(413, {"error": "demasiado grande"})
         try:
             body = json.loads(self.rfile.read(n) or b"{}")
         except Exception:
+            return self.send(400, {"error": "json"})
+        if not isinstance(body, dict):
             return self.send(400, {"error": "json"})
         if self.path == "/api/mode" and body.get("mode") in ("paused", "observe", "active"):
             with LOCK:
@@ -331,6 +378,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(code, out)
         if self.path == "/api/draft/swap":
             return self.send(*swap_request(body))
+        if self.path == "/api/open-folder":  # registros (nachero.log y selecciones/) o carpeta de datos
+            folders = {"logs": paths.log_dir, "data": paths.user_dir}
+            which = body.get("which")
+            if which not in folders:
+                return self.send(400, {"error": "carpeta no válida"})
+            problem = desktop.open_folder(folders[which]())
+            if problem:
+                return self.send(409, {"error": f"No he podido abrirla: {problem}"})
+            return self.send(200, {"ok": True})
         if self.path == "/api/refresh":
             lola, patch = CTX.get("lola"), CTX.get("patch")
             if lola and patch:

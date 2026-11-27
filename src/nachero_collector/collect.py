@@ -23,6 +23,7 @@ from pathlib import Path
 from nachero.sources import dataset
 from nachero_collector import __version__
 from nachero_collector import aggregate as A
+from nachero_collector import items as I
 from nachero_collector.riot import DIVISIONS, LEAGUES, PAGE
 
 DAY = 86400
@@ -148,10 +149,14 @@ def league_state(state: dict, league: str) -> dict:
 
 
 def collect(riot, out_dir, state_path, region="euw1", league="master_plus", players=500, matches=2000,
-            now=time.time, log=print) -> dict:  # fmt: skip
-    """Una pasada. Devuelve un resumen: jugadores mirados, partidas nuevas, contadas y parches."""
+            now=time.time, log=print, items=None, timeline=False) -> dict:  # fmt: skip
+    """Una pasada. Devuelve un resumen: jugadores mirados, partidas nuevas, contadas y parches.
+    `items(patch, carpeta)`: objetos completos y botas del parche (Data Dragon, en caché junto al
+    estado); si no se puede leer, esa pasada no cuenta objetos (#90). Con `timeline`, pide también
+    los eventos de cada partida (una petición más): orden de habilidades, objetos iniciales y núcleo."""
     if league not in LEAGUES:
         raise ValueError(f"liga {league!r} desconocida: {', '.join(LEAGUES)}")
+    items = items or I.catalog
     state_path = Path(state_path)
     state = load_state(state_path)
     st = league_state(state, league)
@@ -179,6 +184,7 @@ def collect(riot, out_dir, state_path, region="euw1", league="master_plus", play
     log(f"{league}: {asked} jugadores · {len(ids)} ids · {len(new_ids)} partidas nuevas")
 
     docs: dict[str, dict] = {}
+    catalogs: dict[str, dict | None] = {}
     counted = 0
     for mid in new_ids:
         m = riot.match(mid)
@@ -190,7 +196,12 @@ def collect(riot, out_dir, state_path, region="euw1", league="master_plus", play
             docs[patch] = load_doc(out_file(out_dir, patch, region, league)) or A.new_doc(
                 patch, region, league, f"nachero-collector {__version__}"
             )
-        A.add_match(docs[patch], m)
+        if patch not in catalogs:
+            catalogs[patch] = items(patch, state_path.parent)
+            if catalogs[patch] is None:
+                log(f"Sin catálogo de objetos de {patch} (Data Dragon): esta pasada no cuenta builds")
+        tl = riot.timeline(mid) if timeline else None
+        A.add_match(docs[patch], m, catalogs[patch], tl if isinstance(tl, dict) else None)
         end = m["info"].get("gameEndTimestamp") or m["info"].get("gameCreation") or 0
         docs[patch]["cutoff"] = max(docs[patch].get("cutoff") or "", iso(end / 1000)) if end else docs[patch]["cutoff"]
         counted += 1  # la partida en bruto no se guarda: solo los conteos

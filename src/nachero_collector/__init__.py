@@ -5,4 +5,4 @@ API en la variable de entorno RIOT_API_KEY, que nunca se guarda en el repositori
 Genera los archivos del esquema 1 (docs/FORMATO_DATOS.md) que lee la app. Ver docs/RECOLECTOR.md.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

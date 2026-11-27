@@ -67,6 +67,30 @@ def test_config_usuario_sobre_defaults(home):
     assert "weights" in config.load()  # sigue teniendo los valores por defecto
 
 
+@pytest.mark.parametrize("contenido", ["{roto", "[1, 2]", "null"])
+def test_ajustes_rotos_no_impiden_arrancar_y_se_guarda_una_copia(home, contenido):
+    paths.config_file().write_text(contenido, encoding="utf-8")
+    cfg = config.load()  # antes, con una lista: AttributeError y Nachero no arrancaba
+    assert cfg["pick_mode"] == "pool" and config.PROBLEM["text"]
+    copia = paths.config_file().with_name("config.roto.json")
+    assert copia.read_text(encoding="utf-8") == contenido  # el siguiente guardado ya no lo pierde
+    paths.config_file().write_text("{}", encoding="utf-8")
+    config.load()
+    assert config.PROBLEM["text"] is None
+
+
+def test_valores_con_otro_tipo_no_entran(home):
+    paths.config_file().write_text(
+        json.dumps({"weights": "x", "auto_accept": "sí", "lock_when_seconds_left": 5.5, "ui_port": "8766",
+                    "style": {"carry_weight": "mucho", "utility_weight": 0.5}, "pick_mode": "meta", "extra": [1]}),
+        encoding="utf-8",
+    )  # fmt: skip
+    cfg = config.load()
+    assert isinstance(cfg["weights"], dict) and cfg["auto_accept"] is True and cfg["ui_port"] == 8765
+    assert cfg["lock_when_seconds_left"] == 5.5 and cfg["pick_mode"] == "meta" and cfg["extra"] == [1]
+    assert cfg["style"]["carry_weight"] == 1.0 and cfg["style"]["utility_weight"] == 0.5
+
+
 def test_migracion_de_datos_antiguos(home, tmp_path):
     proyecto = tmp_path / "proyecto"
     proyecto.mkdir()

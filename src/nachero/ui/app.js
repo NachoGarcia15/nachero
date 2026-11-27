@@ -32,7 +32,10 @@ document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => setV
 
 function setView(v) {
   VIEW = v;
-  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    b.classList.toggle("on", b.dataset.view === v);
+    b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false");  // la pestaña activa, para lectores de pantalla
+  });
   ["draft", "pool", "pro", "log"].forEach((k) => ($("#view-" + k).hidden = k !== v));
   const sec = $("#view-" + v);
   sec.classList.remove("view-in");
@@ -201,6 +204,7 @@ function renderHeader(s) {
   conn.classList.toggle("off", !!s.offline);
   conn.classList.toggle("seek", searching(s) && !noWin);
   conn.querySelector("span").textContent = noWin && !s.connected ? "Necesita Windows" : s.offline ? "Cliente cerrado" : searching(s) ? "Buscando el cliente" : s.loading ? "Conectado" : s.phase_es || "Conectado";
+  conn.title = conn.querySelector("span").textContent;  // entero al pasar el ratón si la barra lo recorta
   renderWork(s);
   $("#platform").hidden = !noWin;
   if (noWin) $("#platform").textContent = `Nachero necesita Windows con el cliente de LoL abierto y estás en ${s.platform.name}: descarga nachero.exe y ábrelo en Windows.`;
@@ -448,6 +452,7 @@ function renderDraft([d, idle, s]) {
   const best = d.hero;
   const alts = d.locked ? d.picks.slice(0, 6) : d.picks.slice(1, 7);
   const turn = d.status.find((x) => x.kind.startsWith("turn"));
+  const lockIn = d.choose && d.choose.kind === "pick" && d.choose.lock_in != null ? d.choose.lock_in : null;  // cuenta atrás del confirmado
   const infos = d.status.filter((x) => !x.kind.startsWith("turn"));
   const low = d.timer_left <= 8 && d.my_turn;
 
@@ -460,11 +465,12 @@ function renderDraft([d, idle, s]) {
 
     <div class="center">
       <div class="phase-line"><span class="ph"><b>${esc(d.timer_phase)}</b>${d.queue ? " · " + esc(d.queue) : ""} · ${draftContext(d)}</span><span class="timer ${low ? "low" : ""}">${d.timer_left}</span></div>
-      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? (d.my_turn === "ban" ? "bánealo tú en el cliente o aquí" : "hazlo tú") : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
+      ${turn ? `<div class="turn"><span>${esc(turn.msg)}</span><small>${turn.kind !== "turn_auto" ? (d.my_turn === "ban" ? "bánealo tú en el cliente o aquí" : "hazlo tú") : d.my_turn === "ban" ? "Nachero no lo confirma: si marcas otro, se banea el tuyo" : lockIn != null ? `Nachero confirma lo marcado en ${lockIn} s: cámbialo en el cliente o aquí` : "Nachero confirma lo que esté marcado: cámbialo en el cliente o aquí"}</small></div>` : ""}
       ${chooser(d.choose)}
       ${roleFitLine(d)}
       ${d.slot_line ? `<p class="info-line slotline">${esc(d.slot_line)}</p>` : ""}
       ${swapBox(d.swap)}
+      ${comboBox(d.combo)}
       ${infos.length ? `<p class="info-line">${infos.map((x) => esc(x.msg)).join(" · ")}${s.mode !== "active" ? " (modo observar)" : ""}</p>` : ""}
       ${d.focus === "ban" ? banHero(d.ban_suggestions[0], best) : best ? `
       <article class="hero">
@@ -532,6 +538,8 @@ function renderDraft([d, idle, s]) {
   el.querySelectorAll(".swap [data-op]").forEach((b) => (b.onclick = () => swapOp(b.dataset.op, Number(b.dataset.id))));
   const chat = el.querySelector(".swap [data-chat]");
   if (chat) chat.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(d.swap.chat); SWAP_MSG = { text: "Copiado: pégalo en el chat", err: false, until: Date.now() + 3000 }; delete memo.draft; poll(); };
+  const comboChat = el.querySelector(".combo [data-combo-chat]");
+  if (comboChat) comboChat.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(d.combo.chat); COMBO_MSG = { text: "Copiado: pégalo en el chat", until: Date.now() + 3000 }; delete memo.draft; poll(); };
 }
 
 /* ------------------------------------------------------------------ en partida (#88) */
@@ -613,7 +621,7 @@ function renderGame(el, g, s) {
           <div class="eyebrow">Ventaja de draft${hint("Cada campeón se puntúa con el motor del draft (fuerza en el parche, matchups, encaje, sinergias y composición), sin tu parte personal. La media de cada equipo es su WR estimado con ese draft; ventaja = (media de tu equipo − media del rival) / 2, así los dos WR suman 100.", "start")}</div>
           ${g.enemy.length ? `<div class="est"><span class="num ${pending ? "muted" : tone(adv)}">${signed(adv)}</span><small>puntos de WR${pending ? " · calculando matchups…" : ""}</small></div>
           <div class="advbar" title="WR estimado de tu equipo ${f1(t.est)} %"><i class="ally" style="width:${Math.max(5, Math.min(95, t.est))}%"></i></div>
-          <div class="dmglbl"><span>Tu equipo ${f1(t.est)} %</span><span>Rival ${f1(100 - t.est)} %</span></div>`
+          <div class="dmglbl teams"><span>Tu equipo ${f1(t.est)} %</span><span>Rival ${f1(100 - t.est)} %</span></div>`
           : `<p class="muted">Sin rivales en esta partida: no hay ventaja que calcular.</p>`}
         </div>
       </article>
@@ -656,6 +664,14 @@ function swapBox(w) {
   }
   const chat = w.chat ? `<button data-chat="1" class="ghost">Copiar mensaje</button>` : "";
   return `<div class="swap ${esc(w.kind)} ${esc(w.verdict)}" role="status"><span class="lbl">Orden de pick</span><p>${esc(w.text)} <small class="muted">El equipo gana ${f1(w.gain)} pp.</small></p><div class="btns">${btns}${chat}${msg}</div></div>`;
+}
+
+/* Combo de soloq (#85): tu pick depende de su pareja. Solo copia el mensaje: nunca escribe en el chat. */
+let COMBO_MSG = null;
+function comboBox(c) {
+  if (!c) return "";
+  const msg = COMBO_MSG && COMBO_MSG.until > Date.now() ? `<span class="who">${esc(COMBO_MSG.text)}</span>` : "";
+  return `<div class="swap combo" role="status"><span class="lbl">Combo</span><p>${esc(c.text)}</p><div class="btns"><button data-combo-chat="1" class="ghost">Copiar mensaje</button>${msg}</div></div>`;
 }
 
 async function swapOp(op, id) {
@@ -889,7 +905,7 @@ function renderPool(rows) {
   });
   el.innerHTML = `
     <div class="pool-head">
-      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol${hint("Tu experiencia y resultados con él, más su fuerza en Master+ este parche. Con maestría alta, cada campeón sale también en sus roles principal y flex.")}</p>${historyNote(STATE.history)}</div>
+      <div><h1>Tu pool</h1><p>WR estimado a ciegas por campeón y rol${hint("Tu experiencia y resultados con él, su fuerza en Master+ este parche y el riesgo de que te counteen si eliges primero: el mismo cálculo que la pantalla de espera. Con maestría alta, cada campeón sale también en sus roles principal y flex.")}</p>${historyNote(STATE.history)}</div>
       <div class="pool-tools"><label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" id="pool-q" placeholder="Buscar campeón…" aria-label="Buscar campeón en tu pool" autocomplete="off" value="${esc(POOL_Q)}"></label>
       <div class="filters"><button data-r="all" class="${POOL_ROLE === "all" ? "on" : ""}">Todos <small>${rows.length}</small></button>${ROLE_BTNS.map(([r, t]) => `<button data-r="${r}" class="${POOL_ROLE === r ? "on" : ""}" ${count(r) ? "" : "disabled"}>${t} <small>${count(r)}</small></button>`).join("")}</div></div>
     </div>
@@ -1077,7 +1093,7 @@ function evalTick() {
 /* ------------------------------------------------------------------ actividad */
 function renderLog(items) {
   $("#view-log").innerHTML = `<div class="log"><div class="log-head"><h1>Actividad</h1>
-    <div><small id="diag-msg" role="status"></small><button class="btn" id="diag">Copiar diagnóstico</button></div></div>${items.map((l) => `<div class="log-item ${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
+    <div><small id="diag-msg" role="status"></small><button class="btn" id="open-logs" title="nachero.log y selecciones/: lo que pasó en cada selección de campeón, para mandarlo si algo falla">Abrir registros</button> <button class="btn" id="diag">Copiar diagnóstico</button></div></div>${items.map((l) => `<div class="log-item" data-kind="${esc(l.kind)}"><time>${esc(l.t)}</time><span>${esc(l.msg)}</span></div>`).join("")}</div>`;
 }
 
 // Versión, sistema, fase, conexión, parche y log reciente, sin datos personales (lo limpia el servidor)
@@ -1101,7 +1117,24 @@ async function copyDiagnostics() {
   }
   setTimeout(() => { if ($("#diag-msg")) $("#diag-msg").textContent = ""; }, 4000);
 }
-$("#view-log").addEventListener("click", (e) => { if (e.target.id === "diag") copyDiagnostics(); });
+$("#view-log").addEventListener("click", (e) => {
+  if (e.target.id === "diag") copyDiagnostics();
+  if (e.target.id === "open-logs") openFolder("logs", "#diag-msg");
+});
+
+/* Abre la carpeta de registros («logs») o la de datos («data») en el Explorador. */
+async function openFolder(which, msgSel) {
+  const msg = $(msgSel);
+  try {
+    const r = await fetch("/api/open-folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ which }) });
+    const out = await r.json();
+    msg.textContent = r.ok ? "Carpeta abierta" : out.error || "No he podido abrirla";
+  } catch (_) {
+    msg.textContent = "Nachero no responde";
+  }
+  setTimeout(() => { if ($(msgSel)) $(msgSel).textContent = ""; }, 4000);
+}
+$("#open-data").onclick = () => openFolder("data", "#data-msg");
 
 /* ------------------------------------------------------------------ ajustes */
 const TOGGLES = [
@@ -1116,6 +1149,7 @@ const TOGGLES = [
 const APP_TOGGLES = [
   ["close_to_tray", "Cerrar deja Nachero en la bandeja", "Sigue aceptando partidas y leyendo la selección. Para salir, clic derecho en su icono → Salir."],
   ["start_with_windows", "Abrir al iniciar Windows", "Arranca en la bandeja al iniciar sesión, sin abrir la ventana."],
+  ["tray_notify", "Avisos desde la bandeja", "Con la ventana en la bandeja, un aviso de Windows al empezar la selección y al llegar tu turno, con la recomendación."],
 ];
 const WEIGHTS = [
   ["pool", "Tu pool", "Experiencia, forma y resultados con cada campeón."],
@@ -1181,7 +1215,7 @@ function renderBlindSettings(st) {
       <small>Campeones con los que puede responderte (los que suman el 80 % de su maestría; en mid, 7 de media). Nunca se mira quién es.</small>
       <input type="range" id="bl-size" min="1" max="15" step="1" value="${size}"></div>
     <div class="opt"><div class="tx"><b>Modelo de matchups</b><small>${model === "measured" ? "Medido: cada matchup se encoge según sus partidas y cuánto importa esa pareja de líneas (recomendado)." : "Clásico: encogimiento fijo y pesos por línea a mano."}</small>
-      <div class="seg seg-sm" role="radiogroup" aria-label="Modelo de matchups"><button data-model="measured" class="${model === "measured" ? "on" : ""}">Medido</button><button data-model="classic" class="${model === "classic" ? "on" : ""}">Clásico</button></div></div></div>
+      <div class="seg seg-sm" role="radiogroup" aria-label="Modelo de matchups"><button data-model="measured" class="${model === "measured" ? "on" : ""}" role="radio" aria-checked="${model === "measured"}">Medido</button><button data-model="classic" class="${model === "classic" ? "on" : ""}" role="radio" aria-checked="${model === "classic"}">Clásico</button></div></div></div>
     <div class="opt"><div class="tx"><b>Liga de los matchups</b><small>Esmeralda+ da unas 5 veces más partidas por matchup (en Master+ de un parche casi todo es ruido). La fuerza en el parche sigue siendo Master+. Se aplica al reiniciar.</small>
       <div class="seg seg-sm" role="radiogroup" aria-label="Liga de los matchups">${[["emerald_plus", "Esmeralda+"], ["diamond_plus", "Diamante+"], ["master_plus", "Master+"]].map(([k, n]) => `<button data-tier="${k}" class="${tier === k ? "on" : ""}">${n}</button>`).join("")}</div></div></div>`;
   const eR = $("#bl-eta"), sR = $("#bl-size");
@@ -1622,7 +1656,7 @@ async function poll() {
   } catch (_) {
     const conn = $("#conn");
     conn.classList.remove("ok", "seek");
-    conn.querySelector("span").textContent = "Nachero no responde";
+    conn.querySelector("span").textContent = conn.title = "Nachero no responde";
     $("#work").hidden = true;
   }
 }

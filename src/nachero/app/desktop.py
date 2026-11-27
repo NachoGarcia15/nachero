@@ -145,14 +145,24 @@ def _find_shortcut_target() -> Path | None:
     return Path(sys.executable)
 
 
+def ps_quote(text: str) -> str:
+    """Texto para una cadena entre comillas simples de PowerShell (`'` se escribe `''`)."""
+    return text.replace("'", "''")
+
+
 def _create_lnk(lnk_path: str, target_path: str, icon: str, app_id: str = APP_MODEL_ID) -> None:
-    """Crea un .lnk y asigna System.AppUserModel.ID usando PowerShell (con fallback a WScript.Shell)."""
+    """Crea un .lnk y asigna System.AppUserModel.ID usando PowerShell (con fallback a WScript.Shell).
+    Los dos sin ventana (#93) y con las rutas escapadas (una carpeta de usuario como O'Brien)."""
     import subprocess
     import tempfile
+
+    from nachero.clients.winproc import hidden
 
     args = ""
     if Path(target_path).stem.lower() in ("python", "pythonw"):
         args = "-m nachero"
+    vbs_lnk, vbs_target, vbs_icon = lnk_path, target_path, icon  # VBScript: comillas dobles (no valen en rutas)
+    lnk_path, target_path, icon, app_id = ps_quote(lnk_path), ps_quote(target_path), ps_quote(icon), ps_quote(app_id)
 
     # 1. Intentar PowerShell (crea el .lnk y añade AppUserModelID via IPropertyStore)
     ps_code = f"""$wsh = New-Object -ComObject WScript.Shell
@@ -231,8 +241,9 @@ try {{
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps_path],
             capture_output=True,
             timeout=15,
+            **hidden(),
         )
-        if res.returncode == 0 and Path(lnk_path).is_file():
+        if res.returncode == 0 and Path(vbs_lnk).is_file():
             return
     except Exception:
         pass
@@ -243,23 +254,35 @@ try {{
     # 2. Fallback VBScript
     vbs = (
         'Set sh = CreateObject("WScript.Shell")\n'
-        f'Set lnk = sh.CreateShortcut("{lnk_path}")\n'
-        f'lnk.TargetPath = "{target_path}"\n'
+        f'Set lnk = sh.CreateShortcut("{vbs_lnk}")\n'
+        f'lnk.TargetPath = "{vbs_target}"\n'
         f'lnk.Arguments = "{args}"\n'
         f'lnk.Description = "Nachero"\n'
         f'lnk.WorkingDirectory = ""\n'
     )
-    if icon:
-        vbs += f'lnk.IconLocation = "{icon},0"\n'
+    if vbs_icon:
+        vbs += f'lnk.IconLocation = "{vbs_icon},0"\n'
     vbs += "lnk.Save\n"
     fd_vbs, vbs_path = tempfile.mkstemp(suffix=".vbs")
     try:
         os.write(fd_vbs, vbs.encode("utf-8"))
         os.close(fd_vbs)
-        subprocess.run(["cscript", "//Nologo", vbs_path], check=True, capture_output=True, timeout=15)
+        subprocess.run(["cscript", "//Nologo", vbs_path], check=True, capture_output=True, timeout=15, **hidden())
     finally:
         with contextlib.suppress(OSError):
             os.unlink(vbs_path)
+
+
+def open_folder(path: Path) -> str | None:
+    """Abre `path` en el Explorador de Windows (botón «Abrir registros» del panel). Devuelve el error."""
+    if not WIN:
+        return "solo en Windows"
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        os.startfile(str(path))
+    except OSError as e:
+        return str(e)
+    return None
 
 
 # ------------------------------------------------------------------ abrir al iniciar Windows
@@ -564,6 +587,7 @@ def open_window(url: str, state_file: Path, storage: Path, app: dict | None = No
         w = state["win"]
         if w is None:
             return
+        state["hidden"] = False
         with contextlib.suppress(Exception):
             w.show()
             w.restore()
@@ -585,8 +609,16 @@ def open_window(url: str, state_file: Path, storage: Path, app: dict | None = No
         on_quit=quit_,
     )
     tray_ok = tray.start() if app else False
+    state["hidden"] = bool(app.get("hidden") and tray_ok)  # en la bandeja (oculta), no minimizada
+
+    def notify(title: str, text: str) -> None:  # avisos de la bandeja: solo con la ventana oculta
+        if tray_ok and state["hidden"]:
+            tray.notify(title, text)
+
     if "register_show" in app:
         app["register_show"](show)
+    if "register_notify" in app:
+        app["register_notify"](notify)
     win = webview.create_window(
         TITLE,
         url,
@@ -628,6 +660,7 @@ def open_window(url: str, state_file: Path, storage: Path, app: dict | None = No
             return True
         with contextlib.suppress(Exception):
             window.hide()
+        state["hidden"] = True
         if not cfg.get("tray_hint_shown"):
             tray.notify(*TRAY_HINT)
             cfg["tray_hint_shown"] = True

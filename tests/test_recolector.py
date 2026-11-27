@@ -18,6 +18,15 @@ from nachero_collector import history as H
 from nachero_collector.__main__ import main
 from nachero_collector.riot import PAGE, RateLimiter, Riot, RiotError
 
+CATALOGO = {"legendary": [3078, 6630, 3053, 3071, 6610], "boots": [3047, 3111]}
+
+
+@pytest.fixture(autouse=True)
+def sin_data_dragon(monkeypatch):
+    """Los tests no salen a la red: catálogo de objetos fijo (#90)."""
+    monkeypatch.setattr(C.I, "catalog", lambda patch, cache_dir: CATALOGO)
+
+
 DATA = Path(__file__).parent / "data" / "riot"
 MATCH = json.loads((DATA / "match.json").read_text(encoding="utf-8"))
 LEAGUE = json.loads((DATA / "challenger.json").read_text(encoding="utf-8"))
@@ -156,6 +165,20 @@ def test_pasada_completa(tmp_path):
     assert doc["cutoff"] == "2026-11-18T11:36:40Z" and doc["generated"].startswith("2026-11")
     # y la app lo lee como fuente
     assert LocalStats(tmp_path / "data").refresh_tiers("16.23") == 5
+
+
+def test_timeline_solo_si_se_pide(tmp_path):
+    """--timeline: una petición más por partida (#90); sin él, ni una."""
+    tl = {"info": {"frames": [{"events": [{"type": "SKILL_LEVEL_UP", "timestamp": 1, "participantId": 1,
+                                            "skillSlot": 1, "levelUpType": "NORMAL"}]}]}}  # fmt: skip
+    r, api = riot({"/timeline": tl, **routes(2)})
+    C.collect(r, tmp_path / "a", tmp_path / "s.json", now=lambda: 1_795_100_000, log=lambda *a: None)
+    assert not [u for u in api.urls if u.endswith("/timeline")]
+    r, api = riot({"/timeline": tl, **routes(2)})
+    s = C.collect(
+        r, tmp_path / "b", tmp_path / "s2.json", now=lambda: 1_795_100_000, log=lambda *a: None, timeline=True
+    )
+    assert s["counted"] == 2 and len([u for u in api.urls if u.endswith("/timeline")]) == 2
 
 
 def test_no_cuenta_dos_veces_y_acumula(tmp_path):

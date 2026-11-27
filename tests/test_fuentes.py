@@ -246,3 +246,35 @@ def test_archivo_local_por_defecto_en_la_carpeta_de_datos(home, monkeypatch):
 def test_el_panel_sabe_de_que_fuente_salen_los_datos(tmp_path):
     st = worker.data_status(LocalStats(stats_file(tmp_path)), PATCH)
     assert st["source"] == "Archivo local" and st["games"] > 0 and st["counters"] == 1
+
+
+def test_lolalytics_no_reescribe_la_cache_tras_cada_pagina(tmp_path, monkeypatch):
+    """La caché (más de 10 MB) se escribe al vaciarse la cola, no tras cada página descargada."""
+    import threading
+
+    import nachero.sources.lolalytics as LL
+
+    monkeypatch.setattr(LL, "parse_page", lambda html: {"lanes": {"jungle": {"64": {"d2": 1.0, "n": 300}}},
+                                                        "slugs": {}, "runes": {}, "build": {}})  # fmt: skip
+    lola = Lolalytics(str(tmp_path), lambda *a, **k: None)
+    lola.patch = "16.23"
+    gate = threading.Event()
+
+    def fetch(url):
+        gate.wait(5)  # que se acumulen en la cola antes de empezar
+        return "<html></html>"
+
+    saves = []
+    real_save = lola._save
+    lola._fetch = fetch
+    lola._save = lambda: (saves.append(1), real_save())
+    for cid in range(1, 7):
+        lola.request(cid, "jungle", slug=f"c{cid}")
+    gate.set()
+    for _ in range(200):
+        if not lola.pending and not lola.dirty:
+            break
+        threading.Event().wait(0.02)
+    assert not lola.pending and len(lola.cache["builds"]) == 6
+    assert 1 <= len(saves) <= 2  # antes: 6 escrituras de la caché entera
+    assert "1:jungle" in Lolalytics(str(tmp_path), lambda *a, **k: None).cache["builds"]  # está en disco

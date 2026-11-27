@@ -116,6 +116,8 @@ def run(argv=None):
     setup_logging()
     moved = paths.migrate_legacy()
     config.init()
+    if config.PROBLEM["text"]:
+        log(config.PROBLEM["text"], "warn")
     if renamed:
         log(f"Datos de {renamed} pasados a {paths.user_dir()} (draftbot ahora se llama Nachero)", "ok")
     if moved:
@@ -187,6 +189,7 @@ def window_controls(hidden: bool) -> dict:
         "set_mode": set_mode,
         "hidden": hidden,
         "register_show": lambda fn: OPTS.__setitem__("show_window", fn),
+        "register_notify": lambda fn: OPTS.__setitem__("notify", fn),
     }
 
 

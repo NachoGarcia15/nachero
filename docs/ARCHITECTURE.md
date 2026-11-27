@@ -10,6 +10,7 @@ src/nachero/
   clients/   Cómo hablamos con el exterior "del juego"
              lcu.py      API local del cliente de LoL (lockfile/puerto + token)
              cdragon.py  CommunityDragon: mismos datos estáticos cuando el cliente está cerrado
+             winproc.py  procesos de Windows con ctypes (línea de comandos del cliente sin consolas)
   sources/   Fuentes de datos (red, caché en disco, parseo)
              champions.py  metadatos e imágenes de campeones
              history.py    historial del jugador (rol de cada partida)
@@ -20,6 +21,7 @@ src/nachero/
              health.py   salud de una fuente: distingue red de cambio de formato y avisa
              golgg.py      estadísticas de competitivo por torneo
              items.py      objetos y hechizos del cliente (o CommunityDragon) para «En partida»
+             compare.py    leer datos propios y caché de Lolalytics e informe de validación (#21)
              (lolalytics.py también extrae las páginas de runas recomendadas)
   domain/    Lógica pura: sin red ni disco, testeable con dobles
              common.py   roles, tiers, shrink, normalización de nombres
@@ -40,13 +42,17 @@ src/nachero/
              tasks.py    registro de tareas: qué hace la app y su progreso (n de m)
              stats.py    interfaz de las fuentes de estadísticas (StatsProvider) y cadena de respaldo
              calibration.py ¿acierta Nachero?: registro de picks, resultado y calibración
+             validation.py ¿valen los datos propios? Comparación con Lolalytics (#21)
+             cstimer.py  reloj de la champ select: lo que queda de verdad del turno
   app/       Orquestación
-             state.py    estado compartido (APP, TASKS), log
+             state.py    estado compartido (APP, TASKS), log (y trazas de fallos al archivo)
+             trace.py    registro de diagnóstico de cada champ select (logs/selecciones)
              draft.py    champ select de soloq (lee sesión, recomienda, actúa)
              runes.py    importar la página de runas al cliente
              demo.py     draft simulado
              worker.py   bucle principal y sesión con el cliente
-             server.py   API HTTP del panel y archivos estáticos
+             server.py   API HTTP del panel y archivos estáticos (solo atiende al propio
+                         panel: Host, Origin y POST en JSON; ver `server.refusal`)
              desktop.py  ventana de la app (pywebview), diálogos, instancia única
              tray.py     icono en la bandeja del sistema (Win32 con ctypes)
              updates.py  aviso de nueva versión (latest.json público)
@@ -80,14 +86,28 @@ Por eso los tests usan dobles (`tests/conftest.py`) y no necesitan cliente ni in
    la sesión (`blind.pick_order`): picks rivales después del tuyo y sin hacer.
 5. `Engine.bans` puntúa bans: presencia × (fuerza × 0,4 + cuánto countea a tu pick y a tus
    aliados, con los matchups en caché, por la probabilidad de que su rival elija después). Con `auto_ban`, `Draft.ban_turn` marca el primero en
-   `BAN_PICK` (nunca lo confirma) y no pisa el que marque el jugador.
+   `BAN_PICK` (nunca lo confirma) y no pisa el que marque el jugador. Con datos propios, las
+   parejas de combo de lo que han elegido o marcado tus aliados (`Engine.ally_combos`, sinergia
+   medida ≥ `COMBO_MIN`) restan como protección (#85).
 6. En modo Activo, `Draft.turn` marca la recomendación de pick, la cambia si cambia la
    recomendación y confirma lo que esté marcado a falta de `lock_when_seconds_left` s. Si lo
    marcado no es nada que haya marcado Nachero (o se eligió en el panel con
    `POST /api/draft/choose`), es la elección del jugador: no se vuelve a marcar en ese turno. Las
    marcas anteriores de Nachero que el cliente aún devuelva (`Draft.earlier`) no cuentan como
-   elección del jugador.
-7. El panel consulta `/api/state` cada segundo y pinta.
+   elección del jugador, ni una que el cliente aplique sin responder a tiempo (`Draft.patch`
+   devuelve None y la marca cuenta como de Nachero). Fuera de tu turno, lo marcado es tu
+   intención de pick (`pick_shown`); con tu ban en curso no se toca el pick.
+   - **Reloj**: el `timer` de la sesión es una foto del último cambio. Lo que queda de verdad es
+     `adjustedTimeLeftInPhase − (ahora − internalNowInEpochMs)` (`domain/cstimer.py`); si la marca
+     de tiempo no es creíble, lo que ha pasado desde que Nachero vio esa foto.
+   - **Diagnóstico**: `app/trace.py` apunta en `logs/selecciones/<fecha>.jsonl` (las 10 últimas)
+     la sesión sin datos de jugadores, el reloj, cada decisión y cada PATCH con su respuesta,
+     solo cuando cambian. No en la demo.
+   - **Combos** (#85, datos propios): `Draft.combo_line` dice si tu pick depende de su pareja
+     (`Engine.combo_advice`: spread de sinergia ≥ `DEP_SIGMA` con un rol aún libre) o lista sus
+     combos para ese rol (`Engine.combo_partners`), con un mensaje para copiar al chat.
+7. El panel consulta `/api/state` cada segundo y pinta. El servidor solo atiende al propio panel
+   (`server.refusal`: `Host`, `Origin` y POST en JSON).
 
 ## En partida (#88)
 
@@ -96,7 +116,9 @@ En `GameStart`, `InProgress` y `Reconnect`, `worker.game_view` lee `/lol-gameflo
 equipo por tu puuid, que no sale de ahí), `ingame.report` puntúa a los diez con `Engine.score`
 (sin tu parte ni el riesgo de counter; los roles rivales, estimados) y `ingame.build_view` arma tu
 build desde `StatsProvider.build` (opcional, como `synergies`). Se recalcula cada 5 s mientras
-faltan matchups o la build y cada minuto después. Fuera de la Grieta no hay vista.
+faltan matchups o la build y cada minuto después. Fuera de la Grieta no hay vista. Con datos
+propios, la build sale de `dataset._builds` (#90): objetos completos, botas y hechizos del final
+de la partida y, si el recolector leyó el *timeline*, inicio, núcleo en orden y habilidades.
 
 ## Arranque y carga visible
 
@@ -123,7 +145,10 @@ entra en una partida (`state.demo_must_stop`).
 - Historial, maestría y rango van por cuenta en `profiles/<puuid>` (`paths.use_profile`, al
   conectar con `/lol-summoner/v1/current-summoner`); sin cliente, el último perfil (`last.json`).
   Los ajustes son comunes a todas las cuentas.
-- No se envía nada del usuario a ningún sitio. Solo se descargan estadísticas públicas.
+- No se envía nada del usuario a ningún sitio. Solo se descargan estadísticas públicas. El panel
+  no pide nada fuera: las fuentes (Geist, OFL) van en `ui/`.
+- Herramientas para revisar sin la app: `scripts/validar_datos.py` (datos propios frente a
+  Lolalytics, #21) y `scripts/ver_seleccion.py` (cronología de una selección desde su registro).
 - Las fuentes externas se piden con caché y ~1,5 s entre peticiones.
 
 ## Decisiones

@@ -3,7 +3,9 @@
 Solo se guardan en el archivo del usuario; los valores por defecto nunca se modifican.
 """
 
+import contextlib
 import json
+import shutil
 from copy import deepcopy
 from typing import Any
 
@@ -20,7 +22,7 @@ TOGGLES = [
     "open_coachless_on_lock",
 ]
 # Interruptores de la app (no de la partida): se cambian en Ajustes → App
-APP_TOGGLES = ["close_to_tray", "start_with_windows"]
+APP_TOGGLES = ["close_to_tray", "start_with_windows", "tray_notify"]
 WEIGHT_KEYS = ("pool", "meta", "matchup", "comp")
 MAX_CHAMP_LIST = 40  # campeones en pool_bonus y never_pick
 MAX_BAN_PRIORITY = 10  # bans prioritarios por rol
@@ -55,12 +57,26 @@ def _champ_names(v) -> list[str] | None:
     return list(dict.fromkeys(n.strip() for n in v))
 
 
+def same_kind(default, value) -> bool:
+    """¿`value` tiene el tipo de `default`? Enteros y decimales valen igual; un booleano, no."""
+    if isinstance(default, bool) or isinstance(value, bool):
+        return isinstance(default, bool) and isinstance(value, bool)
+    if isinstance(default, (int, float)) and isinstance(value, (int, float)):
+        return True
+    return type(default) is type(value)
+
+
 def deep_merge(base: dict, over: dict) -> dict:
-    """Mezcla recursiva: lo de `over` gana, pero conserva las claves nuevas de `base`."""
+    """Mezcla recursiva: lo de `over` gana, pero conserva las claves nuevas de `base`. Un valor de
+    `over` con otro tipo que el de `base` (un archivo editado a mano o roto, p. ej. "weights": "x")
+    no entra: rompería el motor en cada vuelta. Las claves que `base` no tiene pasan tal cual."""
     out = deepcopy(base)
     for k, v in over.items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = deep_merge(out[k], v)
+        cur = out.get(k)
+        if isinstance(v, dict) and isinstance(cur, dict):
+            out[k] = deep_merge(cur, v)
+        elif k in out and cur is not None and not same_kind(cur, v):
+            continue
         else:
             out[k] = deepcopy(v)
     return out
@@ -73,14 +89,29 @@ def migrate(user: dict, defaults: dict) -> dict:
     return user
 
 
+PROBLEM: dict = {"text": None}  # por qué no se pudo leer config.json (lo dice el registro al arrancar)
+
+
 def load() -> dict:
+    """Ajustes por defecto con los del usuario encima. Si su archivo está roto, se guarda una copia
+    (`config.roto.json`) antes de seguir con los de por defecto: el siguiente guardado lo pisaría y
+    se perderían sin aviso."""
     defaults = json.loads(paths.DEFAULT_CONFIG.read_text(encoding="utf-8"))
     f = paths.config_file()
-    if f.exists():
-        try:
-            return deep_merge(defaults, migrate(json.loads(f.read_text(encoding="utf-8")), defaults))
-        except (OSError, ValueError):
-            pass
+    PROBLEM["text"] = None
+    if not f.exists():
+        return defaults
+    try:
+        user = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        user = e
+    if isinstance(user, dict):
+        return deep_merge(defaults, migrate(user, defaults))
+    backup = f.with_name("config.roto.json")
+    with contextlib.suppress(OSError):
+        shutil.copyfile(f, backup)
+    why = "no es JSON válido" if isinstance(user, Exception) else "no es un objeto JSON"
+    PROBLEM["text"] = f"Tus ajustes ({f.name}) {why}: uso los de por defecto y guardo una copia en {backup.name}"
     return defaults
 
 

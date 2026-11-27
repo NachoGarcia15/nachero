@@ -26,18 +26,29 @@ def role_of(p: dict) -> str:
     return ""
 
 
+GAME_KEYS = ("gameId", "t", "champ", "role", "win", "gpm", "dpm", "cspm")
+
+
+def valid_games(data) -> list[dict]:
+    """Las partidas guardadas que valen (con todo lo que usa el modelo personal). Un archivo roto u
+    otro tipo no debe tumbar la sesión en cada intento («Reiniciando tras un error» cada 3 s)."""
+    if not isinstance(data, list):
+        return []
+    return [g for g in data if isinstance(g, dict) and all(k in g for k in GAME_KEYS)]
+
+
 def load_history(lcu, cache_path, queues, log, import_path=None):
     """Historial del cliente (últimas 200 partidas) unido al guardado. Con `import_path`, también las
     partidas de `history_import.json` (tu temporada completa, del recolector: ver docs/RECOLECTOR.md)."""
     cache = {}
     if os.path.exists(cache_path):
         try:
-            cache = {g["gameId"]: g for g in read_json(cache_path, [])}
+            cache = {g["gameId"]: g for g in valid_games(read_json(cache_path, []))}
         except Exception:
             cache = {}
     if import_path and os.path.exists(import_path):
         try:
-            extra = [g for g in read_json(import_path, []) if isinstance(g, dict) and g.get("role")]
+            extra = [g for g in valid_games(read_json(import_path, [])) if g.get("role")]
             added = sum(1 for g in extra if g["gameId"] not in cache)
             for g in extra:
                 cache.setdefault(g["gameId"], g)
@@ -55,29 +66,40 @@ def load_history(lcu, cache_path, queues, log, import_path=None):
     except Exception as e:
         log(f"No pude leer el historial del cliente ({e.__class__.__name__}); uso el guardado.", "warn")
         mh = {}
-    for g in mh.get("games", {}).get("games", []):
-        if g["queueId"] not in queues or g["gameDuration"] <= 300:
-            continue
-        p = g["participants"][0]
-        s = p["stats"]
-        role = role_of(p)
-        if not role:
-            continue
-        m = g["gameDuration"] / 60
-        cache[g["gameId"]] = {
-            "gameId": g["gameId"],
-            "t": g["gameCreation"],
-            "patch": ".".join(g["gameVersion"].split(".")[:2]),
-            "champ": p["championId"],
-            "role": role,
-            "win": s["win"],
-            "k": s["kills"],
-            "d": s["deaths"],
-            "a": s["assists"],
-            "gpm": s["goldEarned"] / m,
-            "dpm": s["totalDamageDealtToChampions"] / m,
-            "cspm": (s["totalMinionsKilled"] + s["neutralMinionsKilled"]) / m,
-        }
+    for g in (mh.get("games") or {}).get("games") or []:
+        try:
+            game = parse_game(g, queues)
+        except (KeyError, TypeError, IndexError, ValueError, AttributeError):
+            continue  # una partida rara del cliente no tumba la lectura del resto
+        if game:
+            cache[game["gameId"]] = game
     games = sorted(cache.values(), key=lambda g: -g["t"])
     write_json(cache_path, games)
     return games
+
+
+def parse_game(g: dict, queues) -> dict | None:
+    """Una partida del historial del cliente en el formato del modelo personal, o None si no
+    cuenta (otra cola, menos de 5 min o sin rol)."""
+    if g["queueId"] not in queues or g["gameDuration"] <= 300:
+        return None
+    p = g["participants"][0]
+    s = p["stats"]
+    role = role_of(p)
+    if not role:
+        return None
+    m = g["gameDuration"] / 60
+    return {
+        "gameId": g["gameId"],
+        "t": g["gameCreation"],
+        "patch": ".".join(g["gameVersion"].split(".")[:2]),
+        "champ": p["championId"],
+        "role": role,
+        "win": s["win"],
+        "k": s["kills"],
+        "d": s["deaths"],
+        "a": s["assists"],
+        "gpm": s["goldEarned"] / m,
+        "dpm": s["totalDamageDealtToChampions"] / m,
+        "cspm": (s["totalMinionsKilled"] + s["neutralMinionsKilled"]) / m,
+    }

@@ -69,7 +69,9 @@ barra de tareas mostrando `Nachero` y su icono en lugar del ejecutable genérico
 **Bandeja del sistema**: cerrar la ventana deja Nachero en la bandeja (junto al reloj) y sigue
 aceptando partidas y leyendo la selección. Clic en su icono para abrirlo; clic derecho para
 cambiar de modo o salir. En Ajustes → App: «Cerrar deja Nachero en la bandeja» (desactívalo para
-que cerrar salga del todo) y «Abrir al iniciar Windows» (arranca en la bandeja; también `--tray`).
+que cerrar salga del todo), «Abrir al iniciar Windows» (arranca en la bandeja; también `--tray`) y
+«Avisos desde la bandeja»: con la ventana oculta, un aviso de Windows al empezar la selección y al
+llegar tu turno, con la recomendación.
 
 **Aviso de nueva versión**: si `update_url` (en `config.json`) apunta a un `latest.json` público
 con `{"version": "0.17.0", "url": "https://…", "notes": "…"}`, Nachero avisa al arrancar.
@@ -128,11 +130,14 @@ según tus interruptores.
 que tomen decisiones de juego por el jugador. Si los activas, siguen la recomendación de Nachero,
 pero **la última palabra es tuya**:
 - **Pick**: Nachero marca su recomendación y **la va cambiando** si la recomendación cambia con
-  el draft (o si otro se lleva ese campeón), hasta que marques otro tú. A falta de `lock_when_seconds_left` segundos (8 por defecto) confirma **lo que esté
-  marcado**: lo suyo si no has tocado nada, o el campeón que hayas marcado tú.
+  el draft (o si otro se lleva ese campeón), hasta que marques otro tú. Fuera de tu turno la
+  marca es tu intención de pick (la ven tus aliados); con tu ban en curso no se toca. A falta de
+  `lock_when_seconds_left` segundos (8 por defecto) de verdad confirma **lo que esté marcado**:
+  lo suyo si no has tocado nada, o el campeón que hayas marcado tú.
 - **Ban**: la recomendación tiene en cuenta tu pick recomendado y los de tus aliados: prioriza a
   quien los countea y a los fuertes del parche, y no repite lo que ya han marcado o baneado tus
-  aliados. Con «Banear», en la fase de bans (no en la planificación) Nachero **marca** el primero
+  aliados. Con datos propios, tampoco banea la pareja de combo de lo que han elegido o marcado
+  (no Ashe si tu support marca Seraphine) mientras ese rol siga libre en tu equipo. Con «Banear», en la fase de bans (no en la planificación) Nachero **marca** el primero
   y **no lo confirma**: lo banea el cliente al acabar el tiempo. Si marcas otro, se banea el tuyo.
 - **Si marcas otro campeón** (en el cliente o en el panel), Nachero no lo vuelve a cambiar en ese
   turno, aunque el cliente tarde en reflejar tu cambio.
@@ -140,6 +145,10 @@ pero **la última palabra es tuya**:
   en el cliente y cuenta como elección tuya. Solo en modo Activo.
 - El pick se confirma unos segundos antes del final, no a cero: si no da tiempo, en ranked se
   esquiva.
+- Si algo no va como esperas, `logs/selecciones` (en tu carpeta de datos; botón «Abrir
+  registros» en Actividad) guarda lo que pasó en cada una de tus 10 últimas selecciones: lo que
+  daba el cliente y lo que hizo Nachero, sin nombres ni ids de cuenta. `python
+  scripts/ver_seleccion.py` lo cuenta en orden.
 
 Si ya los tenías activados, Nachero respeta tus ajustes guardados.
 
@@ -240,6 +249,13 @@ Ideas de los vídeos de MachineLoLing ([1](https://www.youtube.com/watch?v=3t5dE
 - **Quién elige primero depende del campeón, no del rol**: si un aliado que elige después marca
   un campeón más ciego que el tuyo, Nachero sugiere el **intercambio de orden** (o aconseja aceptar
   o rechazar el que te piden). Solo aconseja: pedir, aceptar o rechazar es un clic tuyo.
+- **Combos de soloq** (con datos propios): si tu pick depende de su pareja (su sinergia cambia
+  mucho según con quién juegue) y el aliado de ese rol aún no ha elegido, Nachero dice con quién
+  rinde más («Seraphine rinde mucho más con Ashe (+2,4 pp): propónselo a tu ADC») y deja un
+  mensaje para **copiar** al chat; nunca escribe solo. Si no depende de nadie pero tiene combos
+  claros con un rol libre, los lista («Combos de Ashe para tu Support: Seraphine o Lulu»). Y si el
+  rival tiene un campeón que depende de su pareja de tu línea, el riesgo de counter cuenta con que
+  tu rival de línea la coja más a menudo.
 - **Tu pool** dice qué campeones son seguros a ciegas y cuáles de counter, el tamaño de tu pool
   (los que suman el 80 % de tu maestría o de tus partidas en el rol) y qué te falta. En la champ
   select, una línea dice qué toca según tu hueco («Eliges 2.º: tu rival de línea elige después
@@ -315,6 +331,8 @@ Los valores por defecto están en `src/nachero/defaults/config.json`; los tuyos,
   Detalles en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - `tests/`: pruebas (sin cliente ni internet).
 - [docs/ROADMAP.md](docs/ROADMAP.md): hoja de ruta y normas de Riot que la condicionan.
+- [docs/PRIVACIDAD.md](docs/PRIVACIDAD.md): qué guarda la app en tu PC, qué descarga y qué publica
+  el recolector (borrador de la política de privacidad, #27).
 - [CONTRIBUTING.md](CONTRIBUTING.md): entorno de desarrollo, comprobaciones y flujo de trabajo.
 - [CHANGELOG.md](CHANGELOG.md): cambios por versión.
 

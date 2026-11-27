@@ -15,6 +15,7 @@ responde 304 y no se descarga nada. Solo se piden el archivo del parche actual y
 
 import hashlib
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -24,6 +25,9 @@ from pathlib import Path
 from nachero.sources.local_stats import LocalStats, _patch_key
 
 CHECK_EVERY = 3600
+# rutas de archivo del manifiesto: <parche>/<región>/<liga>.json[.gz], nada más (ni «..», ni rutas
+# absolutas, ni letras de unidad de Windows: se escriben dentro de la caché)
+SAFE_PATH = re.compile(r"\d+\.\d+/[a-z0-9]+/[a-z_]+\.json(\.gz)?")
 
 
 def _http(url: str, headers: dict, timeout: float = 20) -> tuple[int, dict, bytes]:
@@ -106,10 +110,12 @@ class RemoteStats(LocalStats):
                 (self.root / "index.json").write_bytes(body)
             else:
                 raise OSError(f"HTTP {status} en index.json")
+            if not isinstance(index, dict):
+                raise ValueError("index.json no es un objeto")
             got = 0
             for f in pick_files(index, patch, self.region, self.league):
                 rel = f["path"]
-                if ".." in rel or rel.startswith("/"):
+                if not isinstance(rel, str) or not SAFE_PATH.fullmatch(rel):
                     continue
                 status, body = self._get(rel, etags)
                 if status == 304:

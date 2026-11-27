@@ -289,6 +289,13 @@ def test_plan_del_pool():
     assert ok["size_mastery"] == 2 and ok["size_role"] == 2
     assert "seguro a ciegas: Graves" in POOL.slot_line(2, 0.8, 0.0, ok)
     assert "counter: Qiyana" in POOL.slot_line(5, 0.0, 1.0, ok)
+    # sin counter: «todos son de elegir pronto» solo si de verdad lo son (sin intermedios)
+    solo = POOL.plan([row("Taliyah", "safe"), row("Naafiri", "safe")], "jungle", th)
+    assert solo["missing"] == ["counter"] and solo["text"].startswith("Todos tus campeones son de elegir pronto")
+    mezcla = POOL.plan([row("Taliyah", "safe"), row("Qiyana", "flex")], "jungle", th)
+    assert mezcla["text"] == (
+        "Para elegir pronto tienes Taliyah, pero ningún counter: te falta uno para cuando veas a tu rival."
+    )
 
 
 # ------------------------------------------------------------------ calibración (#71)
@@ -328,6 +335,119 @@ def test_sinergia_medida_con_datos_propios(champs):
     few, _, _ = e.synergy(1, "jungle", [(3, 1.0)], {3: "middle"})
     assert has and good > 1.0 and abs(few) < 0.1 and "sinergia con tu Mage" in why[0][1]
     assert eng(champs, {}).synergy(1, "jungle", [(2, 1.0)], {2: "middle"}) == (0.0, [], False)
+
+
+# ------------------------------------------------------------------ combos de tus aliados en los bans (#85)
+class SynLola(RowsLola):
+    def synergies(self, cid, role):
+        return self.syn.get((cid, role))
+
+
+def combo_bans(champs, syn, allies):
+    """Bans de un ADC: Marksman (4) es el más fuerte de la línea; tu support marca Enchanter (6)."""
+    tiers = all_roles(bottom={4: (54, 9000, 12, 90), 10: (51, 9000, 6, 90)}, utility={6: (51, 9000, 8, 90)})
+    e = Engine(champs, SynLola(tiers, {}, syn), player(), {"pick_mode": "meta", "weights": {}})
+    return e, [b["id"] for b in e.bans("bottom", [], set(), allies)]
+
+
+def test_no_banea_el_combo_de_lo_que_marca_tu_aliado(champs):
+    # Enchanter + Marksman ganan mucho más juntos de lo esperado (20.000 partidas): combo
+    syn = {(6, "utility"): {"4:bottom": {"wr": 62.0, "n": 20000}, "10:bottom": {"wr": 51.0, "n": 20000}}}
+    _, sin_datos = combo_bans(champs, {}, [(6, "utility", 0.5)])
+    assert sin_datos[0] == 4  # sin datos propios, nada cambia: el más fuerte
+    e, con = combo_bans(champs, syn, [(6, "utility", 0.5)])
+    assert 4 not in con and con[0] == 10
+    combo, who = e.ally_combos([(6, "utility", 0.5)])
+    assert combo[("bottom", "4")] > e.COMBO_MIN * 0.5 and who["4"] == ["Enchanter"]
+    # con tu ADC ya confirmado, ese hueco está cerrado: no hay nada que proteger
+    _, cerrado = combo_bans(champs, syn, [(6, "utility", 0.5), (10, "bottom", 1.0)])
+    assert cerrado[0] == 4
+
+
+# ------------------------------------------------------------------ tu pick depende de su pareja (#85)
+PAREJAS = {4: 60.0, 10: 42.0, 100: 46.0, 101: 55.0, 102: 48.0, 103: 52.0, 104: 44.0, 105: 50.0, 106: 51.0, 107: 49.0}
+
+
+def dependiente(champs, wrs=None):
+    """Enchanter (6) de support: con Marksman (4) gana mucho y con Shooter (10) pierde mucho."""
+    syn = {(6, "utility"): {f"{c}:bottom": {"wr": wr, "n": 30000} for c, wr in (wrs or PAREJAS).items()}}
+    tiers = all_roles(bottom={c: (50, 9000, 5, 90) for c in PAREJAS}, utility={6: (51, 9000, 8, 90)})
+    return Engine(champs, SynLola(tiers, {}, syn), player(), {"pick_mode": "meta", "weights": {}})
+
+
+def test_pareja_de_la_que_depende_tu_pick(champs):
+    e = dependiente(champs)
+    adv = e.combo_advice(6, "utility", ["bottom", "top"])
+    assert adv["role"] == "bottom" and adv["partner"] == 4 and adv["gain"] >= e.COMBO_MIN
+    assert adv["sigma"] >= e.DEP_SIGMA
+    assert e.combo_advice(6, "utility", ["bottom"], gone={4})["partner"] == 101  # la siguiente libre
+    assert e.combo_advice(6, "utility", ["top"]) is None  # el ADC ya ha elegido: no hay a quién
+    assert e.combo_advice(6, "utility", ["bottom"], planned={"bottom": 4}) is None  # ya la ha marcado
+    plano = dependiente(champs, {c: 50.0 for c in PAREJAS})  # le da igual la pareja
+    assert plano.combo_advice(6, "utility", ["bottom"]) is None
+    assert eng(champs, {}).combo_advice(1, "jungle", ["bottom"]) is None  # sin datos propios
+
+
+def sesion_support(monkeypatch):
+    """Tú de support (sin elegir) y tu ADC sin elegir; sin hechizos, runas ni marcar."""
+    from nachero.config import CFG
+
+    for k, v in {"auto_spells": False, "spells_by_role": {}, "import_runes": False, "auto_hover_pick": False}.items():
+        monkeypatch.setitem(CFG, k, v)
+    me = {"cellId": 0, "assignedPosition": "utility", "championId": 0, "championPickIntent": 0}
+    adc = {"cellId": 1, "assignedPosition": "bottom", "championId": 0, "championPickIntent": 0}
+    return {"localPlayerCellId": 0, "myTeam": [me, adc], "theirTeam": [],
+            "actions": [[{"id": 1, "actorCellId": 0, "championId": 0, "completed": False, "isAllyAction": True,
+                          "isInProgress": True, "type": "pick"}]],
+            "bans": {"myTeamBans": [], "theirTeamBans": []}, "timer": {}}  # fmt: skip
+
+
+def test_ancla_con_combos_para_copiar(champs, monkeypatch):
+    from nachero.app.draft import Draft
+
+    # Enchanter casi no depende de su ADC (spread bajo), pero con Marksman gana bastante más
+    wrs = {4: 53.0, 10: 50.5, 100: 49.5, 101: 50.2, 102: 49.8, 103: 50.0, 104: 50.3, 105: 49.7, 106: 50.1, 107: 49.9}
+    e = dependiente(champs, wrs)
+    assert e.combo_advice(6, "utility", ["bottom"]) is None and e.combo_partners(6, "utility", "bottom")[0][0] == 4
+    out = Draft(None, champs, e).tick(sesion_support(monkeypatch), False, pickable=set(), bannable=set())
+    c = out["combo"]
+    assert c["kind"] == "anchor" and c["role"] == "bottom" and c["partners"][0]["id"] == 4
+    assert c["text"].startswith("Combos de Enchanter para tu ADC: Marksman (+")
+    assert c["chat"].startswith("Tengo Enchanter: hace combo con Marksman +")
+
+
+def test_linea_de_combo_en_la_champ_select(champs, monkeypatch):
+    from nachero.app.draft import Draft
+
+    s = sesion_support(monkeypatch)
+    adc = s["myTeam"][1]
+    out = Draft(None, champs, dependiente(champs)).tick(s, False, pickable=set(), bannable=set())
+    assert out["hero"]["id"] == 6 and out["combo"]["partner"] == 4
+    assert out["combo"]["text"].startswith("Enchanter rinde mucho más con Marksman (+")
+    assert out["combo"]["text"].endswith("propónselo a tu ADC.")
+    assert out["combo"]["chat"] == "Si te va bien, coge Marksman: hace combo con mi Enchanter."
+    adc["championId"] = 10  # tu ADC ya ha elegido: nada que proponer
+    assert Draft(None, champs, dependiente(champs)).tick(s, False, pickable=set(), bannable=set())["combo"] is None
+
+
+def test_el_combo_del_rival_cuenta_en_tu_linea(champs):
+    """El support rival (Enchanter) depende de su ADC y su mejor pareja (Marksman) sigue libre: tu
+    rival de línea la coge más a menudo, y Shooter pierde mucho contra ella."""
+    syn = {(6, "utility"): {f"{c}:bottom": {"wr": wr, "n": 30000} for c, wr in PAREJAS.items()}}
+    rows = {(10, "bottom"): {"bottom": {4: (-5.0, 20000, 10.0), **{c: (0.0, 20000, 10.0) for c in range(100, 108)}}}}
+    tiers = all_roles(bottom={c: (50, 9000, 5, 90) for c in PAREJAS}, utility={6: (51, 9000, 8, 90)})
+    cfg = {"pick_mode": "meta", "weights": {}}
+    con = Engine(champs, SynLola(tiers, rows, syn), player(), cfg)
+    sin = Engine(champs, SynLola(tiers, rows, {}), player(), cfg)
+    args = ("bottom", [], [6], {6: {"utility": 1.0}}, 4)
+    a, b = con.score(10, *args, enemy_open=4), sin.score(10, *args, enemy_open=4)
+    assert a["parts"]["risk"] < b["parts"]["risk"] - 0.5
+    assert any(w["text"].startswith("su Enchanter pide Marksman: -") for w in a["why"])
+    # si ya no puede cogerla (baneada) o tu rival de línea ya ha elegido, nada
+    sin_4 = sin.score(10, *args, unavailable={4}, enemy_open=4)["parts"]["risk"]
+    assert con.score(10, *args, unavailable={4}, enemy_open=4)["parts"]["risk"] == sin_4
+    ya = con.score(10, "bottom", [], [6, 8], {6: {"utility": 1.0}, 8: {"bottom": 1.0}}, 3, enemy_open=3)
+    assert not any("pide" in w["text"] for w in ya["why"])
 
 
 # ------------------------------------------------------------------ simulador pro (#76)

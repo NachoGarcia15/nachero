@@ -1,3 +1,8 @@
+/* Geist y Geist Mono (SIL Open Font License 1.1, ver geist-ofl.txt), servidas por el propio panel:
+   sin peticiones a Google Fonts (privacidad, #27) y con la misma letra sin conexión */
+@font-face { font-family: "Geist"; src: url("/geist.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("/geist-mono.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+
 /* Elevación por capas: fondo → superficie (tarjetas, paneles) → elevado (controles, hover).
    Grafito con un punto frío; el dorado es la marca y el verde, el estado del sistema. */
 :root {
@@ -50,13 +55,17 @@ html { scrollbar-color: var(--surface-4) transparent; scrollbar-width: thin; }
   border-bottom: 1px solid var(--line);
 }
 .bar-left, .bar-right { display: flex; align-items: center; gap: 14px; }
-.bar-left { min-width: 0; }
+/* la columna izquierda cede antes que las pestañas: el estado se recorta con «…» en vez de
+   montarse debajo de ellas (ventanas de ~800-1000 px) */
+.bar-left { min-width: 0; overflow: hidden; }
 .bar-right { justify-content: flex-end; }
-.brand { font-weight: 650; letter-spacing: -0.01em; font-size: 15px;
+.brand { font-weight: 650; letter-spacing: -0.01em; font-size: 15px; flex: none;
   display: inline-flex; align-items: center; gap: 9px; }
 .brand img { display: block; }
-.conn { display: inline-flex; align-items: center; gap: 7px; color: var(--text-3); font-size: 13px; white-space: nowrap; }
-.conn i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+.conn { display: inline-flex; align-items: center; gap: 7px; color: var(--text-3); font-size: 13px; white-space: nowrap;
+  min-width: 0; }
+.conn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.conn i { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
 .conn.ok i { background: var(--pos); }
 .conn.ok { color: var(--text-2); }
 .conn.off i { background: var(--accent); }
@@ -304,6 +313,9 @@ main { flex: 1 0 auto; width: 100%; max-width: 1320px; margin: 0 auto; padding: 
 .gadv .est { margin-bottom: 12px; }
 .advbar { height: 6px; border-radius: 3px; background: var(--enemy); overflow: hidden; opacity: .85; }
 .advbar i { display: block; height: 100%; background: var(--ally); }
+/* los porcentajes de los equipos, con los colores de la barra (no los de daño físico/mágico) */
+.dmglbl.teams span:first-child { color: var(--ally); }
+.dmglbl.teams span:last-child { color: var(--enemy); }
 .glanes { display: grid; gap: 2px; border-top: 1px solid var(--line); }
 .glane { display: grid; grid-template-columns: 34px minmax(0, 1fr) 54px minmax(0, 1fr); align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
 .glane.me { background: var(--accent-soft); border-radius: 6px; }
@@ -574,9 +586,10 @@ tr:hover td { background: rgba(255,255,255,.015); }
 .log-head small { color: var(--text-3); font-size: 12px; margin-right: 8px; }
 .log-item { display: grid; grid-template-columns: 70px 1fr; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .log-item time { font: 12.5px var(--mono); color: var(--text-3); padding-top: 1px; }
-.log-item.action span { color: var(--pos); }
-.log-item.warn span { color: #f3c37a; }
-.log-item.hint span { color: var(--text-2); }
+/* el tipo va en data-kind: como clase, «hint» tomaba el estilo del botón «?» de ayuda */
+.log-item[data-kind="action"] span { color: var(--pos); }
+.log-item[data-kind="warn"] span { color: #f3c37a; }
+.log-item[data-kind="hint"] span { color: var(--text-2); }
 
 /* ------------------------------------------------------------------ drawer */
 .scrim { position: fixed; inset: 0; background: rgba(4,5,8,.5); backdrop-filter: blur(6px); z-index: 30; }
@@ -1043,6 +1056,7 @@ small.err { color: var(--neg); }
 }
 .swap.propose, .swap.accept { border-color: rgba(92,195,148,.3); }
 .swap.decline { border-color: rgba(240,117,122,.3); }
+.swap.combo { border-color: rgba(110,168,255,.3); }
 .swap .lbl { font: 500 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 .swap p { margin: 0; flex: 1 1 260px; }
 .swap .btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

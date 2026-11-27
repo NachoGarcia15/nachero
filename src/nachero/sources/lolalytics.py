@@ -27,6 +27,7 @@ class Lolalytics:
     TIER_TTL = 6 * 3600
     COUNTER_TTL = 24 * 3600
     RETRY_AFTER = 30 * 60
+    SAVE_EVERY = 30  # s: la caché (más de 10 MB) se escribe al vaciarse la cola o como mucho cada 30 s
 
     def __init__(self, cache_dir, log, tier="master_plus", build_tier=None):
         self.path = os.path.join(cache_dir, "lolalytics_cache.json")
@@ -48,6 +49,7 @@ class Lolalytics:
         self.health = Health("Lolalytics", log, {"tiers": 2, "builds": 3})
         self.slug_fallback = None  # funcion cid -> slug, hasta tener el mapa real de Lolalytics
         self.q, self.last_req, self.patch = queue.Queue(), 0.0, None
+        self.dirty, self.saved_at = False, time.time()  # páginas nuevas aún sin escribir en disco
         threading.Thread(target=self._worker, daemon=True).start()
 
     # -- red
@@ -65,6 +67,7 @@ class Lolalytics:
         # escribir tarda ~2 s y el motor, que lee la caché en cada tick, no debe esperar
         with self.lock:
             text = json.dumps(self.cache, ensure_ascii=False)
+            self.dirty, self.saved_at = False, time.time()
         with self.save_lock:
             tmp = f"{self.path}.tmp"
             with open(tmp, "w", encoding="utf-8") as f:
@@ -212,7 +215,7 @@ class Lolalytics:
                         "runes": page["runes"],
                         "build": page["build"],
                     }
-                self._save()
+                    self.dirty = True
                 self.health.ok("builds")
             except Exception as e:
                 self.health.fail("builds", e)
@@ -220,6 +223,19 @@ class Lolalytics:
                 self.log(f"Lolalytics: sin matchups para {slug or cid} ({e.__class__.__name__})", "warn")
             finally:
                 self.pending.discard(key)
+                self._save_if_due()
+
+    def _save_if_due(self) -> None:
+        """Escribe la caché si hay páginas nuevas y la cola se ha vaciado o han pasado SAVE_EVERY s.
+        Antes se escribía entera (más de 10 MB) tras cada página: la mitad del tiempo de descarga y
+        cerca de 1 GB de escrituras al empezar un parche. Un fallo al escribir no es de la página."""
+        if not self.dirty or (not self.q.empty() and time.time() - self.saved_at < self.SAVE_EVERY):
+            return
+        try:
+            self._save()
+        except OSError as e:
+            self.dirty = True  # se reintenta con la página siguiente
+            self.log(f"Lolalytics: no he podido guardar la caché ({e.__class__.__name__}); lo reintento", "warn")
 
 
 ROLE_OF_LANE = {v: k for k, v in LOLA_LANE.items()}

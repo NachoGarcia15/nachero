@@ -128,14 +128,25 @@ def test_sin_direccion_no_pide_nada(tmp_path):
     assert RemoteStats("ftp://x", tmp_path / "c", fetch=lambda u, h: pytest.fail("no")).refresh_tiers("16.23") == 0
 
 
-def test_no_escribe_fuera_de_su_carpeta(tmp_path):
-    index = b'{"files": [{"patch": "16.23", "region": "euw1", "league": "master_plus", "path": "../../fuera.json.gz"}]}'
+@pytest.mark.parametrize(
+    "path", ["../../fuera.json.gz", "C:/Windows/fuera.json.gz", "/etc/fuera.json", "16.23/euw1/x.exe", 7]
+)
+def test_no_escribe_fuera_de_su_carpeta(tmp_path, path):
+    """Solo rutas <parche>/<región>/<liga>.json[.gz]: ni «..», ni absolutas, ni letras de unidad."""
+    import json
+
+    index = json.dumps({"files": [{"patch": "16.23", "region": "euw1", "league": "master_plus", "path": path}]})
 
     def fetch(url, headers):
-        return (200, {}, index) if url.endswith("index.json") else pytest.fail("no debe bajar rutas raras")
+        return (200, {}, index.encode()) if url.endswith("index.json") else pytest.fail("no debe bajar rutas raras")
 
     RemoteStats("https://datos.example", tmp_path / "c", lambda *a, **k: None, fetch=fetch).sync("16.23")
     assert not (tmp_path.parent / "fuera.json.gz").exists()
+
+
+def test_indice_que_no_es_un_objeto(tmp_path):
+    s = RemoteStats("https://datos.example", tmp_path / "c", lambda *a, **k: None, fetch=lambda u, h: (200, {}, b"[]"))
+    assert s.sync("16.23") == 0 and "no es un objeto" in s.sync_error  # antes: AttributeError en un hilo
 
 
 # ------------------------------------------------------------------ elegir la fuente

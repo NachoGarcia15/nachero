@@ -437,7 +437,18 @@ def game_view(engine, champs, items, flow, champ_select=None, puuid=None, role=N
             p["spells"] = [items.brief(s, "spell") for s in p["spells"]]
     # sin el catálogo todavía, los nombres son números: se vuelve a calcular en unos segundos
     names = items.ready() if hasattr(items, "ready") else True
-    return {**rep, "build": build, "coachless": coach, "queue": queue.get("name", ""), "names_ready": names}
+    # sin la ficha de algún campeón (Nachero abierto a mitad de partida), la composición sale con la
+    # neutra (daño mixto): igual
+    ids = [p["id"] for p in game["ally"] + game["enemy"]]
+    cards = champs.ready(ids) if hasattr(champs, "ready") else True
+    return {
+        **rep,
+        "build": build,
+        "coachless": coach,
+        "queue": queue.get("name", ""),
+        "names_ready": names,
+        "cards_ready": cards,
+    }
 
 
 # ---------------------------------------------------------------- bucle principal
@@ -829,7 +840,13 @@ def run_session():
                         APP["draft"] = d
                 elif phase in IN_GAME and online and not OPTS["demo"]:
                     g = APP.get("game")
-                    pending = not g or not g.get("loaded") or g.get("build_pending") or not g.get("names_ready")
+                    pending = (
+                        not g
+                        or not g.get("loaded")
+                        or g.get("build_pending")
+                        or not g.get("names_ready")
+                        or not g.get("cards_ready", True)
+                    )
                     if time.time() - last_game > (GAME_REFRESH if pending else 60):
                         last_game = time.time()
                         flow = lcu.get("/lol-gameflow/v1/session", timeout=10)

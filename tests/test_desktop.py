@@ -422,6 +422,25 @@ def test_install_shortcut_en_win32(tmp_path, monkeypatch):
     assert created[0][1] == str(tmp_path / "Nachero.exe")
 
 
+def test_install_shortcut_con_el_exe_usa_su_icono(tmp_path, monkeypatch):
+    # #100: no el .ico de la carpeta temporal _MEI…, que se borra al cerrar Nachero
+    exe = tmp_path / "Nachero.exe"
+    exe.write_bytes(b"MZ")
+    meipass = tmp_path / "_MEI123"
+    (meipass / "nachero" / "ui").mkdir(parents=True)
+    (meipass / "nachero" / "ui" / "icon.ico").write_bytes(b"ico")
+    created = []
+    monkeypatch.setattr(desktop, "WIN", True)
+    monkeypatch.setattr(desktop.paths, "FROZEN", True)
+    monkeypatch.setattr(desktop.sys, "_MEIPASS", str(meipass), raising=False)
+    monkeypatch.setattr(desktop, "_start_menu_dir", lambda: tmp_path / "StartMenu")
+    monkeypatch.setattr(desktop, "_find_shortcut_target", lambda: exe)
+    monkeypatch.setattr(desktop, "_create_lnk", lambda lnk, target, icon, app_id="": created.append(icon))
+
+    desktop.install_shortcut()
+    assert created == [str(exe)]
+
+
 def test_main_install_shortcut(capsys, monkeypatch):
     monkeypatch.setattr(desktop, "install_shortcut", lambda: r"C:\Start Menu\Nachero.lnk")
     M.main(["--install-shortcut"])

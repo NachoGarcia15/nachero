@@ -72,6 +72,11 @@ class Champs:
             "img": {"tile": None, "splash": None, "icon": c.get("squarePortraitPath")},
         }
 
+    def ready(self, ids) -> bool:
+        """Si ya está la ficha de todos los campeones `ids` (si no, info() da la neutra)."""
+        with self.lock:
+            return all(c in self.detail for c in ids if c)
+
     def info(self, cid, wait=None):
         """Ficha del campeón. Con `wait=False` (o en segundo plano tras `preload`), si aún no está
         devuelve la neutra y la pide sin esperar."""

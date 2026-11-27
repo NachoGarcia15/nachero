@@ -118,7 +118,9 @@ def install_shortcut() -> str:
     if exe is None:
         return "no encuentro el ejecutable de Nachero para el acceso directo"
 
-    icon_path = resolve_icon()
+    # el .exe lleva el icono dentro; el .ico de resolve_icon() está en su carpeta temporal (_MEI…),
+    # que se borra al cerrar Nachero, y el acceso se quedaría sin icono (#100)
+    icon_path = exe if paths.FROZEN else resolve_icon()
     lnk = _start_menu_dir() / "Nachero.lnk"
     try:
         lnk.parent.mkdir(parents=True, exist_ok=True)

@@ -38,6 +38,41 @@ def _cid(v) -> int:
     return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else 0
 
 
+def hidden_players(selections, champ_select, ally, enemy) -> tuple[list[int], list[int]]:
+    """Campeones de la partida que faltan en `teamOne`/`teamTwo`: (de tu equipo, rivales).
+
+    En ranked, el cliente no pone en los equipos de la sesión a los jugadores con el nombre oculto,
+    pero su campeón sí está en `playerChampionSelections` (los 10, en orden de equipo). Cada uno
+    que falta va a tu equipo o al rival según la champ select (`myTeam` y `theirTeam`): con tus 5
+    aliados en ella, lo que no es tuyo es rival. Sin eso, por la mitad de la lista en la que está,
+    si las mitades cuadran con los equipos conocidos. Si no se sabe, no se añade. Solo campeones:
+    nada que identifique a los jugadores ocultos (normas de Riot)."""
+    picked = [_cid(s.get("championId")) for s in selections or [] if isinstance(s, dict)]
+    picked = list(dict.fromkeys(c for c in picked if c))
+    known = set(ally) | set(enemy)
+    missing = [c for c in picked if c not in known]
+    if not missing:
+        return [], []
+    cs = champ_select if isinstance(champ_select, dict) else {}
+    cs_ally = {_cid(m.get("championId")) for m in cs.get("myTeam") or [] if isinstance(m, dict)} - {0}
+    cs_enemy = {_cid(m.get("championId")) for m in cs.get("theirTeam") or [] if isinstance(m, dict)} - {0}
+    mine, theirs = set(ally) | cs_ally, set(enemy) | cs_enemy
+    halves: tuple[set[int], set[int]] | None = None
+    if len(picked) % 2 == 0:
+        a, b = set(picked[: len(picked) // 2]), set(picked[len(picked) // 2 :])
+        for us, them in ((a, b), (b, a)):
+            if mine & us and not mine & them and not theirs & us:
+                halves = (us, them)
+    full = len(cs_ally) >= 5  # tus 5 aliados en la champ select: lo demás es rival
+    out_ally, out_enemy = [], []
+    for c in missing:
+        if c in cs_ally or (halves and c in halves[0] and c not in cs_enemy):
+            out_ally.append(c)
+        elif c in cs_enemy or full or (halves and c in halves[1]):
+            out_enemy.append(c)
+    return out_ally, out_enemy
+
+
 def parse_game(gameflow, my_puuid=None, champ_select=None) -> dict | None:
     """Equipos de la partida en curso, de `/lol-gameflow/v1/session` y de la última sesión de champ
     select (si la hay). Devuelve {"ally": [jugador], "enemy": [jugador], "me": cid}, con jugador =
@@ -45,6 +80,7 @@ def parse_game(gameflow, my_puuid=None, champ_select=None) -> dict | None:
 
     El rol de tus aliados sale de la champ select (`assignedPosition`) o, si no está, de la posición
     de tu equipo en la partida; el de los rivales queda vacío para estimarlo luego (`assign_roles`).
+    Los jugadores con el nombre oculto, que faltan en los equipos, se completan con `hidden_players`.
     Nada de nombres ni puuid de otros jugadores sale de aquí."""
     gd = (gameflow or {}).get("gameData") or {}
     cs = champ_select if isinstance(champ_select, dict) else {}
@@ -83,6 +119,9 @@ def parse_game(gameflow, my_puuid=None, champ_select=None) -> dict | None:
             cid = _cid(m.get("championId"))
             ally.append((cid, cs_roles.get(cid) or position(m.get("selectedPosition"))))
         enemy = [(_cid(m.get("championId")), None) for m in enemy_team]
+        more_ally, more_enemy = hidden_players(gd.get("playerChampionSelections"), cs, ids(ally_team), ids(enemy_team))
+        ally += [(c, cs_roles.get(c)) for c in more_ally]
+        enemy += [(c, None) for c in more_enemy]
     else:  # sin la partida: lo que se vio en la champ select
         ally = [(_cid(m.get("championId")), cs_roles.get(_cid(m.get("championId")))) for m in cs.get("myTeam") or []]
         enemy = [(_cid(m.get("championId")), None) for m in cs.get("theirTeam") or []]

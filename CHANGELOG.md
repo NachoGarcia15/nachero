@@ -3,6 +3,23 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.32.1] - 2026-11-27
+
+Fallos vistos al probar la 0.32.0 en una clasificatoria (#98). Marcar, cambiar la marca, banear y
+confirmar funcionaron bien.
+
+### Corregido
+- **«En partida» no veía a los jugadores con el nombre oculto** (#99): en ranked, el cliente no
+  los pone en los equipos de la partida, así que faltaban en los drafts y la ventaja de draft salía
+  con equipos incompletos (en la prueba, 4 aliados contra 2 rivales). Ahora se completan con los
+  campeones de la partida, que sí vienen todos: tus aliados por la champ select, y lo demás son
+  rivales. Solo campeones: nada que identifique a esos jugadores.
+- Con Nachero abierto a mitad de partida, la composición de «En partida» salía con fichas
+  provisionales (los dos equipos con daño mixto) hasta un minuto. Ahora se recalcula cada 5 s hasta
+  tener la ficha de los 10 campeones.
+- **El acceso directo del Menú Inicio se quedaba sin icono** (#100): apuntaba al icono de la carpeta
+  temporal del `.exe`, que se borra al cerrar Nachero. Ahora usa el del propio ejecutable.
+
 ## [0.32.0] - 2026-11-27
 
 Marcar y confirmar pick en ranked (lo que no funcionaba en el cliente real), seguridad del panel,

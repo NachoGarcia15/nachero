@@ -103,6 +103,51 @@ def test_parse_game_sin_partida_usa_la_champ_select():
     assert IG.parse_game({}, None, None) is None
 
 
+def _hide(flow, *cids):
+    """Como en ranked: los jugadores con el nombre oculto no salen en teamOne/teamTwo."""
+    gd = flow["gameData"]
+    for team in ("teamOne", "teamTwo"):
+        gd[team] = [m for m in gd[team] if m["championId"] not in cids]
+    return flow
+
+
+def test_parse_game_completa_jugadores_ocultos_con_la_champ_select():
+    # el caso de la #99: los rivales primero en la lista, 3 rivales y 1 aliado ocultos
+    flow = _hide(_flow(mine_in_two=True), 7, 8, 11, 2)
+    sels = flow["gameData"]["playerChampionSelections"]
+    flow["gameData"]["playerChampionSelections"] = sels[5:] + sels[:5]
+    g = IG.parse_game(flow, PUUID, _champ_select())
+    assert sorted(p["id"] for p in g["ally"]) == sorted(ALLY)
+    assert sorted(p["id"] for p in g["enemy"]) == sorted(ENEMY)
+    assert {p["id"]: p["role"] for p in g["ally"]}[2] == "middle"  # su rol, de la champ select
+    assert next(p for p in g["enemy"] if p["id"] == 8)["spells"] == [4, 14]
+    assert "puuid" not in json.dumps(g)
+
+
+def test_parse_game_ocultos_sin_champ_select_por_la_mitad_de_la_lista():
+    g = IG.parse_game(_hide(_flow(), 2, 7, 8), PUUID, None)
+    assert sorted(p["id"] for p in g["ally"]) == sorted(ALLY)
+    assert sorted(p["id"] for p in g["enemy"]) == sorted(ENEMY)
+
+
+def test_parse_game_ocultos_sin_saber_de_que_equipo_no_se_inventan():
+    # sin champ select y con la lista mezclada, las mitades no cuadran: no se añaden
+    flow = _hide(_flow(), 2, 8)
+    sels = flow["gameData"]["playerChampionSelections"]
+    flow["gameData"]["playerChampionSelections"] = [sels[i] for i in (5, 1, 2, 3, 4, 0, 6, 7, 8, 9)]
+    g = IG.parse_game(flow, PUUID, None)
+    assert 2 not in [p["id"] for p in g["ally"] + g["enemy"]]
+    assert 8 not in [p["id"] for p in g["ally"] + g["enemy"]]
+
+
+def test_hidden_players_con_tus_cinco_aliados_lo_demas_es_rival():
+    sels = [{"championId": c} for c in (9, *ALLY, *ENEMY)]  # 11: las mitades no sirven
+    more_ally, more_enemy = IG.hidden_players(sels, {"myTeam": [{"championId": c} for c in ALLY]}, [3], [5])
+    assert sorted(more_ally) == sorted(c for c in ALLY if c != 3)
+    assert sorted(more_enemy) == sorted([9, *(c for c in ENEMY if c != 5)])
+    assert IG.hidden_players(None, None, [1], [5]) == ([], [])
+
+
 def test_roles_libres_estimados(champs):
     eng = _engine(champs)
     players = [{"id": c, "role": None, "spells": [], "me": False} for c in ENEMY]
@@ -284,6 +329,33 @@ def test_game_view_build_pendiente(champs):
     eng.lola.__class__ = Pending
     g = worker.game_view(eng, champs, FakeItems(), _flow(), _champ_select(), PUUID)
     assert g["build"] is None and g["build_pending"]
+
+
+def test_game_view_espera_las_fichas_de_los_campeones(champs):
+    # abierto a mitad de partida: sin la ficha de algún campeón, la vista se vuelve a calcular pronto
+    class Cards(type(champs)):
+        missing = {8}
+
+        def ready(self, ids):
+            return not self.missing & set(ids)
+
+    cards = Cards(champs.data)
+    g = worker.game_view(_engine(cards), cards, FakeItems(), _flow(), _champ_select(), PUUID)
+    assert g["cards_ready"] is False
+    Cards.missing = set()
+    assert worker.game_view(_engine(cards), cards, FakeItems(), _flow(), _champ_select(), PUUID)["cards_ready"]
+
+
+def test_champions_ready_solo_con_todas_las_fichas():
+    from nachero.sources.champions import Champs
+
+    class Lcu:
+        def get(self, path):
+            return [{"id": 1, "name": "Uno"}, {"id": 2, "name": "Dos"}]
+
+    c = Champs(Lcu())
+    c.detail[1] = {}
+    assert c.ready([1, 0]) and not c.ready([1, 2])
 
 
 def test_game_view_fuera_de_la_grieta(champs):

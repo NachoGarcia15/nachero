@@ -80,6 +80,33 @@ def test_informe_por_tramos_y_partes():
     assert 0 < rep["brier"] < 1 and len(rep["recent"]) == 10
 
 
+def test_margen_de_wilson():
+    assert C.wilson(0, 0) is None
+    lo, hi = C.wilson(4, 9)  # pocas partidas: margen enorme
+    assert 18 < lo < 20 and 73 < hi < 75
+    lo, hi = C.wilson(50, 100)
+    assert 40 < lo < 41 and 59 < hi < 60
+    assert C.wilson(0, 5)[0] == 0.0 and C.wilson(5, 5)[1] == 100.0
+
+
+def test_veredicto():
+    assert C.verdict(None, 0, 0) is None
+    # 4 de 9 (44,4 %) con 56,1 % esperado: optimista, pero cabe en el margen
+    v = C.verdict(56.1, 4, 9)
+    assert v["kind"] == "high" and v["gap"] == -11.7 and not v["sure"]
+    # con 100 partidas la misma diferencia ya no es azar
+    v = C.verdict(56.0, 44, 100)
+    assert v["kind"] == "high" and v["sure"]
+    assert C.verdict(52.0, 60, 100)["kind"] == "low"
+    assert C.verdict(51.0, 52, 100)["kind"] == "ok"
+
+
+def test_informe_con_veredicto():
+    rep = C.report([rec(est=56, win=w) for w in [True] * 4 + [False] * 5])
+    assert rep["verdict"]["kind"] == "high" and rep["min_games"] == C.MIN_GAMES
+    assert C.report([])["verdict"] is None
+
+
 def test_tramos_extremos():
     rep = C.report([rec(est=40, win=True), rec(est=70, win=False)])
     assert rep["buckets"][0]["label"] == "< 46 %" and rep["buckets"][0]["n"] == 1

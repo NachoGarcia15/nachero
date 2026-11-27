@@ -1127,18 +1127,116 @@ small.err { color: var(--neg); }
 .opt .tx > .seg { display: flex; width: fit-content; max-width: 100%; flex-wrap: wrap; }
 
 /* ¿acierta Nachero? */
-.calib { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 18px; box-shadow: var(--shadow); }
+.calib { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px 18px; box-shadow: var(--shadow); container-type: inline-size; }
 .calib:empty { display: none; }
-.cal { display: grid; gap: 4px; margin: 10px 0 12px; }
-.cal-row { display: grid; grid-template-columns: 90px 60px 1fr 70px 70px; gap: 10px; align-items: center; font-size: 13px; }
-.cal-row.head { color: var(--text-3); font-size: 12px; }
-.cal-row .num { text-align: right; }
-.cal-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
-.cal-bar .real { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ally); opacity: .55; }
-.cal-bar .est { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent); z-index: 1; }
-.cal-sum { margin: 6px 0; color: var(--text-2); font-size: 13px; }
-.cal-sum b { color: var(--text); }
-@media (max-width: 760px) { .cal-row { grid-template-columns: 70px 44px 1fr 56px 56px; gap: 6px; } }
+
+/* ¿Acierta Nachero? (#104): veredicto, regla de WR y dos preguntas; el resto, plegado.
+   Dorado = lo que esperaba Nachero; blanco = lo que has ganado; franja = el margen. */
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cal-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.cal-count { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.cal-count i { display: block; width: 56px; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.cal-count b { display: block; height: 100%; background: var(--text-2); border-radius: 2px; }
+.cal-title { margin: 14px 0 0; font-size: 21px; font-weight: 650; letter-spacing: -0.022em; line-height: 1.2; text-wrap: balance; }
+.cal-sub { margin: 6px 0 0; max-width: 62ch; color: var(--text-2); font-size: 13.5px; line-height: 1.5; }
+.cal-verdict.high.sure .cal-title { color: #f6a3a6; }
+.cal-verdict.low.sure .cal-title { color: #8fd8b5; }
+.cal-verdict.ok .cal-title { color: var(--text); }
+
+.ruler { position: relative; margin: 40px 2px 0; }
+.ruler .track { position: relative; height: 10px; border-radius: 5px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.ruler .tick { position: absolute; top: 2px; bottom: 2px; width: 1px; background: var(--line-2); }
+.ruler .tick.mid { top: -3px; bottom: -3px; background: rgba(255,255,255,.22); }
+.ruler .band { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: rgba(241,242,244,.12);
+  box-shadow: inset 0 0 0 1px rgba(241,242,244,.18); }
+.ruler .gap { position: absolute; top: 3px; bottom: 3px; border-radius: 2px; }
+.ruler .gap.high { background: rgba(240,117,122,.55); transform-origin: right; }
+.ruler .gap.low { background: rgba(92,195,148,.55); transform-origin: left; }
+.ruler .mk { position: absolute; display: flex; align-items: baseline; gap: 5px; transform: translateX(-50%); font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+.ruler .mk b { font-size: 12.5px; font-weight: 600; }
+.ruler .mk::before { content: ""; position: absolute; left: 50%; }
+.ruler .mk-est { bottom: 16px; }
+.ruler .mk-est b { color: var(--accent); }
+.ruler .mk-est::before { bottom: -16px; width: 10px; height: 10px; margin-left: -5px; background: var(--accent); transform: rotate(45deg); border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--surface); }
+.ruler .mk-real { top: 16px; }
+.ruler .mk-real b { color: var(--text); }
+.ruler .mk-real::before { top: -17px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 3px var(--surface); }
+.ruler .scale { position: relative; height: 16px; margin-top: 22px; }
+.ruler .scale span { position: absolute; transform: translateX(-50%); font: 10.5px var(--mono); color: var(--text-3); }
+.ruler-key { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; color: var(--text-3); font-size: 12px; }
+.key-band { flex: none; width: 18px; height: 8px; border-radius: 3px; background: rgba(241,242,244,.09); box-shadow: inset 0 0 0 1px rgba(241,242,244,.14); }
+
+/* La única animación: al abrir «Tu pool», el punto sale del rombo y se abre la diferencia */
+.calib.intro .ruler .mk-real { animation: cal-slide .8s cubic-bezier(.2,.7,.2,1) .2s both; }
+.calib.intro .ruler .gap { animation: cal-grow .8s cubic-bezier(.2,.7,.2,1) .2s both; }
+.calib.intro .ruler .band { animation: cal-fade .6s ease-out .7s both; }
+@keyframes cal-slide { from { left: var(--from); } }
+@keyframes cal-grow { from { transform: scaleX(0); } }
+@keyframes cal-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .calib.intro .ruler * { animation: none !important; } }
+
+/* Tarjeta ancha (sin «Evaluar» al lado): veredicto a la izquierda y preguntas a la derecha */
+.cal-grid { display: grid; }
+@container (min-width: 880px) {
+  .cal-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 44px; align-items: start; }
+  .cal-qs .vs:first-child { margin-top: 14px; padding-top: 0; border-top: 0; }
+}
+.vs { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.vs-q { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.vs-q h4 { margin: 0; font-size: 14px; font-weight: 600; }
+.vs-a { flex: none; font-size: 12.5px; font-weight: 600; }
+.vs-a.pos { color: var(--pos); } .vs-a.info { color: var(--text); } .vs-a.neg { color: var(--neg); } .vs-a.muted { color: var(--text-3); font-weight: 500; }
+.vs-help { margin: 2px 0 0; color: var(--text-3); font-size: 12px; }
+.vs-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 54px 72px; gap: 10px; align-items: center; margin-top: 8px; font-size: 13px; color: var(--text-2); }
+.vs-row .num { text-align: right; color: var(--text); font-size: 12.5px; }
+.vs-row small { color: var(--text-3); font-size: 12px; }
+.vs-bar { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); }
+.vs-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--text-2); }
+.vs-bar b { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: rgba(255,255,255,.22); }
+.vs-row.few .vs-bar i { background: repeating-linear-gradient(-45deg, var(--text-3) 0 3px, transparent 3px 6px); }
+.vs-row.few .num { color: var(--text-2); }
+
+details.dt { margin-top: 14px; border-top: 1px solid var(--line); }
+details.dt + details.dt { margin-top: 0; }
+details.dt summary { display: flex; align-items: center; gap: 8px; padding: 11px 0 0; cursor: pointer; list-style: none; font-size: 13px; font-weight: 500; color: var(--text-2); }
+details.dt summary::-webkit-details-marker { display: none; }
+details.dt summary::before { content: "›"; display: inline-block; width: 10px; color: var(--text-3); transition: transform .15s; }
+details.dt[open] summary::before { transform: rotate(90deg); }
+details.dt summary:hover { color: var(--text); }
+.dt-body { padding: 6px 0 4px 18px; }
+.dt-help { margin: 4px 0 10px; color: var(--text-3); font-size: 12px; max-width: 62ch; }
+.bk { display: grid; gap: 7px; }
+.bk-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 72px; gap: 10px; align-items: center; font-size: 12px; color: var(--text-2); }
+.bk-row small { color: var(--text-3); font-size: 12px; }
+.bk-row.few { opacity: .5; }
+.bk-track { position: relative; height: 12px; }
+.bk-track::before { content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 2px; border-radius: 1px; background: var(--surface-3); }
+.bk-track .tick { position: absolute; top: 1px; bottom: 1px; width: 1px; background: rgba(255,255,255,.18); }
+.bk-track .d { position: absolute; top: 2px; width: 8px; height: 8px; margin-left: -4px; }
+.bk-track .d-est { background: var(--accent); transform: rotate(45deg); border-radius: 1px; }
+.bk-track .d-real { border-radius: 50%; background: var(--text); box-shadow: 0 0 0 2px var(--surface); }
+.pt { display: grid; gap: 5px; margin-bottom: 8px; }
+.pt-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 48px; gap: 10px; align-items: center; font-size: 12.5px; color: var(--text-2); }
+.pt-row b { text-align: right; font-size: 12px; font-weight: 500; }
+.pt-bar { position: relative; height: 8px; }
+.pt-bar::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: rgba(255,255,255,.22); }
+.pt-bar i { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.pt-bar i.pos { background: rgba(92,195,148,.6); } .pt-bar i.neg { background: rgba(240,117,122,.6); }
+.facts { display: grid; margin: 14px 0 8px; border-top: 1px solid var(--line); }
+.facts div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.facts dt { font-size: 12.5px; color: var(--text-2); }
+.facts dd { display: contents; }
+.facts dd b { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; }
+.facts dd small { grid-column: 1 / -1; font-size: 11.5px; color: var(--text-3); }
+.calib .link-btn { font-size: 12.5px; color: var(--text-2); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.calib .link-btn:hover { color: var(--accent); text-decoration-color: currentColor; }
+.cal-foot { margin: 12px 0 0; color: var(--text-3); font-size: 12px; }
+@media (max-width: 760px) {
+  .vs-row { grid-template-columns: 82px minmax(0, 1fr) 50px; }
+  .vs-row small { display: none; }
+  .pt-row { grid-template-columns: 110px minmax(0, 1fr) 44px; }
+}
 .srcpick { display: grid; gap: 6px; margin-bottom: 12px; }
 .srcpick .seg { width: fit-content; }
 
@@ -1174,4 +1272,3 @@ small.err { color: var(--neg); }
 .pool-plan .pp-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; }
 .pool-plan p { margin: 6px 0; font-size: 13px; color: var(--text-2); }
 .pool-plan .chips { margin-top: 6px; }
-.cal-order { margin-top: 6px; }

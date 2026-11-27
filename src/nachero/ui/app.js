@@ -1451,60 +1451,129 @@ document.addEventListener("keydown", (e) => {
   SETTINGS.open ? closeSettings() : openSettings();
 });
 
-/* ------------------------------------------------------------------ ¿acierta Nachero? (#9) */
+/* ------------------------------------------------------------------ ¿acierta Nachero? (#9, #104) */
+// Primero el veredicto en una frase y la regla de WR: lo que esperaba Nachero (rombo dorado), lo
+// que has ganado (punto) y el margen que dan tus partidas (franja). Debajo, dos preguntas con dos
+// barras. Los tramos y los valores del modelo, en desplegables cerrados.
 const PART_NAMES = { you: "Tú con él", meta: "Fuerza en el parche", lane: "Rival de línea", enemies: "Resto del rival",
   allies: "Encaje con tu equipo", synergy: "Sinergias medidas", vs_comp: "Contra su composición", risk: "Riesgo de counter", ease: "Fácil de jugar" };
-
-/* A ciegas o de counter (#71): con el orden de picks real de tus partidas y la posición de cada
-   rival al acabar. */
-function orderCalibration(o) {
-  if (!o) return "";
-  const g = (x) => x.n ? `<b>${f1(x.wr)} %</b> en ${x.n}${x.d2 != null ? ` · matchup medio ${signed(x.d2)}` : ""}` : "—";
-  const pc = o.p_counter || {};
-  const eta = o.eta || {};
-  const roles = o.roles || {};
-  const any = o.blind.n || o.counter.n || roles.n;
-  if (!any) return `<p class="cal-sum">A ciegas o de counter: aún sin partidas con el orden de picks (se apunta desde esta versión).</p>`;
-  return `<div class="cal-order">
-    <p class="cal-sum">Tu rival de línea eligió después (a ciegas): ${g(o.blind)} · eligió antes (de counter): ${g(o.counter)}</p>
-    ${pc.n ? `<p class="cal-sum">Probabilidad de counter prevista <b>${f1(pc.pred)} %</b> · te counterearon de verdad <b>${f1(pc.obs)} %</b> (${pc.n} partidas a ciegas)</p>` : ""}
-    <p class="cal-sum" title="Cuánto counterea de verdad el rival que elige después: −d2 medio de tus matchups a ciegas entre la pérdida esperada si siempre counterease. Con pocas partidas se mezcla con el valor de Ajustes.">η medido: <b>${eta.raw != null ? f1(eta.raw) : "—"}</b> en ${eta.n || 0} partidas → valor sugerido <b>${f1(eta.value)}</b></p>
-    ${roles.n ? `<p class="cal-sum">Roles rivales estimados que acertaron: <b>${roles.pct} %</b> (${roles.n} partidas)</p>` : ""}
-  </div>`;
-}
+const RULER = [25, 75]; // WR que abarca la regla
+const MIN_SIDE = 5; // partidas por lado para comparar dos grupos
+const OK_GAP = 3; // puntos de WR: por debajo, «da igual» (como `OK_GAP` en domain/calibration.py)
+const at = (v) => (100 * (Math.max(RULER[0], Math.min(RULER[1], v)) - RULER[0]) / (RULER[1] - RULER[0])).toFixed(2) + "%";
+const pct = (v) => f1(v) + " %";
+const games = (n) => `${n} ${n === 1 ? "partida" : "partidas"}`;
 let CALIB_AT = 0;
+let CALIB_SEEN = false; // la regla se anima solo la primera vez
+const CALIB_OPEN = {}; // desplegables abiertos, para que no se cierren al refrescar
 
 async function loadCalibration(force) {
   if (!force && Date.now() - CALIB_AT < 60000) return;
   CALIB_AT = Date.now();
   try {
     const r = await fetch("/api/calibration");
-    if (r.ok) renderCalibration(await r.json());
+    if (r.ok) { const c = await r.json(); once("calib", c, renderCalibration); }
   } catch (_) {}
+}
+
+function verdictCopy(c) {
+  const v = c.verdict;
+  const said = `Esperaba que ganaras el ${pct(c.est)} y has ganado el ${pct(c.wr)}`;
+  if (v.kind === "ok") return ["Acierta contigo", `${said}.`];
+  const high = v.kind === "high";
+  const title = v.sure ? (high ? "Es demasiado optimista contigo" : "Es demasiado prudente contigo")
+    : high ? "Parece demasiado optimista" : "Parece demasiado prudente";
+  const sub = `${said}: ${f1(Math.abs(v.gap))} puntos ${high ? "menos" : "más"}.`
+    + (v.sure ? "" : ` Con ${games(c.n)} todavía puede ser suerte.`);
+  return [title, sub];
+}
+
+function ruler(c) {
+  const v = c.verdict;
+  const [lo, hi] = v.ci;
+  const a = Math.min(c.est, c.wr), b = Math.max(c.est, c.wr);
+  const ticks = [30, 40, 50, 60, 70];
+  return `<div class="ruler" aria-hidden="true">
+    <div class="track">
+      ${ticks.map((t) => `<i class="tick${t === 50 ? " mid" : ""}" style="left:${at(t)}"></i>`).join("")}
+      <i class="band" style="left:${at(lo)};right:calc(100% - ${at(hi)})"></i>
+      ${v.kind === "ok" ? "" : `<i class="gap ${v.kind}" style="left:${at(a)};right:calc(100% - ${at(b)})"></i>`}
+      <span class="mk mk-est" style="left:${at(c.est)}">Nachero <b class="num">${pct(c.est)}</b></span>
+      <span class="mk mk-real" style="left:${at(c.wr)};--from:${at(c.est)}">Tú <b class="num">${pct(c.wr)}</b></span>
+    </div>
+    <div class="scale">${ticks.map((t) => `<span style="left:${at(t)}">${t} %</span>`).join("")}</div>
+  </div>
+  <p class="ruler-key"><i class="key-band"></i>Margen con ${games(c.n)}: tu WR real está ahí con un 95 % de seguridad${c.enough ? "" : `. Se estrecha a partir de ${c.min_games}`}.</p>`;
+}
+
+/* Una pregunta con dos barras (WR de cada grupo) y la respuesta corta a la derecha. */
+function versus(q, help, [la, a], [lb, b], answers, tones = ["pos", "neg"]) {
+  const both = a.n >= MIN_SIDE && b.n >= MIN_SIDE;
+  const d = both ? a.wr - b.wr : 0;
+  const ans = !both ? ["Faltan partidas", "muted"] : d >= OK_GAP ? [answers[0], tones[0]] : d <= -OK_GAP ? [answers[1], tones[1]] : [answers[2], "muted"];
+  const row = (label, g) => `<div class="vs-row${g.n < MIN_SIDE ? " few" : ""}"><span>${label}</span>
+    <div class="vs-bar"><i style="width:${g.n ? Math.max(1, g.wr) : 0}%"></i><b></b></div>
+    <span class="num">${g.n ? pct(g.wr) : "—"}</span><small>${games(g.n)}</small></div>`;
+  return `<section class="vs"><div class="vs-q"><h4>${q}</h4><span class="vs-a ${ans[1]}">${ans[0]}</span></div>
+    ${help ? `<p class="vs-help">${help}</p>` : ""}${row(la, a)}${row(lb, b)}</section>`;
+}
+
+function bucketsBlock(c) {
+  const rows = c.buckets.filter((b) => b.n).map((b) => `<div class="bk-row${b.n < 3 ? " few" : ""}"><span class="num">${esc(b.label)}</span>
+    <div class="bk-track"><i class="tick mid" style="left:${at(50)}"></i><i class="d d-est" style="left:${at(b.est)}" title="Esperaba ${pct(b.est)}"></i><i class="d d-real" style="left:${at(b.wr)}" title="Ganaste ${pct(b.wr)}"></i></div>
+    <small>${games(b.n)}</small></div>`).join("");
+  return `<p class="dt-help">Si acierta, el punto (lo que has ganado) cae sobre el rombo (lo que esperaba). Los tramos con menos de 3 partidas salen atenuados.</p><div class="bk">${rows}</div>`;
+}
+
+function modelBlock(c) {
+  const parts = c.parts.filter((p) => PART_NAMES[p.part]).sort((x, y) => y.gap - x.gap);
+  const max = Math.max(1, ...parts.map((p) => Math.abs(p.gap)));
+  const pr = parts.map((p) => {
+    const w = (50 * Math.abs(p.gap) / max).toFixed(1);
+    return `<div class="pt-row"><span>${PART_NAMES[p.part]}</span><div class="pt-bar"><i class="${p.gap >= 0 ? "pos" : "neg"}" style="${p.gap >= 0 ? "left:50%" : `right:50%`};width:${w}%"></i></div><b class="num ${tone(p.gap, 0.2)}">${signed(p.gap)}</b></div>`;
+  }).join("");
+  const o = c.order || {};
+  const pc = o.p_counter || {}, eta = o.eta || {}, roles = o.roles || {};
+  const fact = (k, v, note) => `<div><dt>${k}</dt><dd><b class="num">${v}</b>${note ? `<small>${note}</small>` : ""}</dd></div>`;
+  return `${pr ? `<p class="dt-help">Cuánto más alta sale cada parte en tus victorias que en tus derrotas. Si se queda cerca de 0, apenas predice: puedes bajar su peso.</p>
+    <div class="pt">${pr}</div><button class="link-btn" data-open-set="reco">Cambiar los pesos en Ajustes</button>` : ""}
+    <dl class="facts">
+      ${fact("Te han countereado a ciegas", pc.n ? pct(pc.obs) : "—", pc.n ? `Nachero preveía ${pct(pc.pred)}, en ${games(pc.n)}` : "Sin partidas a ciegas")}
+      ${fact("Cuánto counterea tu rival (η)", f1(eta.value ?? 0.5), eta.raw != null ? `Valor sugerido. Medido: ${f1(eta.raw)} en ${games(eta.n)}` : "Valor de Ajustes: aún sin medir")}
+      ${fact("Roles rivales acertados", roles.n ? `${roles.pct} %` : "—", roles.n ? `En ${games(roles.n)}` : "")}
+    </dl><button class="link-btn" data-open-set="advanced">Cambiar η en Ajustes</button>`;
+}
+
+function details(k, title, body) {
+  return `<details class="dt" data-k="${k}"${CALIB_OPEN[k] ? " open" : ""}><summary>${title}</summary><div class="dt-body">${body}</div></details>`;
 }
 
 function renderCalibration(c) {
   const el = $("#calib");
-  const head = `<div class="block-head"><h3>¿Acierta Nachero?</h3><span>WR estimado del campeón que confirmaste frente al resultado</span></div>`;
-  if (!c.n) {
-    el.innerHTML = `${head}<p class="muted">Aún no hay partidas medidas. Cada vez que confirmes un pick en soloq, flex o normal, Nachero apunta su WR estimado y, al acabar la partida, el resultado.${c.pending ? ` Pendientes: ${c.pending}.` : ""}</p>`;
+  const need = c.min_games || 20;
+  const meter = `<span class="cal-count" title="A partir de ${need} partidas la comparación empieza a ser fiable">${c.enough ? games(c.n)
+    : `${c.n} de ${need} partidas<i><b style="width:${(100 * Math.min(c.n, need) / need).toFixed(0)}%"></b></i>`}</span>`;
+  const head = `<header class="cal-head"><h3>¿Acierta Nachero?</h3>${c.n ? meter : ""}</header>`;
+  if (!c.n || !c.verdict) {
+    el.innerHTML = `${head}<p class="cal-title">Aún no hay partidas que comparar</p>
+      <p class="cal-sub">Confirma tu pick en soloq, flex o normal: al acabar la partida, Nachero compara lo que esperaba con lo que pasó.${c.pending ? ` ${games(c.pending)} esperando resultado.` : ""}</p>`;
     return;
   }
-  const rows = c.buckets.filter((b) => b.n).map((b) => {
-    const diff = b.wr - b.est;
-    return `<div class="cal-row"><span>${esc(b.label)}</span><span class="num">${b.n}</span>
-      <div class="cal-bar" title="Estimado ${f1(b.est)} % · real ${f1(b.wr)} %"><i class="est" style="left:${Math.max(0, Math.min(100, b.est))}%"></i><i class="real" style="width:${Math.max(0, Math.min(100, b.wr))}%"></i></div>
-      <span class="num">${f1(b.est)} %</span><span class="num ${tone(diff, 3)}">${f1(b.wr)} %</span></div>`;
-  }).join("");
-  const parts = c.parts.filter((p) => PART_NAMES[p.part]).map((p) => `<span class="chip">${PART_NAMES[p.part]} <b class="num ${tone(p.gap, 0.2)}">${signed(p.gap)}</b></span>`).join("");
+  const [title, sub] = verdictCopy(c);
+  const o = c.order || {};
   el.innerHTML = `${head}
-    ${c.enough ? "" : `<p class="warn-line">Con ${c.n} partidas dice poco: a partir de ~20 empieza a ser útil.</p>`}
-    <p class="cal-sum">${c.n} partidas · estimado medio <b>${f1(c.est)} %</b> · WR real <b>${f1(c.wr)} %</b>${c.pending ? ` · ${c.pending} por apuntar` : ""}</p>
-    <div class="cal"><div class="cal-row head"><span>WR estimado</span><span>Partidas</span><span></span><span>Estimado</span><span>Real</span></div>${rows}</div>
-    <p class="cal-sum">Siguiendo la recomendación: ${c.followed.n ? `<b>${f1(c.followed.wr)} %</b> en ${c.followed.n}` : "—"} · jugando otro: ${c.other.n ? `<b>${f1(c.other.wr)} %</b> en ${c.other.n}` : "—"}</p>
-    ${orderCalibration(c.order)}
-    ${parts ? `<p class="cal-sum">Cuánto separa cada parte las victorias de las derrotas (media en victorias − en derrotas):</p><div class="chips">${parts}</div>` : ""}
-    <p class="foot">Si en un tramo ganas mucho menos de lo estimado, Nachero se pasa de optimista ahí. Una parte con diferencia cercana a 0 apenas predice: puedes bajar su peso en Ajustes.</p>`;
+    <div class="cal-grid"><div class="cal-main">
+    <div class="cal-verdict ${c.verdict.kind}${c.verdict.sure ? " sure" : ""}"><p class="cal-title">${title}</p><p class="cal-sub">${sub}</p></div>
+    ${ruler(c)}</div><div class="cal-qs">
+    ${versus("¿Te conviene seguir su recomendación?", "", ["Siguiéndola", c.followed], ["Jugando otro", c.other], ["Sí, te va mejor", "No, te va peor", "Da igual"])}
+    ${o.blind ? versus("¿Te va mejor a ciegas o de counter?", "A ciegas: tu rival de línea eligió después de ti.", ["A ciegas", o.blind], ["De counter", o.counter], ["Mejor a ciegas", "Mejor de counter", "Da igual"], ["info", "info"]) : ""}</div></div>
+    ${details("bk", "Por tramos de WR estimado", bucketsBlock(c))}
+    ${details("model", "Para afinar el modelo", modelBlock(c))}
+    ${c.pending ? `<p class="cal-foot">${games(c.pending)} esperando resultado.</p>` : ""}`;
+  el.querySelectorAll("details.dt").forEach((d) => (d.ontoggle = () => (CALIB_OPEN[d.dataset.k] = d.open)));
+  el.querySelectorAll("[data-open-set]").forEach((b) => (b.onclick = () => openSettings(b.dataset.openSet)));
+  el.classList.toggle("intro", !CALIB_SEEN);
+  CALIB_SEEN = true;
 }
 
 function ago(ts) {

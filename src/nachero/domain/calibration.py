@@ -122,6 +122,32 @@ def _wr(rs):
     return round(100 * sum(r["win"] for r in rs) / len(rs), 1) if rs else None
 
 
+OK_GAP = 3.0  # puntos de WR: por debajo, el estimado acierta
+
+
+def wilson(wins: int, n: int, z: float = 1.96) -> tuple[float, float] | None:
+    """Intervalo de Wilson (95 %) del WR real, en %: el margen que da el número de partidas."""
+    if n <= 0:
+        return None
+    p = wins / n
+    den = 1 + z * z / n
+    mid = (p + z * z / (2 * n)) / den
+    half = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / den
+    return round(100 * max(0.0, mid - half), 1), round(100 * min(1.0, mid + half), 1)
+
+
+def verdict(est: float | None, wins: int, n: int) -> dict | None:
+    """¿Acierta? `kind`: "ok" (gana lo esperado, ±3 puntos), "high" (se pasa de optimista) o "low"
+    (se queda corto). `sure`: el estimado queda fuera del margen del WR real, así que la diferencia
+    no se explica por haber jugado pocas partidas."""
+    ci = wilson(wins, n)
+    if est is None or ci is None:
+        return None
+    gap = round(100 * wins / n - est, 1)
+    kind = "ok" if abs(gap) < OK_GAP else "high" if gap < 0 else "low"
+    return {"kind": kind, "gap": gap, "ci": list(ci), "sure": not ci[0] <= est <= ci[1]}
+
+
 def report(records: list[dict], eta_prior: float = 0.5) -> dict:
     """Informe de calibración con los registros ya resueltos. `eta_prior`: η de los ajustes."""
     done = [r for r in records if r.get("win") is not None]
@@ -148,13 +174,16 @@ def report(records: list[dict], eta_prior: float = 0.5) -> dict:
     brier = sum((r["est"] / 100 - r["win"]) ** 2 for r in done) / n if n else None
     followed = [r for r in done if r.get("followed")]
     other = [r for r in done if not r.get("followed")]
+    est = round(sum(r["est"] for r in done) / n, 1) if n else None
     return {
         "order": order_report(done, eta_prior),
         "n": n,
+        "min_games": MIN_GAMES,
         "pending": sum(1 for r in records if r.get("win") is None),
         "enough": n >= MIN_GAMES,
-        "est": round(sum(r["est"] for r in done) / n, 1) if n else None,
+        "est": est,
         "wr": _wr(done),
+        "verdict": verdict(est, len(wins), n),
         "brier": round(brier, 4) if brier is not None else None,
         "buckets": buckets,
         "parts": parts,

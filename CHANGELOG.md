@@ -3,6 +3,28 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.34.0] - 2026-11-27
+
+«¿Acierta Nachero?» rediseñado (#104): primero la respuesta y debajo el detalle.
+
+### Cambiado
+- **Veredicto en una frase**: acierta contigo, es demasiado optimista o demasiado prudente. Si la
+  diferencia cabe en el margen de las partidas jugadas, dice «parece» y avisa de que aún puede ser
+  suerte.
+- **Regla de WR**: lo que esperaba Nachero (rombo dorado), lo que has ganado (punto) y una franja
+  con el margen de error, que se estrecha al jugar más. La primera vez que abres «Tu pool», el
+  punto sale del rombo.
+- «¿Te conviene seguir su recomendación?» y «¿Te va mejor a ciegas o de counter?» como dos barras
+  con la respuesta al lado. Con menos de 5 partidas por lado, dice «Faltan partidas».
+- Los tramos de WR estimado, las partes que predicen y los valores del modelo (η, counters,
+  roles) van en desplegables, con enlaces a Ajustes › Recomendación y Avanzado.
+- Contador «9 de 20 partidas» hasta que la comparación empieza a ser fiable.
+- En una tarjeta ancha, veredicto y preguntas van en dos columnas.
+
+### Añadido
+- El informe de calibración incluye el veredicto (`verdict`) con el intervalo de Wilson al 95 % del
+  WR real (`domain/calibration.py`).
+
 ## [0.33.0] - 2026-11-27
 
 Ajustes rediseñados (#102): antes eran un cajón estrecho con 10 secciones seguidas, ahora una

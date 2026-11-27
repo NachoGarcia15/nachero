@@ -3,6 +3,27 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.33.0] - 2026-11-27
+
+Ajustes rediseñados (#102): antes eran un cajón estrecho con 10 secciones seguidas, ahora una
+ventana con categorías.
+
+### Cambiado
+- **Ajustes en una ventana con categorías**: Perfil, Automático, Recomendación, Avanzado, App y
+  Datos, con la lista a la izquierda (arriba en ventanas estrechas). Se abre con el botón
+  «Ajustes» de la barra, que ahora lleva texto, o con `Ctrl+,`, y recuerda la última categoría.
+- Textos de ayuda más cortos. Los hechizos por rol van en un desplegable y la liga de los matchups
+  lleva la marca «Al reiniciar».
+- Los modos se eligen con tarjetas en Automático. Si no estás en Activo, un aviso indica que las
+  automatizaciones no actúan.
+- Perfil en una tarjeta con tu cuenta, liga, roles y lo que practicas.
+- «Cómo pesa cada parte» enseña una barra con la proporción de cada parte y tiene «Restablecer».
+- Aviso «Guardado» (o «No se ha podido guardar») tras cada cambio.
+
+### Corregido
+- Cambiar un ajuste repintaba el cajón entero y perdía el foco: con el teclado, un deslizador solo
+  avanzaba un paso. Ahora solo se repinta la sección que cambia y el foco se conserva.
+
 ## [0.32.1] - 2026-11-27
 
 Fallos vistos al probar la 0.32.0 en una clasificatoria (#98). Marcar, cambiar la marca, banear y

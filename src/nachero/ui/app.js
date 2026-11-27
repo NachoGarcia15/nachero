@@ -20,9 +20,11 @@ let POOL_Q = "";
 
 /* ------------------------------------------------------------------ red */
 async function post(url, body) {
+  let ok = false;
   try {
-    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+    ok = (await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })).ok;
   } catch (_) { /* el siguiente sondeo mostrara el estado real */ }
+  if (url === "/api/settings" || url === "/api/mode") savedFlash(ok);
   poll();
 }
 
@@ -233,13 +235,19 @@ function renderUpdate(u) {
   el.innerHTML = `<span>Hay una versión nueva de Nachero: <b>${esc(u.version)}</b>${u.notes ? ` · ${esc(u.notes)}` : ""}</span><a class="btn" href="${esc(u.url)}" target="_blank" rel="noopener">Descargar</a>`;
 }
 
+// Ajustes › Automático: los tres modos como tarjetas que se pueden elegir (el mismo selector que la barra).
 function renderModes(modes, cur) {
+  const keep = document.activeElement && document.activeElement.dataset.setmode;
   $("#modes-help").innerHTML = ["paused", "observe", "active"].filter((k) => modes[k]).map((k) => {
     const m = modes[k];
     const touches = k !== "active" ? "No toca el cliente."
       : m.touches.length ? `En el cliente: ${m.touches.map(esc).join(" · ")}.` : "Con tus ajustes no toca el cliente.";
-    return `<div class="opt mode ${k === cur ? "cur" : ""}"><div class="tx"><b>${esc(m.label)}${k === cur ? `<span class="now">Ahora</span>` : ""}</b><small>${esc(m.text)}<br>${touches}</small></div></div>`;
+    return `<button class="mode-card m-${k} ${k === cur ? "on" : ""}" data-setmode="${k}" role="radio" aria-checked="${k === cur}">
+      <b>${esc(m.label)}${k === cur ? `<span class="now">Ahora</span>` : ""}</b><small>${esc(m.text)}</small><small class="touch">${touches}</small></button>`;
   }).join("");
+  if (keep) $(`#modes-help [data-setmode="${keep}"]`).focus();
+  $("#auto-off").hidden = cur === "active" || !modes[cur];
+  $("#auto-off-mode").textContent = (modes[cur] || {}).label || "";
 }
 
 /* ------------------------------------------------------------------ draft */
@@ -1136,67 +1144,150 @@ async function openFolder(which, msgSel) {
 }
 $("#open-data").onclick = () => openFolder("data", "#data-msg");
 
-/* ------------------------------------------------------------------ ajustes */
-const TOGGLES = [
+/* ------------------------------------------------------------------ ajustes (#102) */
+// Cada sección se repinta solo si cambian sus ajustes y conserva el control con el foco (con el
+// teclado, cada flecha de un deslizador guarda y repinta: sin esto se perdería el foco).
+const PREP_TOGGLES = [
   ["auto_accept", "Aceptar partida", "Con 1–3 s de retraso aleatorio."],
-  ["auto_ban", "Banear", "Marca el primer ban sugerido (sin pisar los picks ni los bans marcados por aliados); no lo confirma: lo banea el cliente al acabar el tiempo. Si marcas otro, se banea el tuyo."],
-  ["auto_hover_pick", "Marcar pick", "Marca tu mejor campeón y lo actualiza con el draft. Si marcas otro (en el cliente o aquí), deja de cambiarlo."],
-  ["auto_lock_pick", "Confirmar pick", "Confirma lo que esté marcado al final de tu turno: tu elección o, si no tocas nada, la de Nachero."],
-  ["auto_spells", "Hechizos", "Los de tu rol, al entrar en la selección."],
-  ["import_runes", "Importar runas", "Al confirmar, crea la página «Nachero» con las runas de Lolalytics (de la liga de los matchups: Esmeralda+ por defecto). Nunca toca tus páginas."],
+  ["auto_spells", "Hechizos", "Pone los de tu rol al entrar en la selección."],
+  ["import_runes", "Importar runas", "Al confirmar, crea la página «Nachero» con las de Lolalytics. Nunca toca tus páginas."],
   ["open_coachless_on_lock", "Abrir Coachless", "La build del campeón confirmado, en tu navegador."],
 ];
+const DECIDE_TOGGLES = [
+  ["auto_ban", "Banear", "Marca el primer ban sugerido sin pisar lo que marquen tus aliados; lo banea el cliente al acabar el tiempo."],
+  ["auto_hover_pick", "Marcar pick", "Marca tu mejor campeón y lo actualiza con el draft hasta que marques otro."],
+  ["auto_lock_pick", "Confirmar pick", "Confirma lo marcado al final de tu turno: tu elección o, si no tocas nada, la de Nachero."],
+];
 const APP_TOGGLES = [
-  ["close_to_tray", "Cerrar deja Nachero en la bandeja", "Sigue aceptando partidas y leyendo la selección. Para salir, clic derecho en su icono → Salir."],
-  ["start_with_windows", "Abrir al iniciar Windows", "Arranca en la bandeja al iniciar sesión, sin abrir la ventana."],
-  ["tray_notify", "Avisos desde la bandeja", "Con la ventana en la bandeja, un aviso de Windows al empezar la selección y al llegar tu turno, con la recomendación."],
+  ["close_to_tray", "Cerrar deja Nachero en la bandeja", "Sigue aceptando partidas y leyendo la selección. Para salir: clic derecho en su icono → Salir."],
+  ["start_with_windows", "Abrir al iniciar Windows", "Arranca en la bandeja, sin abrir la ventana."],
+  ["tray_notify", "Avisos desde la bandeja", "Un aviso de Windows al empezar la selección y al llegar tu turno, con la recomendación."],
 ];
 const WEIGHTS = [
   ["pool", "Tu pool", "Experiencia, forma y resultados con cada campeón."],
   ["meta", "Fuerza en el parche", "Winrate del campeón en tu rol en Master+."],
-  ["matchup", "Matchups", "Contra tu rival de línea, el resto del rival y riesgo de counter."],
+  ["matchup", "Matchups", "Tu rival de línea, el resto del rival y el riesgo de counter."],
   ["comp", "Composición", "Lo que le falta a tu equipo y la respuesta a la composición rival."],
 ];
+const SET_CATS = {
+  profile: ["Perfil", "Tu cuenta, tus roles y tus campeones."],
+  auto: ["Automático", "Lo que Nachero hace por ti en el cliente."],
+  reco: ["Recomendación", "Qué pesa al elegir tus picks y bans."],
+  advanced: ["Avanzado", "El modelo a ciegas y de matchups. Los valores por defecto van bien."],
+  app: ["App", "Ventana, bandeja e inicio con Windows."],
+  data: ["Datos", "De dónde salen las estadísticas y dónde se guardan las tuyas."],
+};
+const pickKeys = (o, ks) => Object.fromEntries(ks.map((k) => [k, o[k]]));
+
+/* Una fila de ajuste: título (con etiqueta opcional), una línea de ayuda, lo de debajo y el control. */
+function opt(title, help, { below = "", control = "", tag = "" } = {}) {
+  return `<div class="opt"><div class="tx"><b>${title}${tag ? ` <span class="tag">${tag}</span>` : ""}</b>${help ? `<small>${help}</small>` : ""}${below}</div>${control}</div>`;
+}
+const swc = (attr, on, label) => `<label class="sw"><input type="checkbox" ${attr} ${on ? "checked" : ""} aria-label="${esc(label)}"><span></span></label>`;
+function seg(label, items, cur, attr) {
+  return `<div class="seg seg-sm" role="radiogroup" aria-label="${esc(label)}">${items.map(([k, n]) =>
+    `<button ${attr}="${k}" class="${cur === k ? "on" : ""}" role="radio" aria-checked="${cur === k}">${n}</button>`).join("")}</div>`;
+}
+function range(id, label, value, shown, { min = 0, max = 2, step = 0.1, help = "", attr = "", dot = "" } = {}) {
+  return `<div class="weight"><label for="${id}">${dot ? `<i class="dot ${dot}"></i>` : ""}${label}<span class="num" id="${id}-v">${shown}</span></label>${help ? `<small>${help}</small>` : ""}
+    <input type="range" id="${id}" ${attr} min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
+}
+
+function focusKey(el) {
+  if (el.id) return "#" + CSS.escape(el.id);
+  const d = [...el.attributes].filter((a) => a.name.startsWith("data-")).map((a) => `[${a.name}="${CSS.escape(a.value)}"]`).join("");
+  return d ? el.tagName.toLowerCase() + d : null;
+}
+function section(key, val, root, fn) {
+  once("set-" + key, val, () => {
+    const a = document.activeElement;
+    const k = a && root.contains(a) ? focusKey(a) : null;
+    fn(val);
+    const back = k && root.querySelector(k);
+    if (back && back !== document.activeElement) back.focus({ preventScroll: true });
+  });
+}
 
 function renderSettings(st) {
-  $("#pickmode-settings").innerHTML = `
-    <div class="opt"><div class="tx"><b>Base de la recomendación</b><small>${st.pick_mode === "meta"
+  section("prep", [pickKeys(st, ["auto_accept", "auto_spells", "import_runes", "open_coachless_on_lock", "runes_source", "spells", "spells_by_role"])], $("#prep-settings"), () => renderPrep(st));
+  section("decide", pickKeys(st, ["auto_ban", "auto_hover_pick", "auto_lock_pick", "lock_when_seconds_left"]), $("#decide-settings"), () => renderDecide(st));
+  section("pickmode", st.pick_mode, $("#pickmode-settings"), () => {
+    $("#pickmode-settings").innerHTML = opt("Base de la recomendación", st.pick_mode === "meta"
       ? "Ignora tu pool: fuerza en el parche y encaje en el draft."
-      : "Tu pool pesa junto a la fuerza en el parche y el draft (recomendado)."}</small>${modeSwitch(st.pick_mode)}</div></div>`;
-  bindModeSwitch($("#pickmode-settings"));
-  $("#toggles").innerHTML = TOGGLES.map(([k, t, d]) => `
-    <div class="opt"><div class="tx"><b>${t}</b><small>${d}</small>
-      ${k === "auto_lock_pick" ? `<div class="secs">Cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}"> s</div>` : ""}</div>
-      <label class="sw"><input type="checkbox" data-k="${k}" ${st[k] ? "checked" : ""} aria-label="${t}"><span></span></label></div>`).join("");
-  $("#toggles").insertAdjacentHTML("beforeend", `
-    <div class="opt"><div class="tx"><b>Página de runas</b><small>Cuál importar de Lolalytics (liga de los matchups).</small>
-      <div class="seg seg-sm runesrc" role="radiogroup" aria-label="Página de runas">
-        <button data-src="pick" class="${st.runes_source !== "win" ? "on" : ""}">Más popular</button>
-        <button data-src="win" class="${st.runes_source === "win" ? "on" : ""}">Mayor WR</button></div></div></div>`);
-  document.querySelectorAll(".runesrc button").forEach((b) => (b.onclick = () => post("/api/settings", { runes_source: b.dataset.src })));
-  document.querySelectorAll("#toggles input[type=checkbox]").forEach((i) => (i.onchange = () => post("/api/settings", { [i.dataset.k]: i.checked })));
-  const secs = $("#secs");
-  if (secs) secs.onchange = () => post("/api/settings", { lock_when_seconds_left: Number(secs.value) });
+      : "Tu pool pesa junto a la fuerza en el parche y el draft (recomendado).", { below: modeSwitch(st.pick_mode) });
+    bindModeSwitch($("#pickmode-settings"));
+  });
+  section("weights", st.weights || {}, $("#weights"), renderWeights);
+  section("style", st.style || {}, $("#style-settings"), renderStyle);
+  section("ban", [(st.ban_priority || {})[BAN_ROLE] || [], BAN_ROLE], $("#ban-settings"), () => renderBans(st));
+  section("champs", pickKeys(st, ["pool_bonus", "never_pick", "practice_bonus"]), $("#champ-settings"), () => renderChamps(st));
+  section("blind", [st.blind, st.build_tier], $("#blind-settings"), () => renderBlindSettings(st));
+  section("app", pickKeys(st, ["start_mode", "close_to_tray", "start_with_windows", "tray_notify"]), $("#cat-app"), () => renderAppSettings(st));
+}
 
-  $("#app-settings").innerHTML = APP_TOGGLES.map(([k, title, d]) => `
-    <div class="opt"><div class="tx"><b>${title}</b><small>${d}</small></div>
-      <label class="sw"><input type="checkbox" data-app="${k}" ${st[k] ? "checked" : ""} aria-label="${title}"><span></span></label></div>`).join("")
-    + `<p class="drawer-note" id="app-msg" role="status"></p>`;
-  document.querySelectorAll("#app-settings input").forEach((i) => (i.onchange = async () => {
-    const r = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [i.dataset.app]: i.checked }) }).catch(() => null);
-    if (!r || !r.ok) { i.checked = !i.checked; $("#app-msg").textContent = r ? (await r.json()).error || "No se ha podido cambiar" : "Nachero no responde"; }
-    poll();
+function renderPrep(st) {
+  const sbr = st.spells_by_role || {};
+  const spells = st.spells || [];
+  const perRole = `<details class="more"><summary>Hechizos por rol</summary><div class="spells">${ROLE_BTNS.map(([r, n]) => {
+    const pair = sbr[r] || ["", ""];
+    const sel = (i) => `<select data-spell="${r}" data-i="${i}" aria-label="${n}: hechizo ${i + 1}">${spells.map((x) => `<option ${pair[i] === x ? "selected" : ""}>${x}</option>`).join("")}</select>`;
+    return `<label><span>${n}</span>${sel(0)}${sel(1)}</label>`;
+  }).join("")}</div><small class="err" id="spell-msg" role="status"></small></details>`;
+  const runes = seg("Página de runas", [["pick", "Más popular"], ["win", "Mayor WR"]], st.runes_source === "win" ? "win" : "pick", "data-src");
+  const below = { auto_spells: perRole, import_runes: runes };
+  const box = $("#prep-settings");
+  box.innerHTML = PREP_TOGGLES.map(([k, t, d]) => opt(t, d, { below: below[k] || "", control: swc(`data-k="${k}"`, st[k], t) })).join("");
+  box.querySelectorAll("input[data-k]").forEach((i) => (i.onchange = () => post("/api/settings", { [i.dataset.k]: i.checked })));
+  box.querySelectorAll("[data-src]").forEach((b) => (b.onclick = () => post("/api/settings", { runes_source: b.dataset.src })));
+  box.querySelectorAll("select[data-spell]").forEach((s) => (s.onchange = () => {
+    const r = s.dataset.spell;
+    const pair = [...box.querySelectorAll(`select[data-spell="${r}"]`)].map((x) => x.value);
+    if (pair[0] === pair[1]) { $("#spell-msg").textContent = "Elige dos hechizos distintos."; return; }
+    $("#spell-msg").textContent = "";
+    post("/api/settings", { spells_by_role: { [r]: pair } });
   }));
+  // el desplegable sigue abierto al repintar
+  if (renderPrep.open) box.querySelector("details.more").open = true;
+  box.querySelector("details.more").ontoggle = (e) => (renderPrep.open = e.target.open);
+}
 
-  renderBlindSettings(st);
-  const w = st.weights || {};
-  $("#weights").innerHTML = WEIGHTS.map(([k, t, d]) => `
-    <div class="weight"><label for="w-${k}">${t}<span class="num" id="wv-${k}">${f1(w[k] ?? 1)}×</span></label><small>${d}</small>
-      <input type="range" id="w-${k}" min="0" max="2" step="0.1" value="${w[k] ?? 1}"></div>`).join("");
+function renderDecide(st) {
+  const box = $("#decide-settings");
+  box.innerHTML = DECIDE_TOGGLES.map(([k, t, d]) => opt(t, d, {
+    below: k === "auto_lock_pick" ? `<div class="secs">Cuando queden <input id="secs" type="number" min="1" max="30" value="${st.lock_when_seconds_left}" aria-label="Segundos antes del final del turno"> s</div>` : "",
+    control: swc(`data-k="${k}"`, st[k], t),
+  })).join("");
+  box.querySelectorAll("input[data-k]").forEach((i) => (i.onchange = () => post("/api/settings", { [i.dataset.k]: i.checked })));
+  $("#secs").onchange = () => post("/api/settings", { lock_when_seconds_left: Number($("#secs").value) });
+}
+
+/* Pesos con una barra que enseña cuánto pesa cada parte frente a las demás. */
+function renderWeights(w) {
+  const val = (k) => w[k] ?? 1;
+  $("#weights").innerHTML = `<div class="wbar" id="wbar" aria-hidden="true">${WEIGHTS.map(([k], i) => `<i class="s${i + 1}" data-wk="${k}"></i>`).join("")}</div>`
+    + WEIGHTS.map(([k, t, d], i) => range("w-" + k, t, val(k), f1(val(k)) + "×", { help: d, attr: `data-w="${k}"`, dot: "s" + (i + 1) })).join("");
+  const bar = () => {
+    const vs = WEIGHTS.map(([k]) => Number($("#w-" + k).value));
+    const sum = vs.reduce((a, b) => a + b, 0) || 1;
+    WEIGHTS.forEach(([k], i) => ($(`#wbar [data-wk="${k}"]`).style.flexGrow = vs[i] / sum));
+  };
+  bar();
   WEIGHTS.forEach(([k]) => {
     const r = $("#w-" + k);
-    r.oninput = () => ($("#wv-" + k).textContent = f1(Number(r.value)) + "×");
+    r.oninput = () => { $(`#w-${k}-v`).textContent = f1(Number(r.value)) + "×"; bar(); };
     r.onchange = () => post("/api/settings", { weights: { [k]: Number(r.value) } });
+  });
+}
+$("#weights-reset").onclick = () => post("/api/settings", { weights: Object.fromEntries(WEIGHTS.map(([k]) => [k, 1])) });
+
+function renderStyle(style) {
+  const box = $("#style-settings");
+  box.innerHTML = `<p class="set-note">Cuánto premia a los campeones que hacen daño (carry) y a los de utilidad.</p>`
+    + [["carry_weight", "Carry", 1], ["utility_weight", "Utilidad", 0.2]].map(([k, n, def]) =>
+      range("st-" + k, n, style[k] ?? def, f1(style[k] ?? def) + "×", { attr: `data-style="${k}"` })).join("");
+  box.querySelectorAll("input[data-style]").forEach((r) => {
+    r.oninput = () => ($(`#st-${r.dataset.style}-v`).textContent = f1(Number(r.value)) + "×");
+    r.onchange = () => post("/api/settings", { style: { [r.dataset.style]: Number(r.value) } });
   });
 }
 
@@ -1207,27 +1298,40 @@ function renderBlindSettings(st) {
   const eta = b.counter_rate ?? 0.5;
   const model = b.matchup_model || "measured";
   const tier = st.build_tier || "emerald_plus";
-  $("#blind-settings").innerHTML = `
-    <div class="weight"><label for="bl-eta">Cuánto counterea el rival (η)<span class="num" id="blv-eta">${f0(100 * eta)} %</span></label>
-      <small>De las veces que tu rival de línea elige después de ti, cuántas coge su mejor respuesta. En soloq no siempre: «¿Acierta Nachero?» lo mide con tus partidas. Los de otras líneas eligen para la suya: cuentan poco.</small>
-      <input type="range" id="bl-eta" min="0" max="1" step="0.05" value="${eta}"></div>
-    <div class="weight"><label for="bl-size">Pool medio de un rival<span class="num" id="blv-size">${size}</span></label>
-      <small>Campeones con los que puede responderte (los que suman el 80 % de su maestría; en mid, 7 de media). Nunca se mira quién es.</small>
-      <input type="range" id="bl-size" min="1" max="15" step="1" value="${size}"></div>
-    <div class="opt"><div class="tx"><b>Modelo de matchups</b><small>${model === "measured" ? "Medido: cada matchup se encoge según sus partidas y cuánto importa esa pareja de líneas (recomendado)." : "Clásico: encogimiento fijo y pesos por línea a mano."}</small>
-      <div class="seg seg-sm" role="radiogroup" aria-label="Modelo de matchups"><button data-model="measured" class="${model === "measured" ? "on" : ""}" role="radio" aria-checked="${model === "measured"}">Medido</button><button data-model="classic" class="${model === "classic" ? "on" : ""}" role="radio" aria-checked="${model === "classic"}">Clásico</button></div></div></div>
-    <div class="opt"><div class="tx"><b>Liga de los matchups</b><small>Esmeralda+ da unas 5 veces más partidas por matchup (en Master+ de un parche casi todo es ruido). La fuerza en el parche sigue siendo Master+. Se aplica al reiniciar.</small>
-      <div class="seg seg-sm" role="radiogroup" aria-label="Liga de los matchups">${[["emerald_plus", "Esmeralda+"], ["diamond_plus", "Diamante+"], ["master_plus", "Master+"]].map(([k, n]) => `<button data-tier="${k}" class="${tier === k ? "on" : ""}">${n}</button>`).join("")}</div></div></div>`;
+  const box = $("#blind-settings");
+  box.innerHTML = range("bl-eta", "Cuánto counterea el rival (η)", eta, f0(100 * eta) + " %", { min: 0, max: 1, step: 0.05,
+    help: `De las veces que tu rival de línea elige después de ti, cuántas coge su mejor respuesta. «¿Acierta Nachero?» lo mide con tus partidas.` })
+    + range("bl-size", "Pool medio de un rival", size, size, { min: 1, max: 15, step: 1,
+      help: "Campeones con los que puede responderte (en mid, 7 de media). Nunca se mira quién es." })
+    + opt("Modelo de matchups", model === "measured"
+      ? "Medido: cada matchup se encoge según sus partidas y cuánto importa esa pareja de líneas (recomendado)."
+      : "Clásico: encogimiento fijo y pesos por línea a mano.", { below: seg("Modelo de matchups", [["measured", "Medido"], ["classic", "Clásico"]], model, "data-model") })
+    + opt("Liga de los matchups", "Esmeralda+ da unas 5 veces más partidas por matchup. La fuerza en el parche sigue siendo Master+.",
+      { tag: "Al reiniciar", below: seg("Liga de los matchups", [["emerald_plus", "Esmeralda+"], ["diamond_plus", "Diamante+"], ["master_plus", "Master+"]], tier, "data-tier") });
   const eR = $("#bl-eta"), sR = $("#bl-size");
-  eR.oninput = () => ($("#blv-eta").textContent = f0(100 * Number(eR.value)) + " %");
+  eR.oninput = () => ($("#bl-eta-v").textContent = f0(100 * Number(eR.value)) + " %");
   eR.onchange = () => post("/api/settings", { blind: { counter_rate: Number(eR.value) } });
-  sR.oninput = () => ($("#blv-size").textContent = sR.value);
+  sR.oninput = () => ($("#bl-size-v").textContent = sR.value);
   sR.onchange = () => post("/api/settings", { blind: { pool_size: Number(sR.value) } });
-  document.querySelectorAll("#blind-settings [data-model]").forEach((x) => (x.onclick = () => post("/api/settings", { blind: { matchup_model: x.dataset.model } })));
-  document.querySelectorAll("#blind-settings [data-tier]").forEach((x) => (x.onclick = () => post("/api/settings", { build_tier: x.dataset.tier })));
+  box.querySelectorAll("[data-model]").forEach((x) => (x.onclick = () => post("/api/settings", { blind: { matchup_model: x.dataset.model } })));
+  box.querySelectorAll("[data-tier]").forEach((x) => (x.onclick = () => post("/api/settings", { build_tier: x.dataset.tier })));
 }
 
-/* ------------------------------------------------------------------ más ajustes (#5) */
+function renderAppSettings(st) {
+  $("#start-settings").innerHTML = opt("Modo al abrir Nachero", "Con el que arranca. Se cambia cuando quieras en la barra de arriba.",
+    { below: seg("Modo al abrir", MODE_NAMES, st.start_mode, "data-start") });
+  $("#start-settings").querySelectorAll("[data-start]").forEach((b) => (b.onclick = () => post("/api/settings", { start_mode: b.dataset.start })));
+  $("#app-settings").innerHTML = APP_TOGGLES.map(([k, t, d]) => opt(t, d, { control: swc(`data-app="${k}"`, st[k], t) })).join("")
+    + `<p class="set-note err" id="app-msg" role="status"></p>`;
+  $("#app-settings").querySelectorAll("input").forEach((i) => (i.onchange = async () => {
+    const r = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [i.dataset.app]: i.checked }) }).catch(() => null);
+    if (!r || !r.ok) { i.checked = !i.checked; $("#app-msg").textContent = r ? (await r.json()).error || "No se ha podido cambiar" : "Nachero no responde"; }
+    savedFlash(!!(r && r.ok));
+    poll();
+  }));
+}
+
+/* ------------------------------------------------------------------ campeones y bans (#5) */
 let BAN_ROLE = "jungle"; // rol cuyos bans prioritarios se editan
 const MODE_NAMES = [["observe", "Observar"], ["active", "Activo"], ["paused", "Pausado"]];
 
@@ -1238,54 +1342,28 @@ function chipEditor(key, names, extra = () => "") {
   </div>`;
 }
 
-function renderMore(st) {
-  const spells = st.spells || [];
-  const sbr = st.spells_by_role || {};
-  const bonus = st.pool_bonus || {};
-  const bp = (st.ban_priority || {})[BAN_ROLE] || [];
-  const style = st.style || {};
-  $("#more-settings").innerHTML = `
-    <div class="opt"><div class="tx"><b>Modo al abrir Nachero</b><small>Con el que arranca. Se cambia en cualquier momento arriba.</small>
-      <div class="seg seg-sm" role="radiogroup" aria-label="Modo al abrir">${MODE_NAMES.map(([m, n]) => `<button data-start="${m}" class="${st.start_mode === m ? "on" : ""}">${n}</button>`).join("")}</div></div></div>
-    <div class="opt"><div class="tx"><b>Hechizos por rol</b><small>Los que pone «Hechizos» al entrar en la selección.</small>
-      <div class="spells">${ROLE_BTNS.map(([r, n]) => {
-        const pair = sbr[r] || ["", ""];
-        const sel = (i) => `<select data-spell="${r}" data-i="${i}" aria-label="${n}: hechizo ${i + 1}">${spells.map((x) => `<option ${pair[i] === x ? "selected" : ""}>${x}</option>`).join("")}</select>`;
-        return `<label><span>${n}</span>${sel(0)}${sel(1)}</label>`;
-      }).join("")}</div><small class="err" id="spell-msg" role="status"></small></div></div>
-    <div class="opt"><div class="tx"><b>Tu estilo</b><small>Cuánto premia a los campeones que hacen daño (carry) y a los de utilidad.</small>
-      ${[["carry_weight", "Carry"], ["utility_weight", "Utilidad"]].map(([k, n]) => `
-        <div class="weight mini"><label for="st-${k}">${n}<span class="num" id="stv-${k}">${f1(style[k] ?? 1)}×</span></label>
-        <input type="range" id="st-${k}" data-style="${k}" min="0" max="2" step="0.1" value="${style[k] ?? 1}"></div>`).join("")}</div></div>
-    <div class="opt"><div class="tx"><b>Bans prioritarios</b><small>Se ponen primero en las sugerencias de ban de ese rol (máximo 10).</small>
-      <div class="seg seg-sm" role="radiogroup" aria-label="Rol">${ROLE_BTNS.map(([r, n]) => `<button data-banrole="${r}" class="${BAN_ROLE === r ? "on" : ""}">${n}</button>`).join("")}</div>
-      ${chipEditor("ban_priority", bp)}</div></div>
-    <div class="opt"><div class="tx"><b>Puntos extra por campeón</b><small>Puntos de WR que se suman con tu pool (de −5 a 5): positivos para los que practicas, negativos para los que no te apetecen.</small>
-      ${chipEditor("pool_bonus", Object.keys(bonus), (n) => ` <input type="number" class="bonus" data-bonus="${esc(n)}" min="-5" max="5" step="0.5" value="${bonus[n]}" aria-label="Puntos de ${esc(n)}">`)}</div></div>
-    <div class="opt"><div class="tx"><b>Nunca recomendar</b><small>No salen en ningún rol.</small>
-      ${chipEditor("never_pick", st.never_pick || [])}</div></div>`;
-  bindMore(st);
+function renderBans(st) {
+  const box = $("#ban-settings");
+  box.innerHTML = `<p class="set-note">Se ponen primero en las sugerencias de ban de ese rol (máximo 10).</p>
+    ${seg("Rol", ROLE_BTNS, BAN_ROLE, "data-banrole")}${chipEditor("ban_priority", (st.ban_priority || {})[BAN_ROLE] || [])}`;
+  box.querySelectorAll("[data-banrole]").forEach((b) => (b.onclick = () => { BAN_ROLE = b.dataset.banrole; renderSettings(STATE.settings); }));
+  bindChips(box, st);
 }
 
-function bindMore(st) {
-  const box = $("#more-settings");
-  box.querySelectorAll("[data-start]").forEach((b) => (b.onclick = () => post("/api/settings", { start_mode: b.dataset.start })));
-  box.querySelectorAll("[data-banrole]").forEach((b) => (b.onclick = () => { BAN_ROLE = b.dataset.banrole; renderMore(st); }));
-  box.querySelectorAll("select[data-spell]").forEach((s) => (s.onchange = () => {
-    const r = s.dataset.spell;
-    const pair = [...box.querySelectorAll(`select[data-spell="${r}"]`)].map((x) => x.value);
-    if (pair[0] === pair[1]) { $("#spell-msg").textContent = "Elige dos hechizos distintos."; return; }
-    $("#spell-msg").textContent = "";
-    post("/api/settings", { spells_by_role: { [r]: pair } });
-  }));
-  box.querySelectorAll("input[data-style]").forEach((r) => {
-    r.oninput = () => ($("#stv-" + r.dataset.style).textContent = f1(Number(r.value)) + "×");
-    r.onchange = () => post("/api/settings", { style: { [r.dataset.style]: Number(r.value) } });
-  });
+function renderChamps(st) {
+  const bonus = st.pool_bonus || {};
+  const box = $("#champ-settings");
+  box.innerHTML = opt("Puntos extra", "Puntos de WR que se suman con tu pool (de −5 a 5): positivos para los que practicas, negativos para los que no te apetecen.",
+    { below: chipEditor("pool_bonus", Object.keys(bonus), (n) => ` <input type="number" class="bonus" data-bonus="${esc(n)}" min="-5" max="5" step="0.5" value="${bonus[n]}" aria-label="Puntos de ${esc(n)}">`) })
+    + opt("Nunca recomendar", "No salen en ningún rol.", { below: chipEditor("never_pick", st.never_pick || []) });
   box.querySelectorAll("input.bonus").forEach((i) => (i.onchange = () => {
     const v = Math.max(-5, Math.min(5, Number(i.value) || 0));
     post("/api/settings", { pool_bonus: { ...(st.pool_bonus || {}), [i.dataset.bonus]: v } });
   }));
+  bindChips(box, st);
+}
+
+function bindChips(box, st) {
   const save = (key, names) => {
     if (key === "ban_priority") return post("/api/settings", { ban_priority: { [BAN_ROLE]: names } });
     if (key === "never_pick") return post("/api/settings", { never_pick: names });
@@ -1309,6 +1387,69 @@ function bindMore(st) {
     i.addEventListener("change", add);
   });
 }
+
+/* ------------------------------------------------------------------ ventana de ajustes */
+const SETTINGS = $("#settings");
+let SET_CAT = (() => { try { return localStorage.getItem("nachero.setcat") || "profile"; } catch (_) { return "profile"; } })();
+
+function showCat(cat, focusTab) {
+  if (!SET_CATS[cat]) cat = "profile";
+  SET_CAT = cat;
+  document.querySelectorAll("#set-tabs [role=tab]").forEach((t) => {
+    const on = t.dataset.cat === cat;
+    t.classList.toggle("on", on);
+    t.setAttribute("aria-selected", on);
+    t.tabIndex = on ? 0 : -1;
+    if (on && focusTab) t.focus();
+  });
+  document.querySelectorAll(".set-pane").forEach((p) => (p.hidden = p.id !== "cat-" + cat));
+  $("#set-cat-title").textContent = SET_CATS[cat][0];
+  $("#set-cat-sub").textContent = SET_CATS[cat][1];
+  $("#set-body").scrollTop = 0;
+  try { localStorage.setItem("nachero.setcat", cat); } catch (_) {}
+}
+
+function openSettings(cat) {
+  closeAbout();
+  showCat(cat || SET_CAT);
+  $("#set-ver").textContent = STATE && STATE.version ? `Nachero ${STATE.version}` : "";
+  if (!SETTINGS.open) SETTINGS.showModal();
+  document.querySelector("#set-tabs .on").focus();
+}
+function closeSettings() { if (SETTINGS.open) SETTINGS.close(); }
+
+/* «Guardado» junto al título tras cada cambio (todo se guarda al momento). */
+let SAVED_T = 0;
+function savedFlash(ok) {
+  if (!SETTINGS.open) return;
+  const el = $("#set-saved");
+  el.className = "set-saved show" + (ok ? "" : " err");
+  el.textContent = ok ? "Guardado" : "No se ha podido guardar";
+  clearTimeout(SAVED_T);
+  SAVED_T = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+$("#open-settings").onclick = () => openSettings();
+$("#close-settings").onclick = closeSettings;
+// clic en el fondo: `closedby="any"` lo hace solo; esto, para WebView2 anteriores
+SETTINGS.addEventListener("click", (e) => { if (e.target === SETTINGS) closeSettings(); });
+// al cerrar, el foco vuelve al botón: si se queda en un control oculto, las flechas lo seguirían cambiando
+SETTINGS.addEventListener("close", () => { if (SETTINGS.contains(document.activeElement) || document.activeElement === document.body) $("#open-settings").focus(); });
+$("#set-tabs").addEventListener("click", (e) => { const t = e.target.closest("[role=tab]"); if (t) showCat(t.dataset.cat); });
+$("#set-tabs").addEventListener("keydown", (e) => {
+  const tabs = [...document.querySelectorAll("#set-tabs [role=tab]")];
+  const i = tabs.findIndex((t) => t.dataset.cat === SET_CAT);
+  const j = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (j === undefined) return;
+  e.preventDefault();
+  showCat(tabs[(j + tabs.length) % tabs.length].dataset.cat, true);
+});
+$("#modes-help").addEventListener("click", (e) => { const b = e.target.closest("[data-setmode]"); if (b) post("/api/mode", { mode: b.dataset.setmode }); });
+document.addEventListener("keydown", (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.key !== "," || !$("#welcome").hidden || !$("#setup").hidden) return;
+  e.preventDefault();
+  SETTINGS.open ? closeSettings() : openSettings();
+});
 
 /* ------------------------------------------------------------------ ¿acierta Nachero? (#9) */
 const PART_NAMES = { you: "Tú con él", meta: "Fuerza en el parche", lane: "Rival de línea", enemies: "Resto del rival",
@@ -1409,15 +1550,6 @@ function renderData(dt, why) {
   document.querySelectorAll(".statsmode button").forEach((b) => (b.onclick = () => post("/api/settings", { stats_mode: b.dataset.sm })));
 }
 
-function openDrawer(open) {
-  $("#drawer").classList.toggle("open", open);
-  $("#drawer").setAttribute("aria-hidden", !open);
-  $("#scrim").hidden = !open;
-}
-$("#open-settings").onclick = () => openDrawer(true);
-$("#close-settings").onclick = () => openDrawer(false);
-$("#scrim").onclick = () => openDrawer(false);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") openDrawer(false); });
 
 /* ------------------------------------------------------------------ bienvenida y acerca de */
 // Pasos: «Qué hace», «Cómo decide», «Qué toca y qué no» y «Y además» (en index.html).
@@ -1440,7 +1572,7 @@ function showStep(i) {
 function openWelcome() {
   WELCOME.shown = true;
   closeAbout();
-  openDrawer(false);
+  closeSettings();
   $("#welcome").hidden = false;
   showStep(0);
   $("#welcome .wl-card").focus();
@@ -1521,7 +1653,7 @@ function openSetup() {
   SETUP.never = [...(st.never_pick || [])];
   loadChampList();
   closeAbout();
-  openDrawer(false);
+  closeSettings();
   $("#setup").hidden = false;
   renderSetup();
   $("#setup .setup-card").focus();
@@ -1621,11 +1753,18 @@ document.addEventListener("keydown", (e) => {
 function renderProfile(st, prof) {
   const role = (r) => (ROLE_BTNS.find(([k]) => k === r) || [, "—"])[1];
   const practice = Object.keys(st.pool_bonus || {}).filter((n) => st.pool_bonus[n] > 0);
-  $("#profile-settings").innerHTML = `<div class="opt"><div class="tx">
-    <b>${prof && prof.name ? esc(prof.name) : prof && prof.saved ? "Última cuenta usada" : "Sin cuenta todavía"}</b>
-    <small>Rol principal: ${st.main_role === "auto" || !st.main_role ? "automático" : role(st.main_role)} · secundario: ${st.secondary_role && st.secondary_role !== "none" ? role(st.secondary_role) : "ninguno"}<br>
-    Practicando: ${practice.length ? practice.map(esc).join(", ") : "nadie"} · Nunca: ${(st.never_pick || []).length ? st.never_pick.map(esc).join(", ") : "nadie"}</small>
-    <div><button class="btn" id="open-setup">${st.setup_done ? "Cambiar tu perfil" : "Configurar tu perfil"}</button></div></div></div>`;
+  const name = prof && prof.name ? prof.name : prof && prof.saved ? "Última cuenta usada" : "Sin cuenta todavía";
+  const fact = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+  const rank = STATE && STATE.rank;
+  $("#profile-settings").innerHTML = `<div class="profile-card">
+    <div class="pc-top"><span class="avatar" aria-hidden="true">${esc((prof && prof.name ? prof.name : "?").charAt(0).toUpperCase())}</span>
+      <div class="pc-name"><b>${esc(name)}</b>${rank ? `<small><span class="gold">${esc(rank.tier)}</span> · ${rank.lp} LP</small>` : ""}</div>
+      <button class="btn${st.setup_done ? "" : " primary"}" id="open-setup">${st.setup_done ? "Cambiar" : "Configurar tu perfil"}</button></div>
+    <dl class="pc-facts">
+      ${fact("Rol principal", st.main_role === "auto" || !st.main_role ? "Automático" : role(st.main_role))}
+      ${fact("Secundario", st.secondary_role && st.secondary_role !== "none" ? role(st.secondary_role) : "Ninguno")}
+      ${fact("Practicando", practice.length ? practice.map(esc).join(", ") : "Nadie")}
+    </dl></div>`;
   $("#open-setup").onclick = openSetup;
 }
 
@@ -1645,9 +1784,8 @@ async function poll() {
       data: s.data && { source: s.data.source, patch: s.data.patch, tier: s.data.tier, stale: s.data.stale, updated: s.data.updated && Math.floor(s.data.updated / 60) } }], ([d, idle, k]) => renderDraft([d, idle, { ...k, data: s.data }]));
     once("pool", [s.pool, s.pool_plans, empty.pool, s.pool && s.pool.length ? null : [pg.current, taskOf(s, pg.current)]], () => renderPool(s.pool));
     once("log", s.log, renderLog);
-    once("settings", s.settings, renderSettings);
-    once("profile", [s.settings, s.profile], () => renderProfile(s.settings, s.profile));
-    once("more", s.settings, () => renderMore(s.settings));
+    renderSettings(s.settings);
+    once("profile", [s.settings, s.profile, s.rank], () => renderProfile(s.settings, s.profile));
     once("datawarn", (s.data && s.data.warnings) || [], renderDataWarn);
     once("data", { ...s.data, updated: s.data && s.data.updated && Math.floor(s.data.updated / 60), why: empty.data, sm: s.settings.stats_mode, su: s.settings.stats_url }, () => renderData(s.data, empty.data));
     evalTick();

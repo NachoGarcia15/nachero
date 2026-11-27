@@ -31,8 +31,9 @@
     <button class="icon-btn" id="open-about" aria-label="Acerca de Nachero" title="Qué es Nachero">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><path d="M12 17h.01"/></svg>
     </button>
-    <button class="icon-btn" id="open-settings" aria-label="Ajustes">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    <button class="btn-settings" id="open-settings" title="Ajustes (Ctrl+,)" aria-keyshortcuts="Control+Comma">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      <span>Ajustes</span>
     </button>
   </div>
 </header>
@@ -52,43 +53,69 @@
 
 <footer class="legal" id="legal">Nachero isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</footer>
 
-<div class="scrim" id="scrim" hidden></div>
-<aside class="drawer" id="drawer" aria-hidden="true">
-  <div class="drawer-head">
-    <h2>Ajustes</h2>
-    <button class="icon-btn" id="close-settings" aria-label="Cerrar">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-    </button>
+<!-- Ajustes (#102): una ventana con categorías a la izquierda; cada cambio se guarda al momento -->
+<dialog class="settings" id="settings" aria-labelledby="set-title" closedby="any">
+  <nav class="set-nav">
+    <h2 id="set-title">Ajustes</h2>
+    <div class="set-tabs" id="set-tabs" role="tablist" aria-orientation="vertical" aria-label="Categorías">
+      <button role="tab" data-cat="profile" id="tab-profile" aria-controls="cat-profile">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg>Perfil</button>
+      <button role="tab" data-cat="auto" id="tab-auto" aria-controls="cat-auto">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>Automático</button>
+      <button role="tab" data-cat="reco" id="tab-reco" aria-controls="cat-reco">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Recomendación</button>
+      <button role="tab" data-cat="advanced" id="tab-advanced" aria-controls="cat-advanced">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></svg>Avanzado</button>
+      <button role="tab" data-cat="app" id="tab-app" aria-controls="cat-app">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M3 9h18"/></svg>App</button>
+      <button role="tab" data-cat="data" id="tab-data" aria-controls="cat-data">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>Datos</button>
+    </div>
+    <p class="set-ver" id="set-ver"></p>
+  </nav>
+  <div class="set-main">
+    <header class="set-head">
+      <div><h3 id="set-cat-title"></h3><p id="set-cat-sub"></p></div>
+      <span class="set-saved" id="set-saved" role="status" aria-live="polite"></span>
+      <button class="icon-btn" id="close-settings" aria-label="Cerrar ajustes">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div class="set-body" id="set-body">
+      <section class="set-pane" id="cat-profile" role="tabpanel" aria-labelledby="tab-profile">
+        <div id="profile-settings"></div>
+        <div class="set-group"><h4>Tus campeones</h4><div id="champ-settings"></div></div>
+      </section>
+      <section class="set-pane" id="cat-auto" role="tabpanel" aria-labelledby="tab-auto" hidden>
+        <div class="set-group"><h4>Modo</h4><div class="mode-cards" id="modes-help" role="radiogroup" aria-label="Modo"></div></div>
+        <p class="set-note" id="auto-off" hidden>Estás en <b id="auto-off-mode"></b>: lo de abajo solo actúa en modo <b>Activo</b>.</p>
+        <div class="set-group"><h4>Preparación</h4><div id="prep-settings"></div></div>
+        <div class="set-group"><h4>Decisiones de draft</h4>
+          <p class="set-note riot"><b>Apagadas por defecto</b> (normas de Riot). Si las enciendes, Nachero marca su recomendación y la cambia con el draft; si marcas otro campeón, <b>manda el tuyo</b>.</p>
+          <div id="decide-settings"></div></div>
+      </section>
+      <section class="set-pane" id="cat-reco" role="tabpanel" aria-labelledby="tab-reco" hidden>
+        <div id="pickmode-settings"></div>
+        <div class="set-group"><h4>Cómo pesa cada parte <button class="link-btn" id="weights-reset">Restablecer</button></h4><div id="weights"></div></div>
+        <div class="set-group"><h4>Tu estilo</h4><div id="style-settings"></div></div>
+        <div class="set-group"><h4>Bans prioritarios</h4><div id="ban-settings"></div></div>
+      </section>
+      <section class="set-pane" id="cat-advanced" role="tabpanel" aria-labelledby="tab-advanced" hidden>
+        <div class="set-group"><h4>A ciegas y counters</h4><div id="blind-settings"></div></div>
+      </section>
+      <section class="set-pane" id="cat-app" role="tabpanel" aria-labelledby="tab-app" hidden>
+        <div id="start-settings"></div>
+        <div id="app-settings"></div>
+      </section>
+      <section class="set-pane" id="cat-data" role="tabpanel" aria-labelledby="tab-data" hidden>
+        <div class="set-group"><h4>Estadísticas</h4><div id="datainfo" class="datainfo"></div></div>
+        <div class="set-group"><h4>Tus datos</h4>
+          <div class="datainfo">Ajustes, partidas, calibración y registros se quedan en tu PC: Nachero no envía nada tuyo a ningún sitio. Para borrarlo, cierra Nachero y borra esa carpeta.
+            <div><button class="btn" id="open-data">Abrir carpeta de datos</button> <small id="data-msg" class="muted" role="status"></small></div></div></div>
+      </section>
+    </div>
   </div>
-  <div class="drawer-body">
-    <h3>Tu perfil</h3>
-    <div id="profile-settings"></div>
-    <h3>Modos</h3>
-    <div id="modes-help"></div>
-    <h3>Recomendación</h3>
-    <div id="pickmode-settings"></div>
-    <h3>Qué hace en modo Activo</h3>
-    <ul class="drawer-callout">
-      <li>Banear, marcar y confirmar pick vienen <b>apagados</b>: las normas de Riot no aceptan apps que decidan por ti.</li>
-      <li>Si los enciendes, Nachero marca su recomendación y la va cambiando con el draft; el pick confirma lo marcado al final del turno y el ban, el cliente al acabar el tiempo.</li>
-      <li>Si marcas otro campeón, <b>manda el tuyo</b>.</li>
-    </ul>
-    <div id="toggles"></div>
-    <h3>App</h3>
-    <div id="app-settings"></div>
-    <h3>Cómo pesa cada parte</h3>
-    <div id="weights"></div>
-    <h3>A ciegas y counters</h3>
-    <div id="blind-settings"></div>
-    <h3>Más ajustes</h3>
-    <div id="more-settings"></div>
-    <h3>Datos</h3>
-    <div id="datainfo" class="datainfo"></div>
-    <h3>Tus datos</h3>
-    <div class="datainfo">Todo lo tuyo (ajustes, partidas, calibración y registros) se queda en tu PC, en tu carpeta de datos: Nachero no envía nada tuyo a ningún sitio. Para borrarlo, cierra Nachero y borra esa carpeta.
-      <div><button class="btn" id="open-data">Abrir carpeta de datos</button> <small id="data-msg" class="muted" role="status"></small></div></div>
-  </div>
-</aside>
+</dialog>
 
 <!-- Bienvenida (primer arranque y desde «?»): una idea por pantalla, se puede saltar -->
 <div class="overlay welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="wl-title" hidden>
